@@ -47,7 +47,6 @@ export const Dashboard = () => {
   if (!log || !profile) return <div className="container">Loading dashboard...</div>;
 
   const kcalPercent = profile.target_kcal ? (log.total_kcal / profile.target_kcal) * 100 : 0;
-  const stepsPercent = (log.steps / 10000) * 100;
 
   return (
     <div className="container">
