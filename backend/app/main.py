@@ -1,3 +1,5 @@
+import os
+import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.api.endpoints import auth, meal, user, workout, log
@@ -14,7 +16,10 @@ app = FastAPI(title="FitTrack AI")
 # CORS middleware to allow the frontend to access the API
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Adjust this for production
+    allow_origins=[
+        "http://localhost:5173",          # Local Development
+        "https://fit-track-ai.vercel.app" # CHANGE THIS to your actual Vercel URL later
+    ],  
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -29,3 +34,7 @@ app.include_router(log.router, prefix="/log", tags=["log"])
 @app.get("/")
 def read_root():
     return {"message": "Welcome to FitTrack AI API"}
+
+if __name__ == "__main__":
+    port = int(os.getenv("PORT", 8000))
+    uvicorn.run("app.main:app", host="0.0.0.0", port=port, reload=True)
