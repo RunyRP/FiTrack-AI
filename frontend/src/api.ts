@@ -10,6 +10,9 @@ const api = axios.create({
 
 // Automatically add the token to every request if it exists
 api.interceptors.request.use((config) => {
+  // Bypass ngrok browser warning for API calls
+  config.headers['ngrok-skip-browser-warning'] = 'true';
+  
   const token = localStorage.getItem('token');
   if (token) {
     console.log("DEBUG API: Adding token to request:", config.url);

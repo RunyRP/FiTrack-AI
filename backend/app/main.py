@@ -19,9 +19,11 @@ app.add_middleware(
     allow_origins=[
         "http://localhost:5173",
         "https://fitrack-ai-omega.vercel.app",
+        "https://fitrack-ai-omega.vercel.app/",
         "https://fit-track-ai.vercel.app",
         "https://fittrack-ai.vercel.app",
     ],  
+    allow_origin_regex="https://.*\.vercel\.app", # Allow any Vercel subdomain
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
