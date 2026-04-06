@@ -16,11 +16,7 @@ app = FastAPI(title="FitTrack AI")
 # CORS middleware to allow the frontend to access the API
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",          # Local Development
-        "https://fit-track-ai.vercel.app", 
-        "https://fittrack-ai.vercel.app",  # Common misspelling
-    ],  
+    allow_origins=["*"],  # Permissive for debugging
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
