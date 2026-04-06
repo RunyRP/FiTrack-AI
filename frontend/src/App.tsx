@@ -31,17 +31,19 @@ const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [loading, setLoading] = useState(true);
   const [token, setToken] = useState<string | null>(localStorage.getItem('token'));
 
-  const fetchUser = useCallback(async () => {
-    console.log("DEBUG: Fetching user with current token...");
+  const fetchUser = useCallback(async (tokenToUse: string) => {
+    console.log("DEBUG: Fetching user with token:", tokenToUse.substring(0, 10) + "...");
     try {
       const res = await api.get('/user/me');
       console.log("DEBUG: User fetch success:", res.data.email);
       setUser(res.data);
     } catch (err: any) {
       console.error("DEBUG: Auth error fetching user:", err.response?.status, err.message);
-      localStorage.removeItem('token');
-      setToken(null);
-      setUser(null);
+      if (err.response?.status === 401) {
+        localStorage.removeItem('token');
+        setToken(null);
+        setUser(null);
+      }
     } finally {
       setLoading(false);
     }
@@ -49,15 +51,17 @@ const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   useEffect(() => {
     if (token) {
-      fetchUser();
+      fetchUser(token);
     } else {
       setLoading(false);
     }
   }, [token, fetchUser]);
 
   const login = (newToken: string) => {
+    console.log("DEBUG: Login function called with new token");
     localStorage.setItem('token', newToken);
     setToken(newToken);
+    // Explicitly set loading to true while we fetch the new user
     setLoading(true);
   };
 
