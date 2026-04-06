@@ -72,7 +72,7 @@ const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   const refreshUser = async () => {
-    if (token) await fetchUser();
+    if (token) await fetchUser(token);
   };
 
   return (
