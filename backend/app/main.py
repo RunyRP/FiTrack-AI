@@ -18,7 +18,8 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "http://localhost:5173",          # Local Development
-        "https://fit-track-ai.vercel.app" # CHANGE THIS to your actual Vercel URL later
+        "https://fit-track-ai.vercel.app", 
+        "https://fittrack-ai.vercel.app",  # Common misspelling
     ],  
     allow_credentials=True,
     allow_methods=["*"],

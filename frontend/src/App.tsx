@@ -32,11 +32,13 @@ const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [token, setToken] = useState<string | null>(localStorage.getItem('token'));
 
   const fetchUser = useCallback(async () => {
+    console.log("DEBUG: Fetching user with current token...");
     try {
       const res = await api.get('/user/me');
+      console.log("DEBUG: User fetch success:", res.data.email);
       setUser(res.data);
-    } catch (err) {
-      console.error("Auth error:", err);
+    } catch (err: any) {
+      console.error("DEBUG: Auth error fetching user:", err.response?.status, err.message);
       localStorage.removeItem('token');
       setToken(null);
       setUser(null);
