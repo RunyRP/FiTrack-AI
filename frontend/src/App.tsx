@@ -7,7 +7,9 @@ import { Setup } from './components/Setup';
 import { Login } from './components/Login';
 import { Register } from './components/Register';
 import { MealAnalysis } from './components/MealAnalysis';
+import { MealHistory } from './components/MealHistory';
 import { WorkoutSuggestions } from './components/WorkoutSuggestions';
+import { Chat } from './components/Chat';
 import './App.css';
 
 interface AuthContextType {
@@ -119,7 +121,9 @@ const Navbar = () => {
           <>
             <Link to="/">Dashboard</Link>
             <Link to="/meal">Log Meal</Link>
+            <Link to="/history">Meal History</Link>
             <Link to="/workout">Workouts</Link>
+            <Link to="/chat">AI Chat</Link>
             <Link to="/profile">Profile</Link>
             <a href="#" onClick={handleLogoutClick}>Logout</a>
           </>
@@ -175,10 +179,26 @@ function App() {
             } 
           />
           <Route 
+            path="/history" 
+            element={
+              <ProtectedRoute>
+                <MealHistory />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
             path="/workout" 
             element={
               <ProtectedRoute>
                 <WorkoutSuggestions />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/chat" 
+            element={
+              <ProtectedRoute>
+                <Chat />
               </ProtectedRoute>
             } 
           />

@@ -4,17 +4,20 @@ import api from '../api';
 export const Dashboard = () => {
   const [log, setLog] = useState<any>(null);
   const [profile, setProfile] = useState<any>(null);
+  const [history, setHistory] = useState<any[]>([]);
   const [stepsInput, setStepsInput] = useState<number>(0);
   const [waterInput, setWaterInput] = useState<number>(0);
 
   const fetchData = async () => {
     try {
-      const [logRes, profileRes] = await Promise.all([
+      const [logRes, profileRes, historyRes] = await Promise.all([
         api.get('/log/today'),
-        api.get('/user/me')
+        api.get('/user/me'),
+        api.get('/log/history?days=7')
       ]);
       setLog(logRes.data);
       setProfile(profileRes.data.profile);
+      setHistory(historyRes.data);
       setStepsInput(logRes.data.steps);
       setWaterInput(logRes.data.water_ml);
     } catch (err) {
@@ -47,6 +50,11 @@ export const Dashboard = () => {
   if (!log || !profile) return <div className="container">Loading dashboard...</div>;
 
   const kcalPercent = profile.target_kcal ? (log.total_kcal / profile.target_kcal) * 100 : 0;
+
+  // Calculate max values for chart scaling
+  const maxKcal = Math.max(...history.map(h => h.total_kcal), profile.target_kcal || 2000, 1);
+  const maxSteps = Math.max(...history.map(h => h.steps), 10000, 1);
+  const maxWater = Math.max(...history.map(h => h.water_ml), 3000, 1);
 
   return (
     <div className="container">
@@ -94,6 +102,92 @@ export const Dashboard = () => {
             />
             <button className="btn btn-primary" style={{ padding: '0.25rem 0.5rem', fontSize: '0.8rem' }} onClick={updateWater}>Save</button>
           </div>
+        </div>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1.5rem' }}>
+        <div className="card">
+            <h3>Weekly Calorie Progress</h3>
+            <div style={{ display: 'flex', height: '150px', alignItems: 'flex-end', gap: '8px', marginTop: '1.5rem', paddingBottom: '20px', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
+            {history.map((h, i) => {
+                const height = (h.total_kcal / maxKcal) * 100;
+                const isToday = i === history.length - 1;
+                const dayLabel = new Date(h.date).toLocaleDateString('en-US', { weekday: 'short' });
+                
+                return (
+                <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', height: '100%', justifyContent: 'flex-end' }}>
+                    <div 
+                    title={`${h.total_kcal} kcal`}
+                    style={{ 
+                        width: '100%', 
+                        height: `${height}%`, 
+                        background: isToday ? 'var(--primary)' : 'rgba(0, 255, 127, 0.3)', 
+                        borderRadius: '4px 4px 0 0',
+                        transition: 'height 0.5s ease',
+                        position: 'relative'
+                    }} 
+                    ></div>
+                    <span style={{ fontSize: '0.65rem', marginTop: '8px', opacity: 0.7 }}>{dayLabel}</span>
+                </div>
+                );
+            })}
+            </div>
+        </div>
+
+        <div className="card">
+            <h3>Weekly Step Progress</h3>
+            <div style={{ display: 'flex', height: '150px', alignItems: 'flex-end', gap: '8px', marginTop: '1.5rem', paddingBottom: '20px', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
+            {history.map((h, i) => {
+                const height = (h.steps / maxSteps) * 100;
+                const isToday = i === history.length - 1;
+                const dayLabel = new Date(h.date).toLocaleDateString('en-US', { weekday: 'short' });
+                
+                return (
+                <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', height: '100%', justifyContent: 'flex-end' }}>
+                    <div 
+                    title={`${h.steps} steps`}
+                    style={{ 
+                        width: '100%', 
+                        height: `${height}%`, 
+                        background: isToday ? 'var(--secondary)' : 'rgba(255, 0, 127, 0.3)', 
+                        borderRadius: '4px 4px 0 0',
+                        transition: 'height 0.5s ease',
+                        position: 'relative'
+                    }} 
+                    ></div>
+                    <span style={{ fontSize: '0.65rem', marginTop: '8px', opacity: 0.7 }}>{dayLabel}</span>
+                </div>
+                );
+            })}
+            </div>
+        </div>
+
+        <div className="card">
+            <h3>Weekly Hydration (ml)</h3>
+            <div style={{ display: 'flex', height: '150px', alignItems: 'flex-end', gap: '8px', marginTop: '1.5rem', paddingBottom: '20px', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
+            {history.map((h, i) => {
+                const height = (h.water_ml / maxWater) * 100;
+                const isToday = i === history.length - 1;
+                const dayLabel = new Date(h.date).toLocaleDateString('en-US', { weekday: 'short' });
+                
+                return (
+                <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', height: '100%', justifyContent: 'flex-end' }}>
+                    <div 
+                    title={`${h.water_ml} ml`}
+                    style={{ 
+                        width: '100%', 
+                        height: `${height}%`, 
+                        background: isToday ? '#3498db' : 'rgba(52, 152, 219, 0.3)', 
+                        borderRadius: '4px 4px 0 0',
+                        transition: 'height 0.5s ease',
+                        position: 'relative'
+                    }} 
+                    ></div>
+                    <span style={{ fontSize: '0.65rem', marginTop: '8px', opacity: 0.7 }}>{dayLabel}</span>
+                </div>
+                );
+            })}
+            </div>
         </div>
       </div>
 
