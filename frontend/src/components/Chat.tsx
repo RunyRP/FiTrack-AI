@@ -53,30 +53,42 @@ export const Chat = () => {
   };
 
   return (
-    <div className="container" style={{ maxWidth: '800px', height: 'calc(100vh - 150px)', display: 'flex', flexDirection: 'column' }}>
-      <div className="card" style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '1.5rem', overflow: 'hidden' }}>
-        <h2>Fitness AI Chat</h2>
-        <p className="text-muted">Ask me anything about your training or nutrition</p>
+    <div className="container animate-fade-in" style={{ maxWidth: '900px', height: 'calc(100vh - 180px)', display: 'flex', flexDirection: 'column' }}>
+      <div className="card" style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '2rem', overflow: 'hidden', marginBottom: 0 }}>
+        <div style={{ marginBottom: '1.5rem' }}>
+            <h2 style={{ margin: 0 }}>Fitness AI Chat</h2>
+            <p className="text-muted">Personalized advice based on your profile and goals.</p>
+        </div>
         
-        <div style={{ flex: 1, overflowY: 'auto', margin: '1.5rem 0', paddingRight: '0.5rem' }}>
+        <div style={{ 
+            flex: 1, 
+            overflowY: 'auto', 
+            margin: '0 -0.5rem 1.5rem 0', 
+            paddingRight: '1rem',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '1rem'
+        }}>
           {messages.map((m, idx) => (
             <div 
               key={idx} 
+              className="animate-fade-in"
               style={{ 
                 display: 'flex', 
-                justifyContent: m.role === 'user' ? 'flex-end' : 'flex-start',
-                marginBottom: '1rem' 
+                justifyContent: m.role === 'user' ? 'flex-end' : 'flex-start'
               }}
             >
               <div 
                 style={{ 
-                  maxWidth: '80%', 
-                  padding: '1rem', 
-                  borderRadius: '12px',
-                  background: m.role === 'user' ? 'var(--primary)' : 'rgba(255,255,255,0.05)',
-                  color: m.role === 'user' ? 'black' : 'white',
-                  fontWeight: m.role === 'user' ? 600 : 400,
-                  boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                  maxWidth: '75%', 
+                  padding: '1.25rem', 
+                  borderRadius: m.role === 'user' ? '1.5rem 1.5rem 0.25rem 1.5rem' : '1.5rem 1.5rem 1.5rem 0.25rem',
+                  background: m.role === 'user' ? 'linear-gradient(135deg, var(--primary), var(--secondary))' : 'rgba(255,255,255,0.05)',
+                  color: m.role === 'user' ? '#001219' : 'white',
+                  fontWeight: m.role === 'user' ? 700 : 400,
+                  boxShadow: m.role === 'user' ? '0 4px 15px rgba(79, 172, 254, 0.2)' : 'none',
+                  border: m.role === 'assistant' ? '1px solid rgba(255,255,255,0.05)' : 'none',
+                  lineHeight: 1.5
                 }}
               >
                 {m.content}
@@ -84,24 +96,48 @@ export const Chat = () => {
             </div>
           ))}
           {loading && (
-            <div style={{ display: 'flex', justifyContent: 'flex-start', marginBottom: '1rem' }}>
-              <div style={{ padding: '1rem', borderRadius: '12px', background: 'rgba(255,255,255,0.05)', fontStyle: 'italic', opacity: 0.7 }}>
-                AI is thinking...
+            <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
+              <div style={{ 
+                padding: '1.25rem', 
+                borderRadius: '1.5rem 1.5rem 1.5rem 0.25rem', 
+                background: 'rgba(255,255,255,0.05)', 
+                color: 'var(--text-muted)',
+                display: 'flex',
+                gap: '0.5rem',
+                alignItems: 'center'
+              }}>
+                <div className="animate-pulse" style={{ width: '8px', height: '8px', background: 'var(--primary)', borderRadius: '50%' }}></div>
+                <div className="animate-pulse" style={{ width: '8px', height: '8px', background: 'var(--primary)', borderRadius: '50%', animationDelay: '0.2s' }}></div>
+                <div className="animate-pulse" style={{ width: '8px', height: '8px', background: 'var(--primary)', borderRadius: '50%', animationDelay: '0.4s' }}></div>
               </div>
             </div>
           )}
           <div ref={messagesEndRef} />
         </div>
 
-        <form onSubmit={handleSend} style={{ display: 'flex', gap: '0.5rem' }}>
+        <form onSubmit={handleSend} style={{ 
+            display: 'flex', 
+            gap: '1rem', 
+            background: 'rgba(255,255,255,0.03)', 
+            padding: '0.75rem', 
+            borderRadius: '1.25rem',
+            border: '1px solid rgba(255,255,255,0.08)'
+        }}>
           <input 
             type="text" 
             value={input} 
             onChange={(e) => setInput(e.target.value)}
-            placeholder="Ask about your workout or diet..."
-            style={{ flex: 1, padding: '1rem', borderRadius: '8px', background: 'rgba(255,255,255,0.05)', color: 'white', border: '1px solid rgba(255,255,255,0.1)' }}
+            placeholder="Type your message..."
+            style={{ 
+                flex: 1, 
+                padding: '0.75rem 1rem', 
+                background: 'transparent', 
+                color: 'white', 
+                border: 'none',
+                fontSize: '1rem'
+            }}
           />
-          <button type="submit" className="btn btn-primary" disabled={loading} style={{ padding: '0 1.5rem' }}>
+          <button type="submit" className="btn btn-primary" disabled={loading || !input.trim()}>
             Send
           </button>
         </form>

@@ -53,83 +53,100 @@ export const Profile = () => {
   };
 
   return (
-    <div className="container" style={{ maxWidth: '600px' }}>
+    <div className="container animate-fade-in" style={{ maxWidth: '700px' }}>
       <div className="card">
         <h2>Your Physical Profile</h2>
-        <p className="text-muted">Enter your details to calculate your daily energy needs</p>
+        <p className="text-muted">These details help us calculate your BMR and personalized calorie targets.</p>
         
-        <form onSubmit={handleSubmit} style={{ marginTop: '2rem' }}>
-          <div className="input-group">
-            <label>Age</label>
-            <input 
-              type="number" 
-              value={profile.age} 
-              onChange={(e) => setProfile({...profile, age: e.target.value})} 
-              required 
-            />
+        <form onSubmit={handleSubmit} style={{ marginTop: '2.5rem' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
+            <div className="input-group">
+                <label>Age (Years)</label>
+                <input 
+                type="number" 
+                value={profile.age} 
+                onChange={(e) => setProfile({...profile, age: e.target.value})} 
+                required 
+                />
+            </div>
+            
+            <div className="input-group">
+                <label>Biological Gender</label>
+                <select 
+                value={profile.gender} 
+                onChange={(e) => setProfile({...profile, gender: e.target.value})}
+                >
+                <option value="male">Male</option>
+                <option value="female">Female</option>
+                </select>
+            </div>
           </div>
-          
-          <div className="input-group">
-            <label>Gender</label>
-            <select 
-              value={profile.gender} 
-              onChange={(e) => setProfile({...profile, gender: e.target.value})}
-            >
-              <option value="male">Male</option>
-              <option value="female">Female</option>
-              <option value="other">Other</option>
-            </select>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
+            <div className="input-group">
+                <label>Weight (kg)</label>
+                <input 
+                type="number" 
+                step="0.1" 
+                value={profile.weight} 
+                onChange={(e) => setProfile({...profile, weight: e.target.value})} 
+                required 
+                />
+            </div>
+
+            <div className="input-group">
+                <label>Height (cm)</label>
+                <input 
+                type="number" 
+                value={profile.height} 
+                onChange={(e) => setProfile({...profile, height: e.target.value})} 
+                required 
+                />
+            </div>
           </div>
 
           <div className="input-group">
-            <label>Weight (kg)</label>
-            <input 
-              type="number" 
-              step="0.1" 
-              value={profile.weight} 
-              onChange={(e) => setProfile({...profile, weight: e.target.value})} 
-              required 
-            />
-          </div>
-
-          <div className="input-group">
-            <label>Height (cm)</label>
-            <input 
-              type="number" 
-              value={profile.height} 
-              onChange={(e) => setProfile({...profile, height: e.target.value})} 
-              required 
-            />
-          </div>
-
-          <div className="input-group">
-            <label>Activity Level</label>
+            <label>Daily Activity Level</label>
             <select 
               value={profile.activity_level} 
               onChange={(e) => setProfile({...profile, activity_level: e.target.value})}
             >
-              <option value="sedentary">Sedentary (Office job, little exercise)</option>
+              <option value="sedentary">Sedentary (Little to no exercise)</option>
               <option value="lightly_active">Lightly Active (1-3 days/week)</option>
               <option value="moderately_active">Moderately Active (3-5 days/week)</option>
               <option value="very_active">Very Active (6-7 days/week)</option>
-              <option value="extra_active">Extra Active (Physical job + 2x training)</option>
+              <option value="extra_active">Extra Active (Athlete/Physical job)</option>
             </select>
           </div>
 
-          <button type="submit" className="btn btn-primary" style={{ width: '100%' }}>Save & Calculate Goal</button>
+          <button type="submit" className="btn btn-primary" style={{ width: '100%', marginTop: '1rem' }}>
+            Update Profile & Recalculate
+          </button>
         </form>
-        {message && <p style={{ marginTop: '1rem', color: 'var(--primary)' }}>{message}</p>}
+        {message && (
+            <div style={{ 
+                marginTop: '1.5rem', 
+                padding: '1rem', 
+                borderRadius: '0.75rem', 
+                background: 'rgba(0,242,254,0.1)', 
+                color: 'var(--primary)',
+                textAlign: 'center',
+                fontWeight: 600
+            }}>
+                {message}
+            </div>
+        )}
       </div>
 
-      <div className="card" style={{ border: '1px solid rgba(255, 0, 127, 0.3)' }}>
+      <div className="card" style={{ borderColor: 'rgba(255, 0, 127, 0.2)', background: 'rgba(255, 0, 127, 0.02)' }}>
         <h3 style={{ color: 'var(--accent)' }}>Danger Zone</h3>
-        <p className="text-muted">Permanently remove your account and all associated data.</p>
+        <p className="text-muted">Permanently remove your account and all associated metrics. This cannot be undone.</p>
         <button 
           onClick={handleDeleteAccount}
-          className="btn" 
-          style={{ background: 'transparent', color: 'var(--accent)', border: '1px solid var(--accent)', marginTop: '1.5rem' }}
+          className="btn btn-secondary" 
+          style={{ borderColor: 'var(--accent)', color: 'var(--accent)', marginTop: '1.5rem' }}
         >
-          Delete Account
+          Delete Account Permanently
         </button>
       </div>
     </div>

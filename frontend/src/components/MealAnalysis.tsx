@@ -101,143 +101,187 @@ export const MealAnalysis = () => {
   };
 
   return (
-    <div className="container">
+    <div className="container animate-fade-in">
       <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-        <div style={{ display: 'flex', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
+        <div className="nav-links" style={{ display: 'flex', borderRadius: 0, border: 'none', background: 'rgba(255,255,255,0.03)', padding: '0.5rem' }}>
             <button 
                 onClick={() => { setActiveTab('photo'); setResults([]); setEditItem(null); }}
-                style={{ 
-                    flex: 1, padding: '1rem', background: activeTab === 'photo' ? 'rgba(0,255,127,0.1)' : 'transparent', 
-                    color: activeTab === 'photo' ? 'var(--primary)' : 'white', border: 'none', borderBottom: activeTab === 'photo' ? '2px solid var(--primary)' : 'none',
-                    cursor: 'pointer', fontWeight: 600
-                }}
+                className={`btn ${activeTab === 'photo' ? 'btn-primary' : 'btn-secondary'}`}
+                style={{ flex: 1, borderRadius: '0.75rem' }}
             >
                 AI Photo Analysis
             </button>
             <button 
                 onClick={() => { setActiveTab('search'); setResults([]); setEditItem(null); }}
-                style={{ 
-                    flex: 1, padding: '1rem', background: activeTab === 'search' ? 'rgba(0,255,127,0.1)' : 'transparent', 
-                    color: activeTab === 'search' ? 'var(--primary)' : 'white', border: 'none', borderBottom: activeTab === 'search' ? '2px solid var(--primary)' : 'none',
-                    cursor: 'pointer', fontWeight: 600
-                }}
+                className={`btn ${activeTab === 'search' ? 'btn-primary' : 'btn-secondary'}`}
+                style={{ flex: 1, borderRadius: '0.75rem' }}
             >
                 Manual Search
             </button>
         </div>
 
-        <div style={{ padding: '1.5rem' }}>
+        <div style={{ padding: '2.5rem' }}>
             {activeTab === 'photo' ? (
                 <>
                     <h2>AI Meal Analysis</h2>
-                    <p className="text-muted">Take a photo of your meal to estimate calories</p>
-                    <div className="input-group" style={{ marginTop: '1.5rem' }}>
-                        <input type="file" accept="image/*" onChange={handleFileChange} />
+                    <p className="text-muted">Take a photo of your meal to estimate calories automatically.</p>
+                    <div className="input-group" style={{ marginTop: '2rem' }}>
+                        <div style={{ 
+                            border: '2px dashed rgba(255,255,255,0.1)', 
+                            borderRadius: '1rem', 
+                            padding: '3rem', 
+                            textAlign: 'center',
+                            background: 'rgba(255,255,255,0.01)',
+                            position: 'relative'
+                        }}>
+                            {file ? (
+                                <div style={{ color: 'var(--primary)', fontWeight: 600 }}>
+                                    ✓ {file.name} selected
+                                </div>
+                            ) : (
+                                <div className="text-muted">Click to upload or drag and drop a meal photo</div>
+                            )}
+                            <input 
+                                type="file" 
+                                accept="image/*" 
+                                onChange={handleFileChange} 
+                                style={{ 
+                                    position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', 
+                                    opacity: 0, cursor: 'pointer' 
+                                }} 
+                            />
+                        </div>
                     </div>
                     <button className="btn btn-primary" onClick={handleUpload} disabled={!file || loading} style={{ width: '100%' }}>
-                        {loading ? 'Analyzing...' : 'Analyze Photo'}
+                        {loading ? 'Analyzing with CLIP AI...' : 'Analyze Meal'}
                     </button>
                 </>
             ) : (
                 <>
                     <h2>Search Food</h2>
-                    <p className="text-muted">Type the name of the food you ate</p>
-                    <div className="input-group" style={{ marginTop: '1.5rem' }}>
+                    <p className="text-muted">Type the name of the food you ate to find it in our database.</p>
+                    <div className="input-group" style={{ marginTop: '2rem' }}>
                         <input 
                             type="text" 
-                            placeholder="Search (e.g. chicken, apple, pizza...)" 
+                            placeholder="Search (e.g. Grilled Chicken, Avocado, Pasta...)" 
                             value={searchQuery} 
                             onChange={(e) => setSearchQuery(e.target.value)} 
                         />
                     </div>
-                    {loading && <p className="text-muted">Searching database...</p>}
+                    {loading && <p className="text-muted animate-fade-in">Searching database...</p>}
                 </>
             )}
-            {message && <p style={{ marginTop: '1rem', color: message.includes('success') ? 'var(--primary)' : 'var(--accent)' }}>{message}</p>}
+            {message && (
+                <div style={{ 
+                    marginTop: '1.5rem', 
+                    padding: '1rem', 
+                    borderRadius: '0.75rem', 
+                    background: message.includes('success') ? 'rgba(0,255,175,0.1)' : 'rgba(255,0,127,0.1)',
+                    color: message.includes('success') ? 'var(--success)' : 'var(--accent)',
+                    textAlign: 'center',
+                    fontWeight: 600
+                }}>
+                    {message}
+                </div>
+            )}
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: results.length > 0 ? '1fr 1fr' : '1fr', gap: '1.5rem', marginTop: '1.5rem' }}>
-        {results.length > 0 && (
-          <div className="card">
-            <h3>{activeTab === 'photo' ? 'AI Guesses' : 'Search Results'}</h3>
-            <p className="text-muted" style={{ marginBottom: '1rem' }}>Select an item:</p>
-            <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
-                {results.map((item, idx) => (
-                <div 
-                    key={idx} 
-                    className={`meal-item ${selectedIdx === idx ? 'active-machine' : ''}`}
-                    onClick={() => handleSelect(idx, item)}
-                    style={{ 
-                    cursor: 'pointer', 
-                    border: selectedIdx === idx ? '1px solid var(--primary)' : '1px solid rgba(255,255,255,0.05)',
-                    padding: '1rem',
-                    borderRadius: '8px',
-                    marginBottom: '0.5rem',
-                    background: selectedIdx === idx ? 'rgba(0, 255, 127, 0.05)' : 'rgba(255,255,255,0.02)'
-                    }}
-                >
-                    <div>
-                    <strong>{item.label}</strong>
-                    {activeTab === 'photo' && <p className="text-muted" style={{ fontSize: '0.8rem' }}>{(item.confidence * 100).toFixed(1)}% match</p>}
+      {(results.length > 0 || editItem) && (
+        <div style={{ display: 'grid', gridTemplateColumns: results.length > 0 ? '1fr 1fr' : '1fr', gap: '2rem', marginTop: '2rem' }}>
+            {results.length > 0 && (
+            <div className="card">
+                <h3>{activeTab === 'photo' ? 'AI Predictions' : 'Search Results'}</h3>
+                <p className="text-muted" style={{ marginBottom: '1.5rem' }}>Select the closest match:</p>
+                <div style={{ maxHeight: '440px', overflowY: 'auto', paddingRight: '0.5rem' }}>
+                    {results.map((item, idx) => (
+                    <div 
+                        key={idx} 
+                        className="meal-item"
+                        onClick={() => handleSelect(idx, item)}
+                        style={{ 
+                        cursor: 'pointer', 
+                        border: selectedIdx === idx ? '1px solid var(--primary)' : '1px solid var(--card-border)',
+                        background: selectedIdx === idx ? 'rgba(0, 242, 254, 0.05)' : undefined,
+                        transition: 'all 0.2s ease'
+                        }}
+                    >
+                        <div className="meal-info">
+                            <span className="meal-label">{item.label}</span>
+                            {activeTab === 'photo' && (
+                                <div style={{ 
+                                    fontSize: '0.7rem', 
+                                    fontWeight: 700, 
+                                    color: item.confidence > 0.4 ? 'var(--success)' : 'var(--warning)',
+                                    textTransform: 'uppercase'
+                                }}>
+                                    {(item.confidence * 100).toFixed(0)}% Confidence
+                                </div>
+                            )}
+                        </div>
+                        <div style={{ textAlign: 'right' }}>
+                            <div className="meal-kcal">{item.kcal} kcal</div>
+                            <div className="text-muted" style={{ fontSize: '0.8rem' }}>{item.grams}g</div>
+                        </div>
                     </div>
-                    <div style={{ textAlign: 'right' }}>
-                    <div>{item.kcal} kcal</div>
-                    <div className="text-muted" style={{ fontSize: '0.8rem' }}>{item.grams}g</div>
+                    ))}
+                </div>
+            </div>
+            )}
+
+            {editItem && (
+            <div className="card animate-fade-in">
+                <h3>Refine & Log</h3>
+                <p className="text-muted" style={{ marginBottom: '1.5rem' }}>Adjust details before saving to your daily log.</p>
+                
+                <div className="input-group">
+                <label>Food Name</label>
+                <input 
+                    type="text" 
+                    value={editItem.label} 
+                    onChange={(e) => setEditItem({ ...editItem, label: e.target.value })} 
+                />
+                </div>
+                
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                    <div className="input-group">
+                    <label>Weight (g)</label>
+                    <input 
+                        type="number" 
+                        value={editItem.grams} 
+                        onChange={(e) => {
+                        const newGrams = parseInt(e.target.value) || 0;
+                        const newKcal = Math.round((newGrams * editItem.base_kcal) / 100);
+                        setEditItem({ 
+                            ...editItem, 
+                            grams: newGrams,
+                            kcal: newKcal 
+                        });
+                        }} 
+                    />
+                    </div>
+                    <div className="input-group">
+                    <label>Calories (kcal)</label>
+                    <input 
+                        type="number" 
+                        value={editItem.kcal} 
+                        onChange={(e) => setEditItem({ ...editItem, kcal: parseInt(e.target.value) || 0 })} 
+                    />
                     </div>
                 </div>
-                ))}
+                
+                <button 
+                className="btn btn-primary" 
+                onClick={handleLogMeal} 
+                disabled={logging}
+                style={{ width: '100%', marginTop: '1rem' }}
+                >
+                {logging ? 'Saving to log...' : 'Confirm & Log Meal'}
+                </button>
             </div>
-          </div>
-        )}
-
-        {editItem && (
-          <div className="card">
-            <h3>Confirm & Log</h3>
-            <div className="input-group" style={{ marginTop: '1rem' }}>
-              <label>Food Name</label>
-              <input 
-                type="text" 
-                value={editItem.label} 
-                onChange={(e) => setEditItem({ ...editItem, label: e.target.value })} 
-              />
-            </div>
-            <div className="input-group">
-              <label>Portion (grams)</label>
-              <input 
-                type="number" 
-                value={editItem.grams} 
-                onChange={(e) => {
-                  const newGrams = parseInt(e.target.value) || 0;
-                  const newKcal = Math.round((newGrams * editItem.base_kcal) / 100);
-                  setEditItem({ 
-                    ...editItem, 
-                    grams: newGrams,
-                    kcal: newKcal 
-                  });
-                }} 
-              />
-            </div>
-            <div className="input-group">
-              <label>Total Calories (kcal)</label>
-              <input 
-                type="number" 
-                value={editItem.kcal} 
-                onChange={(e) => setEditItem({ ...editItem, kcal: parseInt(e.target.value) || 0 })} 
-              />
-            </div>
-            
-            <button 
-              className="btn btn-primary" 
-              onClick={handleLogMeal} 
-              disabled={logging}
-              style={{ width: '100%', marginTop: '1rem' }}
-            >
-              {logging ? 'Saving...' : 'Confirm & Add to Log'}
-            </button>
-          </div>
-        )}
-      </div>
+            )}
+        </div>
+      )}
     </div>
   );
 };

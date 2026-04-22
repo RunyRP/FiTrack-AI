@@ -29,73 +29,94 @@ export const Setup = () => {
   };
 
   return (
-    <div className="container" style={{ maxWidth: '600px' }}>
+    <div className="container animate-fade-in" style={{ maxWidth: '700px' }}>
       <div className="card">
         <h2>Personalize Your Goals</h2>
-        <p className="text-muted">What is your primary objective?</p>
+        <p className="text-muted">What is your primary objective? This will customize your calorie and workout recommendations.</p>
         
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '1rem', marginTop: '2rem' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '1.25rem', marginTop: '2.5rem' }}>
           <div 
-            className={`card ${objective === 'lose_weight' ? 'active-machine' : ''}`}
+            className="card"
             onClick={() => setObjective('lose_weight')}
             style={{ 
               cursor: 'pointer', 
               padding: '1.5rem', 
               marginBottom: 0,
-              border: objective === 'lose_weight' ? '2px solid var(--primary)' : '1px solid rgba(255,255,255,0.1)'
+              border: objective === 'lose_weight' ? '2px solid var(--primary)' : '1px solid var(--card-border)',
+              background: objective === 'lose_weight' ? 'rgba(0, 242, 254, 0.05)' : undefined,
+              transition: 'all 0.3s ease'
             }}
           >
-            <strong>📉 Lose Weight</strong>
-            <p className="text-muted">Focus on calorie deficit and fat loss.</p>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                <span style={{ fontSize: '2rem' }}>📉</span>
+                <div>
+                    <strong style={{ fontSize: '1.1rem', color: objective === 'lose_weight' ? 'var(--primary)' : 'white' }}>Weight Loss</strong>
+                    <p className="text-muted" style={{ fontSize: '0.9rem' }}>Burn fat and improve cardiovascular health.</p>
+                </div>
+            </div>
           </div>
 
           <div 
-            className={`card ${objective === 'maintain' ? 'active-machine' : ''}`}
+            className="card"
             onClick={() => setObjective('maintain')}
             style={{ 
               cursor: 'pointer', 
               padding: '1.5rem', 
               marginBottom: 0,
-              border: objective === 'maintain' ? '2px solid var(--primary)' : '1px solid rgba(255,255,255,0.1)'
+              border: objective === 'maintain' ? '2px solid var(--primary)' : '1px solid var(--card-border)',
+              background: objective === 'maintain' ? 'rgba(0, 242, 254, 0.05)' : undefined,
+              transition: 'all 0.3s ease'
             }}
           >
-            <strong>⚖️ Maintain</strong>
-            <p className="text-muted">Keep your current weight and improve body composition.</p>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                <span style={{ fontSize: '2rem' }}>⚖️</span>
+                <div>
+                    <strong style={{ fontSize: '1.1rem', color: objective === 'maintain' ? 'var(--primary)' : 'white' }}>Maintenance</strong>
+                    <p className="text-muted" style={{ fontSize: '0.9rem' }}>Maintain current weight and tone your muscles.</p>
+                </div>
+            </div>
           </div>
 
           <div 
-            className={`card ${objective === 'gain_muscle' ? 'active-machine' : ''}`}
+            className="card"
             onClick={() => setObjective('gain_muscle')}
             style={{ 
               cursor: 'pointer', 
               padding: '1.5rem', 
               marginBottom: 0,
-              border: objective === 'gain_muscle' ? '2px solid var(--primary)' : '1px solid rgba(255,255,255,0.1)'
+              border: objective === 'gain_muscle' ? '2px solid var(--primary)' : '1px solid var(--card-border)',
+              background: objective === 'gain_muscle' ? 'rgba(0, 242, 254, 0.05)' : undefined,
+              transition: 'all 0.3s ease'
             }}
           >
-            <strong>💪 Gain Muscle</strong>
-            <p className="text-muted">Focus on strength and muscle mass growth.</p>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                <span style={{ fontSize: '2rem' }}>💪</span>
+                <div>
+                    <strong style={{ fontSize: '1.1rem', color: objective === 'gain_muscle' ? 'var(--primary)' : 'white' }}>Muscle Gain</strong>
+                    <p className="text-muted" style={{ fontSize: '0.9rem' }}>Build strength and increase muscle mass.</p>
+                </div>
+            </div>
           </div>
         </div>
 
-        <div className="card" style={{ marginTop: '2rem' }}>
+        <div className="card" style={{ marginTop: '2rem', padding: '1.5rem', borderStyle: 'dashed' }}>
           <label style={{ display: 'flex', alignItems: 'center', gap: '1rem', cursor: 'pointer' }}>
             <input 
               type="checkbox" 
               checked={interestedInGym} 
               onChange={(e) => setInterestedInGym(e.target.checked)}
-              style={{ width: '20px', height: '20px' }}
+              style={{ width: '22px', height: '22px', accentColor: 'var(--primary)' }}
             />
-            <span>I'm interested in selecting my gym equipment for workout suggestions</span>
+            <span style={{ fontWeight: 600 }}>I want to configure my gym equipment for personalized workouts</span>
           </label>
         </div>
 
         <button 
           className="btn btn-primary" 
-          style={{ width: '100%', marginTop: '1rem' }}
+          style={{ width: '100%', marginTop: '1rem', padding: '1.25rem' }}
           onClick={handleCompleteSetup}
         >
-          Complete Setup
+          Finish Setup & Start Training
         </button>
       </div>
     </div>

@@ -13,10 +13,7 @@ export const Register = () => {
     setError('');
     
     try {
-      // Send registration request
       await api.post('/auth/register', { email, password });
-      
-      // Redirect to login page immediately upon success
       navigate('/login');
     } catch (err: any) {
       if (err.response?.data?.detail) {
@@ -28,14 +25,18 @@ export const Register = () => {
   };
 
   return (
-    <div className="container" style={{ maxWidth: '400px', marginTop: '100px' }}>
+    <div className="container auth-container animate-fade-in">
+      <div className="auth-header">
+        <h1 style={{ fontSize: '2.5rem' }}>Start Your Journey</h1>
+        <p className="text-muted">Create an account to track your fitness with AI</p>
+      </div>
       <div className="card">
-        <h2>Join FitTrack AI</h2>
         <form onSubmit={handleSubmit}>
           <div className="input-group">
-            <label>Email</label>
+            <label>Email Address</label>
             <input 
               type="email" 
+              placeholder="athlete@example.com"
               value={email} 
               onChange={(e) => setEmail(e.target.value)} 
               required 
@@ -45,19 +46,29 @@ export const Register = () => {
             <label>Password</label>
             <input 
               type="password" 
+              placeholder="Choose a strong password"
               value={password} 
               onChange={(e) => setPassword(e.target.value)} 
               required 
             />
           </div>
           {error && (
-            <div style={{ marginBottom: '1rem' }}>
-              <p style={{ color: 'var(--accent)' }}>{error}</p>
+            <div style={{ marginBottom: '1.5rem' }}>
+              <div style={{ 
+                padding: '0.75rem', 
+                borderRadius: '0.75rem', 
+                background: 'rgba(255,0,127,0.1)', 
+                color: 'var(--accent)',
+                fontSize: '0.9rem',
+                textAlign: 'center'
+              }}>
+                {error}
+              </div>
               {error.toLowerCase().includes('already registered') && (
                 <button 
                   type="button"
                   className="btn" 
-                  style={{ background: 'transparent', color: 'var(--primary)', padding: 0, border: 'none', textDecoration: 'underline', cursor: 'pointer' }}
+                  style={{ width: '100%', marginTop: '0.5rem', background: 'transparent', color: 'var(--primary)', textDecoration: 'underline' }}
                   onClick={() => navigate('/login')}
                 >
                   Go to Login
@@ -69,9 +80,12 @@ export const Register = () => {
             Create Account
           </button>
         </form>
-        <p style={{ marginTop: '1rem', textAlign: 'center' }}>
-          Already have an account? <Link to="/login" style={{ color: 'var(--primary)', marginLeft: '0.5rem' }}>Login</Link>
-        </p>
+        <div style={{ marginTop: '2rem', textAlign: 'center' }}>
+          <span className="text-muted">Already have an account?</span>
+          <Link to="/login" style={{ color: 'var(--primary)', fontWeight: 700, marginLeft: '0.5rem', textDecoration: 'none' }}>
+            Login here
+          </Link>
+        </div>
       </div>
     </div>
   );

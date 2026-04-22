@@ -104,6 +104,7 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 const Navbar = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
 
   const handleLogoutClick = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -111,26 +112,28 @@ const Navbar = () => {
     navigate('/login');
   };
 
+  const isActive = (path: string) => location.pathname === path ? 'active' : '';
+
   return (
     <nav className="container">
-      <Link to="/" style={{ fontSize: '1.5rem', fontWeight: 800, background: 'linear-gradient(135deg, var(--primary), var(--secondary))', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', marginLeft: 0 }}>
+      <Link to="/" className="nav-logo" style={{ background: 'linear-gradient(135deg, var(--primary), var(--secondary))', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
         FitTrack AI
       </Link>
-      <div>
+      <div className="nav-links">
         {user ? (
           <>
-            <Link to="/">Dashboard</Link>
-            <Link to="/meal">Log Meal</Link>
-            <Link to="/history">Meal History</Link>
-            <Link to="/workout">Workouts</Link>
-            <Link to="/chat">AI Chat</Link>
-            <Link to="/profile">Profile</Link>
+            <Link to="/" className={isActive('/')}>Dashboard</Link>
+            <Link to="/meal" className={isActive('/meal')}>Log Meal</Link>
+            <Link to="/history" className={isActive('/history')}>History</Link>
+            <Link to="/workout" className={isActive('/workout')}>Workouts</Link>
+            <Link to="/chat" className={isActive('/chat')}>AI Chat</Link>
+            <Link to="/profile" className={isActive('/profile')}>Profile</Link>
             <a href="#" onClick={handleLogoutClick}>Logout</a>
           </>
         ) : (
           <>
-            <Link to="/login">Login</Link>
-            <Link to="/register">Register</Link>
+            <Link to="/login" className={isActive('/login')}>Login</Link>
+            <Link to="/register" className={isActive('/register')}>Register</Link>
           </>
         )}
       </div>
@@ -142,67 +145,71 @@ function App() {
   return (
     <Router>
       <AuthProvider>
+        <div className="bg-shape bg-shape-1"></div>
+        <div className="bg-shape bg-shape-2"></div>
         <Navbar />
-        <Routes>
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
-          <Route 
-            path="/" 
-            element={
-              <ProtectedRoute>
-                <Dashboard />
-              </ProtectedRoute>
-            } 
-          />
-          <Route 
-            path="/profile" 
-            element={
-              <ProtectedRoute>
-                <Profile />
-              </ProtectedRoute>
-            } 
-          />
-          <Route 
-            path="/setup" 
-            element={
-              <ProtectedRoute>
-                <Setup />
-              </ProtectedRoute>
-            } 
-          />
-          <Route 
-            path="/meal" 
-            element={
-              <ProtectedRoute>
-                <MealAnalysis />
-              </ProtectedRoute>
-            } 
-          />
-          <Route 
-            path="/history" 
-            element={
-              <ProtectedRoute>
-                <MealHistory />
-              </ProtectedRoute>
-            } 
-          />
-          <Route 
-            path="/workout" 
-            element={
-              <ProtectedRoute>
-                <WorkoutSuggestions />
-              </ProtectedRoute>
-            } 
-          />
-          <Route 
-            path="/chat" 
-            element={
-              <ProtectedRoute>
-                <Chat />
-              </ProtectedRoute>
-            } 
-          />
-        </Routes>
+        <main className="animate-fade-in">
+          <Routes>
+            <Route path="/login" element={<Login />} />
+            <Route path="/register" element={<Register />} />
+            <Route 
+              path="/" 
+              element={
+                <ProtectedRoute>
+                  <Dashboard />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/profile" 
+              element={
+                <ProtectedRoute>
+                  <Profile />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/setup" 
+              element={
+                <ProtectedRoute>
+                  <Setup />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/meal" 
+              element={
+                <ProtectedRoute>
+                  <MealAnalysis />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/history" 
+              element={
+                <ProtectedRoute>
+                  <MealHistory />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/workout" 
+              element={
+                <ProtectedRoute>
+                  <WorkoutSuggestions />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/chat" 
+              element={
+                <ProtectedRoute>
+                  <Chat />
+                </ProtectedRoute>
+              } 
+            />
+          </Routes>
+        </main>
       </AuthProvider>
     </Router>
   );
