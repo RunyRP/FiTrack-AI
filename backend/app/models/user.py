@@ -1,4 +1,4 @@
-from sqlalchemy import Boolean, Column, Integer, String, Float, ForeignKey, Enum
+from sqlalchemy import Boolean, Column, Integer, String, Float, ForeignKey, Enum, JSON
 from sqlalchemy.orm import relationship
 from app.db.session import Base
 import enum
