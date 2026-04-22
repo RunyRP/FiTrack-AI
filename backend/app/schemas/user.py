@@ -15,6 +15,7 @@ class UserProfileBase(BaseModel):
     height: Optional[float] = None
     activity_level: Optional[ActivityLevel] = None
     objective: Optional[str] = None
+    selected_machinery: Optional[list] = []
     setup_complete: Optional[bool] = False
 
 class UserProfileUpdate(UserProfileBase):

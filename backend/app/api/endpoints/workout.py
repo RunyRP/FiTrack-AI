@@ -88,10 +88,17 @@ def get_exercise_progression(
 
 @router.get("/suggest")
 def suggest_workouts(
-    machine_ids: List[int] = Query(...),
+    machine_ids: List[int] = Query(None),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
+    # If no IDs provided, use the ones from the user profile
+    if not machine_ids and current_user.profile and current_user.profile.selected_machinery:
+        machine_ids = current_user.profile.selected_machinery
+    
+    if not machine_ids:
+        return {"objective": "N/A", "parameters": {}, "suggestions": [], "message": "Please configure your gym equipment in the Setup section."}
+
     # Fetch machines matching the provided IDs
     machines = db.query(Machinery).filter(Machinery.id.in_(machine_ids)).all()
     
