@@ -166,48 +166,57 @@ export const WorkoutSuggestions = () => {
                     </button>
                 </div>
 
-                {suggestionData.suggestions.map((s: any, idx: number) => (
-                <div key={idx} className="card" style={{ background: 'rgba(255,255,255,0.01)', borderColor: 'rgba(255,255,255,0.05)', marginBottom: '1.5rem' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.5rem' }}>
-                    <div>
-                        <h3 style={{ margin: 0 }}>{s.exercise_name}</h3>
-                        <span className="text-muted" style={{ fontSize: '0.8rem' }}>Target: {s.muscles.join(', ')}</span>
-                    </div>
-                    <div style={{ textAlign: 'right', fontSize: '0.8rem', color: 'var(--primary)', fontWeight: 700 }}>
-                        {s.sets} SETS × {s.reps} REPS
-                    </div>
-                    </div>
-
-                    <div style={{ display: 'grid', gap: '0.75rem' }}>
-                        {loggedExercises[s.exercise_name]?.map((set, sIdx) => (
-                            <div key={sIdx} style={{ display: 'flex', alignItems: 'center', gap: '1rem', background: 'rgba(255,255,255,0.03)', padding: '0.75rem', borderRadius: '0.75rem' }}>
-                                <span style={{ fontWeight: 800, color: 'var(--text-muted)', width: '20px' }}>{sIdx + 1}</span>
-                                <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                    <label style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-muted)' }}>KG</label>
-                                    <input 
-                                        type="number" 
-                                        value={set.weight} 
-                                        onChange={(e) => updateSet(s.exercise_name, sIdx, 'weight', parseFloat(e.target.value) || 0)}
-                                        style={{ width: '70px', padding: '0.4rem', borderRadius: '0.4rem', background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.1)', color: 'white' }}
-                                    />
-                                </div>
-                                <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                    <label style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-muted)' }}>REPS</label>
-                                    <input 
-                                        type="number" 
-                                        value={set.reps} 
-                                        onChange={(e) => updateSet(s.exercise_name, sIdx, 'reps', parseInt(e.target.value) || 0)}
-                                        style={{ width: '70px', padding: '0.4rem', borderRadius: '0.4rem', background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.1)', color: 'white' }}
-                                    />
-                                </div>
-                                {sIdx === loggedExercises[s.exercise_name].length - 1 && (
-                                    <button className="btn btn-secondary" style={{ padding: '0.4rem 0.8rem', fontSize: '0.7rem' }} onClick={() => addSet(s.exercise_name)}>+</button>
-                                )}
+            {suggestionData.suggestions.map((s: any, idx: number) => (
+              <div key={idx} className="card" style={{ background: 'rgba(255,255,255,0.01)', borderColor: 'rgba(255,255,255,0.05)', marginBottom: '1.5rem', overflow: 'hidden', padding: 0 }}>
+                <div style={{ display: 'flex', gap: '1.5rem' }}>
+                    {s.machine_image && (
+                        <div style={{ width: '180px', height: '180px' }}>
+                            <img src={s.machine_image} alt={s.exercise_name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        </div>
+                    )}
+                    <div style={{ flex: 1, padding: '1.5rem' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.5rem' }}>
+                            <div>
+                                <h3 style={{ margin: 0 }}>{s.exercise_name}</h3>
+                                <span className="text-muted" style={{ fontSize: '0.8rem' }}>Target: {s.muscles.join(', ')}</span>
                             </div>
-                        ))}
+                            <div style={{ textAlign: 'right', fontSize: '0.8rem', color: 'var(--primary)', fontWeight: 700 }}>
+                                {s.sets} SETS × {s.reps} REPS
+                            </div>
+                        </div>
+
+                        <div style={{ display: 'grid', gap: '0.75rem' }}>
+                            {loggedExercises[s.exercise_name]?.map((set, sIdx) => (
+                                <div key={sIdx} style={{ display: 'flex', alignItems: 'center', gap: '1rem', background: 'rgba(255,255,255,0.03)', padding: '0.75rem', borderRadius: '0.75rem' }}>
+                                    <span style={{ fontWeight: 800, color: 'var(--text-muted)', width: '20px' }}>{sIdx + 1}</span>
+                                    <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                        <label style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-muted)' }}>KG</label>
+                                        <input 
+                                            type="number" 
+                                            value={set.weight} 
+                                            onChange={(e) => updateSet(s.exercise_name, sIdx, 'weight', parseFloat(e.target.value) || 0)}
+                                            style={{ width: '70px', padding: '0.4rem', borderRadius: '0.4rem', background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.1)', color: 'white' }}
+                                        />
+                                    </div>
+                                    <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                        <label style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-muted)' }}>REPS</label>
+                                        <input 
+                                            type="number" 
+                                            value={set.reps} 
+                                            onChange={(e) => updateSet(s.exercise_name, sIdx, 'reps', parseInt(e.target.value) || 0)}
+                                            style={{ width: '70px', padding: '0.4rem', borderRadius: '0.4rem', background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.1)', color: 'white' }}
+                                        />
+                                    </div>
+                                    {sIdx === loggedExercises[s.exercise_name].length - 1 && (
+                                        <button className="btn btn-secondary" style={{ padding: '0.4rem 0.8rem', fontSize: '0.7rem' }} onClick={() => addSet(s.exercise_name)}>+</button>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
                     </div>
                 </div>
-                ))}
+              </div>
+            ))}
             </div>
           ) : null}
         </div>

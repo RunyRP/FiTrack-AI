@@ -132,13 +132,15 @@ def get_daily_feedback(
     from app.services.ai_chat import get_chat_service
     chat_service = get_chat_service()
     
-    raw_data = f"Calories: {log.total_kcal}/{target_kcal}, Steps: {log.steps}, Water: {log.water_ml}ml. Goal: {profile.objective}."
+    user_name = profile.name or "Athlete"
+    raw_data = f"User Name: {user_name}, Calories: {log.total_kcal}/{target_kcal}, Steps: {log.steps}, Water: {log.water_ml}ml. Goal: {profile.objective}."
     ai_feedback = chat_service.generate_response(
-        f"Generate a very short, encouraging 2-sentence daily summary based on these stats: {raw_data}",
+        f"Generate a very short, encouraging 2-sentence daily summary addressing the user by their name. Stats: {raw_data}",
         user_profile={
             "age": profile.age,
             "weight": profile.weight,
-            "objective": profile.objective
+            "objective": profile.objective,
+            "name": user_name
         }
     )
     

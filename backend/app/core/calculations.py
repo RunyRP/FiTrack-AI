@@ -1,10 +1,7 @@
 from app.models.user import Gender, ActivityLevel
 
-def calculate_target_kcal_logic(age: int, gender: Gender, weight: float, height: float, activity_level: ActivityLevel):
-    # Mifflin-St Jeor Equation
-    # Men: BMR = 10*weight + 6.25*height - 5*age + 5
-    # Women: BMR = 10*weight + 6.25*height - 5*age - 161
-    
+def calculate_target_kcal_logic(age: int, gender: Gender, weight: float, height: float, activity_level: ActivityLevel, objective: str = "maintain"):
+    # ... (BMR calculation)
     if not all([weight, height, age, gender]):
         return 2000 # Default
         
@@ -22,4 +19,14 @@ def calculate_target_kcal_logic(age: int, gender: Gender, weight: float, height:
     }
     
     multiplier = activity_multipliers.get(activity_level, 1.2)
-    return int(bmr * multiplier)
+    tdee = bmr * multiplier
+
+    # Objective Multipliers
+    if objective == "lose_weight":
+        return int(tdee - 500) # Calorie deficit
+    elif objective == "gain_muscle":
+        return int(tdee + 300) # Calorie surplus
+    elif objective == "body_recomposition":
+        return int(tdee) # Maintenance calories but high protein
+    else:
+        return int(tdee)

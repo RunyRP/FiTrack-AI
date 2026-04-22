@@ -113,6 +113,7 @@ def suggest_workouts(
     goal_params = {
         "lose_weight": {"reps": "12-15", "sets": "3-4", "rest": "60s", "focus": "Calorie burn & endurance"},
         "gain_muscle": {"reps": "8-12", "sets": "4-5", "rest": "90s", "focus": "Hypertrophy & strength"},
+        "body_recomposition": {"reps": "10-12", "sets": "4", "rest": "75s", "focus": "Fat loss & muscle growth"},
         "maintain": {"reps": "10-12", "sets": "3", "rest": "60s", "focus": "General fitness & tone"}
     }
     
@@ -125,6 +126,7 @@ def suggest_workouts(
             suggestions.append({
                 "machine_id": machine.id,
                 "machine_name": machine.name,
+                "machine_image": machine.image_url,
                 "exercise_name": exercise["name"],
                 "muscles": exercise["muscles"],
                 "reps": params["reps"],

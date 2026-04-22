@@ -10,6 +10,28 @@ def seed_machinery():
     
     machinery_data = [
         {
+            "name": "Bodyweight / No Equipment",
+            "description": "Exercises using only your own body weight.",
+            "image_url": "https://images.unsplash.com/photo-1598971639058-fab3c3109a00?q=80&w=800&auto=format&fit=crop",
+            "exercises": [
+                {"name": "Push-ups", "muscles": ["Chest", "Triceps", "Shoulders"]},
+                {"name": "Bodyweight Squats", "muscles": ["Quads", "Glutes"]},
+                {"name": "Plank", "muscles": ["Core"]},
+                {"name": "Lunges", "muscles": ["Quads", "Hamstrings"]}
+            ]
+        },
+        {
+            "name": "Cable Machine / Pulley",
+            "description": "Versatile cable-based exercises.",
+            "image_url": "https://images.unsplash.com/photo-1541534401786-2077ee4b25e0?q=80&w=800&auto=format&fit=crop",
+            "exercises": [
+                {"name": "Cable Flyes", "muscles": ["Chest"]},
+                {"name": "Cable Bicep Curls", "muscles": ["Biceps"]},
+                {"name": "Tricep Pushdowns", "muscles": ["Triceps"]},
+                {"name": "Cable Face Pulls", "muscles": ["Rear Delts", "Back"]}
+            ]
+        },
+        {
             "name": "Leg Extension Machine",
             "description": "Isolates the quadriceps muscles.",
             "image_url": "https://images.unsplash.com/photo-1591504770183-49033327663f?q=80&w=800&auto=format&fit=crop",

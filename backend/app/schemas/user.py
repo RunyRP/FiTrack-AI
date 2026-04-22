@@ -9,6 +9,7 @@ class UserCreate(UserBase):
     password: str
 
 class UserProfileBase(BaseModel):
+    name: Optional[str] = None
     age: Optional[int] = None
     gender: Optional[Gender] = None
     weight: Optional[float] = None
