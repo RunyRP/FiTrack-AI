@@ -12,6 +12,7 @@ export const MealAnalysis = () => {
   const [message, setMessage] = useState('');
   const [selectedIdx, setSelectedIdx] = useState<number | null>(null);
   const [editItem, setEditItem] = useState<any>(null);
+  const [mealType, setMealType] = useState('Lunch');
   const navigate = useNavigate();
 
   // Handle Search
@@ -89,7 +90,11 @@ export const MealAnalysis = () => {
       await api.post('/meal/log', {
         label: editItem.label,
         grams: editItem.grams,
-        kcal: editItem.kcal
+        kcal: editItem.kcal,
+        protein: editItem.protein,
+        carbs: editItem.carbs,
+        fat: editItem.fat,
+        type: mealType
       });
       setMessage('Meal logged successfully!');
       setTimeout(() => navigate('/'), 1500);
@@ -124,7 +129,7 @@ export const MealAnalysis = () => {
             {activeTab === 'photo' ? (
                 <>
                     <h2>AI Meal Analysis</h2>
-                    <p className="text-muted">Take a photo of your meal to estimate calories automatically.</p>
+                    <p className="text-muted">Take a photo of your meal to estimate calories and macros.</p>
                     <div className="input-group" style={{ marginTop: '2rem' }}>
                         <div style={{ 
                             border: '2px dashed rgba(255,255,255,0.1)', 
@@ -159,7 +164,7 @@ export const MealAnalysis = () => {
             ) : (
                 <>
                     <h2>Search Food</h2>
-                    <p className="text-muted">Type the name of the food you ate to find it in our database.</p>
+                    <p className="text-muted">Type the name of the food you ate.</p>
                     <div className="input-group" style={{ marginTop: '2rem' }}>
                         <input 
                             type="text" 
@@ -201,42 +206,40 @@ export const MealAnalysis = () => {
                         onClick={() => handleSelect(idx, item)}
                         style={{ 
                         cursor: 'pointer', 
+                        flexDirection: 'column',
+                        alignItems: 'flex-start',
                         border: selectedIdx === idx ? '1px solid var(--primary)' : '1px solid var(--card-border)',
                         background: selectedIdx === idx ? 'rgba(0, 242, 254, 0.05)' : undefined,
                         transition: 'all 0.2s ease'
                         }}
                     >
-                        <div className="meal-info">
-                            <span className="meal-label">{item.label}</span>
-                            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                                {activeTab === 'photo' && (
-                                    <div style={{ 
-                                        fontSize: '0.7rem', 
-                                        fontWeight: 700, 
-                                        color: item.confidence > 0.4 ? 'var(--success)' : 'var(--warning)',
-                                        textTransform: 'uppercase'
-                                    }}>
-                                        {(item.confidence * 100).toFixed(0)}% Match
-                                    </div>
-                                )}
-                                {item.portion_note && (
-                                    <div style={{ 
-                                        fontSize: '0.7rem', 
-                                        fontWeight: 700, 
-                                        color: 'var(--primary)',
-                                        textTransform: 'uppercase',
-                                        background: 'rgba(0, 242, 254, 0.1)',
-                                        padding: '0.1rem 0.4rem',
-                                        borderRadius: '0.3rem'
-                                    }}>
-                                        {item.portion_note}
-                                    </div>
-                                )}
+                        <div style={{ display: 'flex', width: '100%', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+                            <div className="meal-info">
+                                <span className="meal-label">{item.label}</span>
+                                <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                                    {activeTab === 'photo' && (
+                                        <div style={{ 
+                                            fontSize: '0.6rem', 
+                                            fontWeight: 800, 
+                                            color: item.confidence > 0.4 ? 'var(--success)' : 'var(--warning)',
+                                            textTransform: 'uppercase'
+                                        }}>
+                                            {(item.confidence * 100).toFixed(0)}% Match
+                                        </div>
+                                    )}
+                                    {item.portion_note && (
+                                        <div style={{ fontSize: '0.6rem', fontWeight: 800, color: 'var(--primary)', textTransform: 'uppercase', background: 'rgba(0, 242, 254, 0.1)', padding: '0.1rem 0.3rem', borderRadius: '0.2rem' }}>
+                                            {item.portion_note}
+                                        </div>
+                                    )}
+                                </div>
                             </div>
-                        </div>
-                        <div style={{ textAlign: 'right' }}>
                             <div className="meal-kcal">{item.kcal} kcal</div>
-                            <div className="text-muted" style={{ fontSize: '0.8rem' }}>{item.grams}g</div>
+                        </div>
+                        <div style={{ display: 'flex', gap: '0.75rem', fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 700 }}>
+                            <span>P: {Math.round(item.protein)}g</span>
+                            <span>C: {Math.round(item.carbs)}g</span>
+                            <span>F: {Math.round(item.fat)}g</span>
                         </div>
                     </div>
                     ))}
@@ -247,41 +250,69 @@ export const MealAnalysis = () => {
             {editItem && (
             <div className="card animate-fade-in">
                 <h3>Refine & Log</h3>
-                <p className="text-muted" style={{ marginBottom: '1.5rem' }}>Adjust details before saving to your daily log.</p>
+                <p className="text-muted" style={{ marginBottom: '1.5rem' }}>Categorize and adjust macros.</p>
                 
                 <div className="input-group">
-                <label>Food Name</label>
-                <input 
-                    type="text" 
-                    value={editItem.label} 
-                    onChange={(e) => setEditItem({ ...editItem, label: e.target.value })} 
-                />
+                    <label>Meal Type</label>
+                    <select value={mealType} onChange={e => setMealType(e.target.value)}>
+                        <option>Breakfast</option>
+                        <option>Lunch</option>
+                        <option>Dinner</option>
+                        <option>Snack</option>
+                    </select>
+                </div>
+
+                <div className="input-group">
+                    <label>Food Name</label>
+                    <input 
+                        type="text" 
+                        value={editItem.label} 
+                        onChange={(e) => setEditItem({ ...editItem, label: e.target.value })} 
+                    />
                 </div>
                 
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                     <div className="input-group">
-                    <label>Weight (g)</label>
-                    <input 
-                        type="number" 
-                        value={editItem.grams} 
-                        onChange={(e) => {
-                        const newGrams = parseInt(e.target.value) || 0;
-                        const newKcal = Math.round((newGrams * editItem.base_kcal) / 100);
-                        setEditItem({ 
-                            ...editItem, 
-                            grams: newGrams,
-                            kcal: newKcal 
-                        });
-                        }} 
-                    />
+                        <label>Weight (g)</label>
+                        <input 
+                            type="number" 
+                            value={editItem.grams} 
+                            onChange={(e) => {
+                                const newGrams = parseInt(e.target.value) || 0;
+                                const ratio = newGrams / (editItem.grams || 1);
+                                setEditItem({ 
+                                    ...editItem, 
+                                    grams: newGrams,
+                                    kcal: Math.round(editItem.kcal * ratio),
+                                    protein: editItem.protein * ratio,
+                                    carbs: editItem.carbs * ratio,
+                                    fat: editItem.fat * ratio
+                                });
+                            }} 
+                        />
                     </div>
                     <div className="input-group">
-                    <label>Calories (kcal)</label>
-                    <input 
-                        type="number" 
-                        value={editItem.kcal} 
-                        onChange={(e) => setEditItem({ ...editItem, kcal: parseInt(e.target.value) || 0 })} 
-                    />
+                        <label>Calories</label>
+                        <input 
+                            type="number" 
+                            value={editItem.kcal} 
+                            onChange={(e) => setEditItem({ ...editItem, kcal: parseInt(e.target.value) || 0 })} 
+                        />
+                    </div>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem' }}>
+                    <div className="input-group">
+                        <label>Protein (g)</label>
+                        <input type="number" step="0.1" value={editItem.protein} onChange={e => setEditItem({...editItem, protein: parseFloat(e.target.value)||0})}/>
+                    </div>
+                    <div className="input-group">
+                        <label>Carbs (g)</label>
+                        <input type="number" step="0.1" value={editItem.carbs} onChange={e => setEditItem({...editItem, carbs: parseFloat(e.target.value)||0})}/>
+                    </div>
+                    <div className="input-group">
+                        <label>Fat (g)</label>
+                        <input type="number" step="0.1" value={editItem.fat} onChange={e => setEditItem({...editItem, fat: parseFloat(e.target.value)||0})}/>
                     </div>
                 </div>
                 

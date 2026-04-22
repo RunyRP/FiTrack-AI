@@ -12,8 +12,9 @@ class DailyLog(Base):
     
     steps = Column(Integer, default=0)
     water_ml = Column(Integer, default=0)
+    weight = Column(Float, nullable=True)
     
-    # Store food items as a list of dicts: [{"label": "pizza", "kcal": 266, "grams": 100}, ...]
+    # Store food items: [{"label": "pizza", "kcal": 266, "grams": 100, "type": "Lunch", "protein": 10, "carbs": 30, "fat": 12}, ...]
     food_items = Column(JSON, default=list)
     total_kcal = Column(Integer, default=0)
 

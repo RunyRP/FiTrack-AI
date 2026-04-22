@@ -28,8 +28,14 @@ def update_profile(
         if value is not None:
             setattr(profile, var, value)
             
+    # Recalculate with updated logic (objective aware)
     profile.target_kcal = calculate_target_kcal_logic(
-        profile.age, profile.gender, profile.weight, profile.height, profile.activity_level
+        profile.age, 
+        profile.gender, 
+        profile.weight, 
+        profile.height, 
+        profile.activity_level,
+        profile.objective
     )
     
     db.commit()

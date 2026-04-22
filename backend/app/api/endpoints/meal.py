@@ -6,8 +6,8 @@ from app.services.ai_meal import get_ai_service
 from app.core.auth import get_current_user
 from app.models.user import User
 from app.models.log import DailyLog
-from datetime import date
-from typing import List
+from datetime import date, datetime
+from typing import List, Optional
 
 router = APIRouter()
 
@@ -15,6 +15,10 @@ class MealLogRequest(BaseModel):
     label: str
     grams: int
     kcal: int
+    protein: Optional[float] = 0
+    carbs: Optional[float] = 0
+    fat: Optional[float] = 0
+    type: Optional[str] = "Lunch"
 
 @router.post("/analyze")
 async def analyze_meal(
@@ -41,7 +45,6 @@ def search_meal_items(
 
 @router.post("/log")
 def log_meal(
-
     request: MealLogRequest,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
@@ -52,18 +55,25 @@ def log_meal(
     if not log:
         log = DailyLog(user_id=current_user.id, date=today, food_items=[], total_kcal=0)
         db.add(log)
+        db.flush()
     
-    # Add the manually confirmed item
+    # Add the manually confirmed item with macros
     new_item = {
         "label": request.label,
         "grams": request.grams,
-        "kcal": request.kcal
+        "kcal": request.kcal,
+        "protein": request.protein,
+        "carbs": request.carbs,
+        "fat": request.fat,
+        "type": request.type,
+        "logged_at": str(datetime.now())
     }
     
-    if log.food_items is None:
-        log.food_items = []
-        
-    log.food_items = log.food_items + [new_item]
+    # Standard way to update JSON in SQLAlchemy
+    current_items = list(log.food_items) if log.food_items else []
+    current_items.append(new_item)
+    log.food_items = current_items
+    
     log.total_kcal += request.kcal
     
     db.commit()

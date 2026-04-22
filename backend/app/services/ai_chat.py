@@ -23,19 +23,23 @@ class FitnessChatService:
     def generate_response(self, user_message: str, user_profile: dict = None) -> str:
         # Construct a context-aware prompt using TinyLlama's chat format
         profile_info = ""
+        user_name = "Athlete"
         if user_profile:
+            user_name = user_profile.get('name', 'Athlete')
             obj = user_profile.get('objective', 'maintain').replace('_', ' ')
-            profile_info = f"User Profile: Age {user_profile.get('age')}, Weight {user_profile.get('weight')}kg, Goal: {obj}."
+            profile_info = f"User: {user_name}, Age {user_profile.get('age')}, Weight {user_profile.get('weight')}kg, Goal: {obj}."
 
-        # TinyLlama Chat template: <|system|>\n{system_message}</s>\n<|user|>\n{user_message}</s>\n<|assistant|>\n
+        # Re-engineered persona to be more objective and professional
         prompt = (
-            f"<|system|>\nYou are a professional, motivating fitness and nutrition coach. "
-            f"Provide scientific, concise, and actionable advice. {profile_info}</s>\n"
+            f"<|system|>\nYou are a professional fitness and nutrition coach. "
+            f"You provide objective, scientific, and actionable advice. "
+            f"You do not relate to personal feelings or shared illnesses; you focus on fitness guidance. "
+            f"Always address the user as {user_name}. {profile_info}</s>\n"
             f"<|user|>\n{user_message}</s>\n"
             f"<|assistant|>\n"
         )
 
-        # Generate with better parameters for variety and coherence
+        # Fix: max_new_tokens is already set, ensuring no max_length conflict
         response = self.generator(
             prompt, 
             max_new_tokens=150, 

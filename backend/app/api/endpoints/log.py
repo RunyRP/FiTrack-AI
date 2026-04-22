@@ -94,6 +94,68 @@ def update_water(
     db.refresh(log)
     return log
 
+@router.put("/weight")
+def update_weight(
+    weight: float,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    today = date.today()
+    log = db.query(DailyLog).filter(DailyLog.user_id == current_user.id, DailyLog.date == today).first()
+    if not log:
+        log = DailyLog(user_id=current_user.id, date=today)
+        db.add(log)
+    
+    log.weight = weight
+    db.commit()
+    db.refresh(log)
+    return log
+
+@router.get("/dashboard-data")
+def get_dashboard_data(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    # This single endpoint replaces 4 calls
+    today = date.today()
+    
+    # 1. Get today's log
+    log = db.query(DailyLog).filter(DailyLog.user_id == current_user.id, DailyLog.date == today).first()
+    if not log:
+        log = DailyLog(user_id=current_user.id, date=today, food_items=[], total_kcal=0, steps=0, water_ml=0)
+        db.add(log)
+        db.commit()
+        db.refresh(log)
+    
+    # 2. Get history
+    import datetime
+    end_date = datetime.date.today()
+    start_date = end_date - datetime.timedelta(days=6)
+    existing_logs = db.query(DailyLog).filter(
+        DailyLog.user_id == current_user.id,
+        DailyLog.date >= start_date,
+        DailyLog.date <= end_date
+    ).all()
+    
+    log_map = {l.date: l for l in existing_logs}
+    history = []
+    for i in range(7):
+        curr_date = start_date + datetime.timedelta(days=i)
+        if curr_date in log_map:
+            history.append(log_map[curr_date])
+        else:
+            history.append({"date": curr_date, "total_kcal": 0, "steps": 0, "water_ml": 0, "weight": None, "food_items": []})
+
+    # 3. Get Feedback
+    feedback = get_daily_feedback(db, current_user)
+
+    return {
+        "user": current_user,
+        "today": log,
+        "history": history,
+        "feedback": feedback
+    }
+
 @router.get("/feedback")
 def get_daily_feedback(
     db: Session = Depends(get_db),
