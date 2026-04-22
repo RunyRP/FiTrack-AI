@@ -8,6 +8,7 @@ from app.models.user import User, UserProfile
 from app.models.log import DailyLog
 from app.models.machinery import Machinery
 from app.models.chat import ChatMessage
+from app.models.workout import WorkoutSession, WorkoutExercise
 
 # Create database tables
 Base.metadata.create_all(bind=engine)

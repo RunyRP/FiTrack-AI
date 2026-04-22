@@ -208,16 +208,31 @@ export const MealAnalysis = () => {
                     >
                         <div className="meal-info">
                             <span className="meal-label">{item.label}</span>
-                            {activeTab === 'photo' && (
-                                <div style={{ 
-                                    fontSize: '0.7rem', 
-                                    fontWeight: 700, 
-                                    color: item.confidence > 0.4 ? 'var(--success)' : 'var(--warning)',
-                                    textTransform: 'uppercase'
-                                }}>
-                                    {(item.confidence * 100).toFixed(0)}% Confidence
-                                </div>
-                            )}
+                            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                                {activeTab === 'photo' && (
+                                    <div style={{ 
+                                        fontSize: '0.7rem', 
+                                        fontWeight: 700, 
+                                        color: item.confidence > 0.4 ? 'var(--success)' : 'var(--warning)',
+                                        textTransform: 'uppercase'
+                                    }}>
+                                        {(item.confidence * 100).toFixed(0)}% Match
+                                    </div>
+                                )}
+                                {item.portion_note && (
+                                    <div style={{ 
+                                        fontSize: '0.7rem', 
+                                        fontWeight: 700, 
+                                        color: 'var(--primary)',
+                                        textTransform: 'uppercase',
+                                        background: 'rgba(0, 242, 254, 0.1)',
+                                        padding: '0.1rem 0.4rem',
+                                        borderRadius: '0.3rem'
+                                    }}>
+                                        {item.portion_note}
+                                    </div>
+                                )}
+                            </div>
                         </div>
                         <div style={{ textAlign: 'right' }}>
                             <div className="meal-kcal">{item.kcal} kcal</div>

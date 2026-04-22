@@ -5,19 +5,22 @@ export const Dashboard = () => {
   const [log, setLog] = useState<any>(null);
   const [profile, setProfile] = useState<any>(null);
   const [history, setHistory] = useState<any[]>([]);
+  const [feedback, setFeedback] = useState<any>(null);
   const [stepsInput, setStepsInput] = useState<number>(0);
   const [waterInput, setWaterInput] = useState<number>(0);
 
   const fetchData = async () => {
     try {
-      const [logRes, profileRes, historyRes] = await Promise.all([
+      const [logRes, profileRes, historyRes, feedbackRes] = await Promise.all([
         api.get('/log/today'),
         api.get('/user/me'),
-        api.get('/log/history?days=7')
+        api.get('/log/history?days=7'),
+        api.get('/log/feedback')
       ]);
       setLog(logRes.data);
       setProfile(profileRes.data.profile);
       setHistory(historyRes.data);
+      setFeedback(feedbackRes.data);
       setStepsInput(logRes.data.steps);
       setWaterInput(logRes.data.water_ml);
     } catch (err) {
@@ -65,10 +68,54 @@ export const Dashboard = () => {
 
   return (
     <div className="container">
-      <div className="card" style={{ textAlign: 'left', marginBottom: '3rem' }}>
-        <h1 style={{ marginBottom: '0.5rem' }}>Welcome Back, {profile.name || 'Athlete'}</h1>
-        <p className="text-muted" style={{ fontSize: '1.1rem' }}>You've burned <strong>{log.total_kcal}</strong> calories today. Keep it up!</p>
+      <div className="card" style={{ textAlign: 'left', marginBottom: '2rem', position: 'relative', overflow: 'hidden' }}>
+        <div style={{ position: 'relative', zIndex: 1 }}>
+            <h1 style={{ marginBottom: '0.5rem' }}>Welcome Back, {profile.name || 'Athlete'}</h1>
+            <p className="text-muted" style={{ fontSize: '1.1rem' }}>You've burned <strong>{log.total_kcal}</strong> calories today. Keep it up!</p>
+        </div>
       </div>
+
+      {feedback && (
+        <div className="card animate-fade-in" style={{ 
+            background: 'linear-gradient(135deg, rgba(0, 242, 254, 0.05) 0%, rgba(79, 172, 254, 0.05) 100%)',
+            borderColor: 'rgba(0, 242, 254, 0.2)',
+            textAlign: 'left',
+            padding: '1.5rem 2.5rem'
+        }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1rem' }}>
+                <span style={{ fontSize: '1.5rem' }}>🤖</span>
+                <h3 style={{ margin: 0, fontSize: '1.1rem', textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--primary)' }}>Daily AI Coach</h3>
+                <div style={{ 
+                    marginLeft: 'auto', 
+                    padding: '0.2rem 0.6rem', 
+                    borderRadius: '0.5rem', 
+                    fontSize: '0.7rem', 
+                    fontWeight: 800, 
+                    background: feedback.status === 'on_track' ? 'rgba(0, 255, 175, 0.1)' : 'rgba(251, 197, 49, 0.1)',
+                    color: feedback.status === 'on_track' ? 'var(--success)' : 'var(--warning)'
+                }}>
+                    {feedback.status === 'on_track' ? 'ON TRACK' : 'NEEDS ATTENTION'}
+                </div>
+            </div>
+            <p style={{ fontSize: '1.1rem', fontWeight: 500, marginBottom: '1rem', color: '#fff', lineHeight: 1.4 }}>
+                "{feedback.summary}"
+            </p>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem' }}>
+                {feedback.insights.map((insight: string, i: number) => (
+                    <div key={i} style={{ 
+                        fontSize: '0.8rem', 
+                        padding: '0.4rem 0.8rem', 
+                        background: 'rgba(255,255,255,0.03)', 
+                        borderRadius: '0.5rem', 
+                        border: '1px solid rgba(255,255,255,0.05)',
+                        color: 'var(--text-muted)'
+                    }}>
+                        • {insight}
+                    </div>
+                ))}
+            </div>
+        </div>
+      )}
 
       <div className="dashboard-grid">
         <div className="card stat-card">

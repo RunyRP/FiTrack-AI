@@ -6,11 +6,85 @@ from app.core.auth import get_current_user
 from app.models.user import User
 from typing import List
 
+from app.models.workout import WorkoutSession, WorkoutExercise
+from app.schemas.workout import WorkoutSessionCreate, WorkoutSession as WorkoutSessionSchema, ExerciseProgression
+from typing import List
+import datetime
+
 router = APIRouter()
 
 @router.get("/machinery")
 def get_all_machinery(db: Session = Depends(get_db)):
     return db.query(Machinery).all()
+
+@router.post("/session", response_model=WorkoutSessionSchema)
+def log_workout_session(
+    workout_data: WorkoutSessionCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    # Create the session
+    session = WorkoutSession(
+        user_id=current_user.id,
+        name=workout_data.name,
+        notes=workout_data.notes,
+        date=datetime.datetime.utcnow()
+    )
+    db.add(session)
+    db.flush() # Get session ID
+
+    # Create the exercises and sets
+    for ex_data in workout_data.exercises:
+        exercise = WorkoutExercise(
+            session_id=session.id,
+            exercise_name=ex_data.exercise_name,
+            machine_id=ex_data.machine_id,
+            sets=[set_data.dict() for set_data in ex_data.sets]
+        )
+        db.add(exercise)
+    
+    db.commit()
+    db.refresh(session)
+    return session
+
+@router.get("/history", response_model=List[WorkoutSessionSchema])
+def get_workout_history(
+    limit: int = 10,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    return db.query(WorkoutSession).filter(
+        WorkoutSession.user_id == current_user.id
+    ).order_by(WorkoutSession.date.desc()).limit(limit).all()
+
+@router.get("/progression/{exercise_name}", response_model=List[ExerciseProgression])
+def get_exercise_progression(
+    exercise_name: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    # Find all sessions for this user that included this exercise
+    exercises = db.query(WorkoutExercise).join(WorkoutSession).filter(
+        WorkoutSession.user_id == current_user.id,
+        WorkoutExercise.exercise_name == exercise_name
+    ).order_by(WorkoutSession.date.asc()).all()
+    
+    progression = []
+    for ex in exercises:
+        if not ex.sets: continue
+        
+        max_weight = max([s["weight"] for s in ex.sets])
+        avg_reps = sum([s["reps"] for s in ex.sets]) / len(ex.sets)
+        total_volume = sum([s["weight"] * s["reps"] for s in ex.sets])
+        
+        progression.append({
+            "date": ex.session.date,
+            "max_weight": float(max_weight),
+            "avg_reps": float(avg_reps),
+            "total_volume": float(total_volume)
+        })
+        
+    return progression
 
 @router.get("/suggest")
 def suggest_workouts(

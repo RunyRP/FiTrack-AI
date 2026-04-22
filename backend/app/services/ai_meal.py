@@ -90,8 +90,11 @@ class AIMealService:
 
         # Negative prompts to filter non-food
         negative_labels = ["a person", "a room", "electronics", "an animal", "furniture", "clothing", "building"]
-        all_labels = food_labels + negative_labels
-
+        
+        # Portion size prompts for better estimation
+        portion_labels = ["a small portion", "a normal portion", "a large portion", "a giant portion"]
+        
+        all_labels = food_labels + negative_labels + portion_labels
         texts = [f"a photo of {lbl}" for lbl in all_labels]
 
         inputs = self.processor(text=texts, images=image, return_tensors="pt", padding=True).to(self.device)
@@ -101,27 +104,42 @@ class AIMealService:
             logits_per_image = outputs.logits_per_image
             probs = logits_per_image.softmax(dim=-1)[0].cpu().tolist()
 
+        # Extract probabilities for different categories
+        food_probs = probs[:len(food_labels)]
+        neg_probs = probs[len(food_labels):len(food_labels)+len(negative_labels)]
+        size_probs = probs[len(food_labels)+len(negative_labels):]
+
+        # 1. Rejection Logic: If a negative label is dominant, it's probably not food
+        max_neg_prob = max(neg_probs)
+        if max_neg_prob > 0.25:
+            return []
+
+        # 2. Size Multiplier based on size prompts
+        # small=0.7, normal=1.0, large=1.3, giant=1.6
+        size_multipliers = [0.7, 1.0, 1.3, 1.6]
+        max_size_idx = size_probs.index(max(size_probs))
+        base_size_multiplier = size_multipliers[max_size_idx]
+
         results = []
-        for i, prob in enumerate(probs):
-            label = all_labels[i]
+        for i, prob in enumerate(food_probs):
+            label = food_labels[i]
 
-            # Rejection logic
-            if label in negative_labels and prob > 0.20:
-                return []
-
-            if label in food_labels and prob > 0.10:
+            # Multi-item detection:
+            # Instead of just the top 1, we look for items with significant confidence
+            # even if they aren't the absolute winner.
+            if prob > 0.08:  # Lower threshold to catch side items
                 db_entry = FOOD_DB[label]
                 
-                # Portion Logic:
-                # We can refine this further by analyzing image brightness/coverage
-                # but for now, we use a smarter default based on type.
-                est_grams = db_entry["default_portion"]
+                # Refined Portion Logic:
+                # Combine the size multiplier with the item's confidence
+                est_multiplier = base_size_multiplier
                 
-                # Heuristic: If confidence is very high, maybe it's a larger portion?
-                # This is a placeholder for real volume estimation.
-                if prob > 0.50 and db_entry["type"] == "volume":
-                    est_grams = int(est_grams * 1.2)
-                
+                # If confidence is exceptionally high for an item (>40%), 
+                # it's likely a primary component, maybe increase its portion
+                if prob > 0.40:
+                    est_multiplier *= 1.1
+
+                est_grams = int(db_entry["default_portion"] * est_multiplier)
                 est_kcal = int(est_grams * db_entry["kcal"] / 100)
 
                 results.append({
@@ -129,14 +147,17 @@ class AIMealService:
                     "confidence": prob,
                     "grams": est_grams,
                     "kcal": est_kcal,
-                    "base_kcal": db_entry["kcal"]
+                    "base_kcal": db_entry["kcal"],
+                    "portion_note": portion_labels[max_size_idx].replace("a ", "")
                 })
 
+        # Sort and filter
         sorted_results = sorted(results, key=lambda x: x["confidence"], reverse=True)
 
-        if not sorted_results or sorted_results[0]["confidence"] < 0.15:
+        if not sorted_results or sorted_results[0]["confidence"] < 0.12:
             return []
 
+        # Return top matches, prioritizing diversity in labels
         return sorted_results[:5]
 
 # Lazy initialization
