@@ -156,6 +156,7 @@ h1 {
   transition: all 0.3s ease;
   appearance: none; /* Reset for custom arrows */
   -webkit-appearance: none;
+  color-scheme: dark; /* Fixes browser default styles like number arrows */
 }
 
 .input-group select {

@@ -92,10 +92,12 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   if (loading) return <div className="container">Verifying...</div>;
   if (!token || !user) return <Navigate to="/login" state={{ from: location }} replace />;
 
-  const isSetupIncomplete = !user?.profile?.setup_complete;
+  // Only redirect to setup/profile if we explicitly know setup isn't done.
+  // If user.profile is missing, they need to go to setup.
+  const needsSetup = !user.profile || user.profile.setup_complete === false;
   
-  if (isSetupIncomplete && location.pathname !== '/profile' && location.pathname !== '/setup') {
-    return <Navigate to="/profile" replace />;
+  if (needsSetup && location.pathname !== '/setup' && location.pathname !== '/profile') {
+    return <Navigate to="/setup" replace />;
   }
 
   return <>{children}</>;
