@@ -219,7 +219,7 @@ def get_daily_feedback(
     user_name = profile.name or "Athlete"
     raw_data = f"User Name: {user_name}, Calories: {log.total_kcal}/{target_kcal}, Steps: {log.steps}, Water: {log.water_ml}ml. Goal: {profile.objective}."
     ai_feedback = chat_service.generate_response(
-        f"Generate a very short, encouraging 2-sentence daily summary addressing the user by their name. Stats: {raw_data}",
+        f"Give a short, punchy, 2-sentence motivational coaching tip to {user_name} based on these stats: {raw_data}. Be direct and professional, no formal letter salutations like 'Dear'.",
         user_profile={
             "age": profile.age,
             "weight": profile.weight,

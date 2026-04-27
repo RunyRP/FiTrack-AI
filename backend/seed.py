@@ -5,6 +5,10 @@ from app.models.machinery import Machinery
 def seed_machinery():
     db = SessionLocal()
     
+    # Remove all existing machinery to ensure a clean Technogym-only list
+    db.query(Machinery).delete()
+    db.commit()
+    
     machinery_data = [
         {
             "name": "Technogym Selection Leg Extension",
@@ -52,16 +56,6 @@ def seed_machinery():
             "description": "Targeted lower back extension.",
             "image_url": "https://www.technogym.com/media/catalog/product/cache/1/image/602f0fa2c1f0d1ba5e241f914e856ff9/l/o/lower_back_selection_700_hero.jpg",
             "exercises": [{"name": "Machine Back Extension", "muscles": ["Lower Back"]}]
-        },
-        {
-            "name": "Bodyweight / No Equipment",
-            "description": "Standard bodyweight exercises.",
-            "image_url": "https://images.unsplash.com/photo-1598971639058-fab3c3109a00?q=80&w=800&auto=format&fit=crop",
-            "exercises": [
-                {"name": "Push-ups", "muscles": ["Chest", "Triceps"]},
-                {"name": "Bodyweight Squats", "muscles": ["Quads"]},
-                {"name": "Plank", "muscles": ["Core"]}
-            ]
         }
     ]
 

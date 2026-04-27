@@ -36,6 +36,7 @@ def send_chat_message(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
+    from app.services.ai_chat import get_chat_service
     # 1. Save user message
     user_msg = ChatMessage(user_id=current_user.id, role="user", content=request.message)
     db.add(user_msg)

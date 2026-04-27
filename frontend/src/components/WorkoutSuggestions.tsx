@@ -113,7 +113,7 @@ export const WorkoutSuggestions = () => {
               <div className="card" style={{ textAlign: 'center', padding: '4rem' }}>
                   <h2 style={{ marginBottom: '1rem' }}>No Equipment Selected</h2>
                   <p className="text-muted" style={{ marginBottom: '2rem' }}>Please select the equipment available at your gym to get custom workouts.</p>
-                  <Link to="/setup" className="btn btn-primary">Configure My Gym</Link>
+                  <Link to="/setup" state={{ equipmentOnly: true }} className="btn btn-primary">Configure My Gym</Link>
               </div>
           </div>
       );
@@ -158,7 +158,7 @@ export const WorkoutSuggestions = () => {
                         />
                         <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', marginTop: '0.5rem' }}>
                             <p className="text-muted" style={{ margin: 0 }}>{formatObjective(suggestionData.objective)} Focus</p>
-                            <Link to="/setup" style={{ fontSize: '0.8rem', color: 'var(--primary)', textDecoration: 'none' }}>Change Equipment</Link>
+                            <Link to="/setup" state={{ equipmentOnly: true }} style={{ fontSize: '0.8rem', color: 'var(--primary)', textDecoration: 'none' }}>Change Equipment</Link>
                         </div>
                     </div>
                     <button className="btn btn-primary" onClick={handleSaveWorkout} disabled={saving}>

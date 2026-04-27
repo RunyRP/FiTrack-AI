@@ -27,44 +27,47 @@ class FitnessChatService:
         if user_profile:
             user_name = user_profile.get('name', 'Athlete')
             obj = user_profile.get('objective', 'maintain').replace('_', ' ')
-            profile_info = f"User: {user_name}, Age {user_profile.get('age')}, Weight {user_profile.get('weight')}kg, Goal: {obj}."
+            profile_info = f"UserAge: {user_profile.get('age')}, UserWeight: {user_profile.get('weight')}kg, Goal: {obj}."
 
-        # Re-engineered persona to be more objective and professional
+        # Strict, concise system prompt
         prompt = (
-            f"<|system|>\nYou are a professional fitness and nutrition coach. "
-            f"You provide objective, scientific, and actionable advice. "
-            f"You do not relate to personal feelings or shared illnesses; you focus on fitness guidance. "
-            f"Always address the user as {user_name}. {profile_info}</s>\n"
+            f"<|system|>\nYou are a professional AI Fitness Coach. "
+            f"Address the user directly as {user_name}. "
+            f"Provide objective, scientific advice on workouts and nutrition. "
+            f"NEVER provide medical diagnoses or health predictions. "
+            f"Keep responses under 3 sentences. {profile_info}</s>\n"
             f"<|user|>\n{user_message}</s>\n"
             f"<|assistant|>\n"
         )
 
-        # Fix: max_new_tokens is already set, ensuring no max_length conflict
+        # Lower temperature for more focused, less 'creative' responses
         response = self.generator(
             prompt, 
             max_new_tokens=150, 
             do_sample=True, 
-            temperature=0.7, 
-            top_k=50, 
-            top_p=0.95,
+            temperature=0.5, 
+            top_k=40, 
+            top_p=0.9,
             repetition_penalty=1.2,
             pad_token_id=self.generator.tokenizer.eos_token_id
         )
-        
+
         # Clean up the response
         full_text = response[0]['generated_text']
-        if "<|assistant|>\n" in full_text:
-            assistant_reply = full_text.split("<|assistant|>\n")[-1].strip()
-        else:
-            assistant_reply = full_text.replace(prompt, "").strip()
-            
-        # Stop at the end of the first assistant turn if it generates extra
+        assistant_reply = full_text.split("<|assistant|>\n")[-1].strip()
         assistant_reply = assistant_reply.split("</s>")[0].strip()
-        
+
+        # Strip any self-addressing or role prefixes
+        prefixes = [f"{user_name}:", "Assistant:", "Coach:", "AI:", "Athlete:", "System:"]
+        for p in prefixes:
+            if assistant_reply.upper().startswith(p.upper()):
+                assistant_reply = assistant_reply[len(p):].strip()
+
         if not assistant_reply:
-            return "I'm here to support your fitness goals! What specific questions do you have today?"
-            
+            return f"I'm here to help you reach your goals, {user_name}. What's on your mind?"
+
         return assistant_reply
+
 
 # Lazy initialization
 chat_service = None

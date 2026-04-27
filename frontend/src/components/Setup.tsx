@@ -1,10 +1,13 @@
 import { useState, useEffect } from 'react';
 import api from '../api';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../App';
 
 export const Setup = () => {
-  const [step, setStep] = useState<0 | 1 | 2>(0);
+  const location = useLocation();
+  const isEquipmentOnly = location.state?.equipmentOnly;
+  
+  const [step, setStep] = useState<0 | 1 | 2>(isEquipmentOnly ? 2 : 0);
   const [name, setName] = useState('');
   const [objective, setObjective] = useState('maintain');
   const [machinery, setMachinery] = useState<any[]>([]);

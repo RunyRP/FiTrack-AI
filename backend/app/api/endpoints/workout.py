@@ -100,15 +100,12 @@ def suggest_workouts(
         return {"objective": "N/A", "parameters": {}, "suggestions": [], "message": "Please configure your gym equipment in the Setup section."}
 
     # Fetch machines matching the provided IDs
-    machines = db.query(Machinery).filter(Machinery.id.in_(machine_ids)).all()
+    machines = []
+    if machine_ids:
+        machines = db.query(Machinery).filter(Machinery.id.in_(machine_ids)).all()
     
     # Get user objective
     objective = current_user.profile.objective if current_user.profile else "maintain"
-    
-    # Define goal-specific logic
-    # lose_weight: higher reps (12-15), moderate rest
-    # gain_muscle: moderate reps (8-12), emphasis on heavy-ish weights
-    # maintain: moderate reps (10-12)
     
     goal_params = {
         "lose_weight": {"reps": "12-15", "sets": "3-4", "rest": "60s", "focus": "Calorie burn & endurance"},
@@ -120,20 +117,41 @@ def suggest_workouts(
     params = goal_params.get(objective, goal_params["maintain"])
     
     suggestions = []
-    for machine in machines:
-        # Exercises are stored in JSON as a list of dicts: [{"name": "...", "muscles": [...]}]
-        for exercise in machine.exercises:
+    
+    # If no machines selected, add default bodyweight exercises
+    if not machines:
+        bodyweight_exercises = [
+            {"exercise_name": "Push-ups", "muscles": ["Chest", "Triceps", "Shoulders"], "machine_name": "Bodyweight", "image_url": "https://images.unsplash.com/photo-1598971639058-fab3c3109a00?q=80&w=800&auto=format&fit=crop"},
+            {"exercise_name": "Bodyweight Squats", "muscles": ["Quads", "Glutes"], "machine_name": "Bodyweight", "image_url": "https://images.unsplash.com/photo-1574680096145-d05b474e2155?q=80&w=800&auto=format&fit=crop"},
+            {"exercise_name": "Plank", "muscles": ["Core"], "machine_name": "Bodyweight", "image_url": "https://images.unsplash.com/photo-1566241142559-40e1bfc26ddc?q=80&w=800&auto=format&fit=crop"},
+            {"exercise_name": "Lunges", "muscles": ["Quads", "Hamstrings"], "machine_name": "Bodyweight", "image_url": "https://images.unsplash.com/photo-1434682772747-f16d3ea162c3?q=80&w=800&auto=format&fit=crop"}
+        ]
+        for ex in bodyweight_exercises:
             suggestions.append({
-                "machine_id": machine.id,
-                "machine_name": machine.name,
-                "machine_image": machine.image_url,
-                "exercise_name": exercise["name"],
-                "muscles": exercise["muscles"],
+                "machine_id": None,
+                "machine_name": ex["machine_name"],
+                "machine_image": ex["image_url"],
+                "exercise_name": ex["exercise_name"],
+                "muscles": ex["muscles"],
                 "reps": params["reps"],
                 "sets": params["sets"],
                 "rest": params["rest"],
                 "focus": params["focus"]
             })
+    else:
+        for machine in machines:
+            for exercise in machine.exercises:
+                suggestions.append({
+                    "machine_id": machine.id,
+                    "machine_name": machine.name,
+                    "machine_image": machine.image_url,
+                    "exercise_name": exercise["name"],
+                    "muscles": exercise["muscles"],
+                    "reps": params["reps"],
+                    "sets": params["sets"],
+                    "rest": params["rest"],
+                    "focus": params["focus"]
+                })
             
     return {
         "objective": objective,

@@ -25,6 +25,7 @@ async def analyze_meal(
     file: UploadFile = File(...),
     current_user: User = Depends(get_current_user)
 ):
+    from app.services.ai_meal import get_ai_service
     contents = await file.read()
     ai_service = get_ai_service()
     analysis = ai_service.analyze_image(contents)
