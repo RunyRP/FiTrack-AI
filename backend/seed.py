@@ -5,79 +5,63 @@ from app.models.machinery import Machinery
 def seed_machinery():
     db = SessionLocal()
     
-    # Check if already seeded
-    # We'll update instead of just checking if empty to add image URLs
-    
     machinery_data = [
         {
-            "name": "Bodyweight / No Equipment",
-            "description": "Exercises using only your own body weight.",
-            "image_url": "https://images.unsplash.com/photo-1598971639058-fab3c3109a00?q=80&w=800&auto=format&fit=crop",
-            "exercises": [
-                {"name": "Push-ups", "muscles": ["Chest", "Triceps", "Shoulders"]},
-                {"name": "Bodyweight Squats", "muscles": ["Quads", "Glutes"]},
-                {"name": "Plank", "muscles": ["Core"]},
-                {"name": "Lunges", "muscles": ["Quads", "Hamstrings"]}
-            ]
-        },
-        {
-            "name": "Cable Machine / Pulley",
-            "description": "Versatile cable-based exercises.",
-            "image_url": "https://images.unsplash.com/photo-1541534401786-2077ee4b25e0?q=80&w=800&auto=format&fit=crop",
-            "exercises": [
-                {"name": "Cable Flyes", "muscles": ["Chest"]},
-                {"name": "Cable Bicep Curls", "muscles": ["Biceps"]},
-                {"name": "Tricep Pushdowns", "muscles": ["Triceps"]},
-                {"name": "Cable Face Pulls", "muscles": ["Rear Delts", "Back"]}
-            ]
-        },
-        {
-            "name": "Leg Extension Machine",
-            "description": "Isolates the quadriceps muscles.",
-            "image_url": "https://images.unsplash.com/photo-1591504770183-49033327663f?q=80&w=800&auto=format&fit=crop",
+            "name": "Technogym Selection Leg Extension",
+            "description": "Premium isolation for the quadriceps.",
+            "image_url": "https://www.technogym.com/media/catalog/product/cache/1/image/602f0fa2c1f0d1ba5e241f914e856ff9/l/e/leg_extension_selection_700_hero.jpg",
             "exercises": [{"name": "Leg Extension", "muscles": ["Quads"]}]
         },
         {
-            "name": "Chest Press Machine",
-            "description": "Targeting the pectoral muscles, shoulders, and triceps.",
-            "image_url": "https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=800&auto=format&fit=crop",
+            "name": "Technogym Chest Press",
+            "description": "Ergonomic chest training from the Selection line.",
+            "image_url": "https://www.technogym.com/media/catalog/product/cache/1/image/602f0fa2c1f0d1ba5e241f914e856ff9/c/h/chest_press_selection_700_hero.jpg",
             "exercises": [{"name": "Machine Chest Press", "muscles": ["Chest", "Shoulders", "Triceps"]}]
         },
         {
-            "name": "Lat Pulldown Machine",
-            "description": "Exercises the latissimus dorsi muscles.",
-            "image_url": "https://images.unsplash.com/photo-1605296867304-46d5465a13f1?q=80&w=800&auto=format&fit=crop",
+            "name": "Technogym Lat Pulldown",
+            "description": "Standard lat pulldown machine for back development.",
+            "image_url": "https://www.technogym.com/media/catalog/product/cache/1/image/602f0fa2c1f0d1ba5e241f914e856ff9/l/a/lat_machine_selection_700_hero.jpg",
             "exercises": [{"name": "Wide Grip Lat Pulldown", "muscles": ["Back", "Biceps"]}]
         },
         {
-            "name": "Seated Row Machine",
-            "description": "Targets the middle back and lats.",
-            "image_url": "https://images.unsplash.com/photo-1594737625785-a6907409f583?q=80&w=800&auto=format&fit=crop",
-            "exercises": [{"name": "Seated Cable Row", "muscles": ["Back", "Biceps"]}]
-        },
-        {
-            "name": "Leg Press Machine",
-            "description": "Targets the quads, hamstrings, and glutes.",
-            "image_url": "https://images.unsplash.com/photo-1541534741688-6078c6bfb5c5?q=80&w=800&auto=format&fit=crop",
+            "name": "Technogym Pure Strength Leg Press",
+            "description": "Plate-loaded leg press for heavy lower body training.",
+            "image_url": "https://www.technogym.com/media/catalog/product/cache/1/image/602f0fa2c1f0d1ba5e241f914e856ff9/l/e/leg_press_pure_hero.jpg",
             "exercises": [{"name": "Leg Press", "muscles": ["Quads", "Glutes", "Hamstrings"]}]
         },
         {
-            "name": "Shoulder Press Machine",
-            "description": "Isolates the deltoid muscles.",
-            "image_url": "https://images.unsplash.com/photo-1581009146145-b5ef050c2e1e?q=80&w=800&auto=format&fit=crop",
-            "exercises": [{"name": "Overhead Press", "muscles": ["Shoulders", "Triceps"]}]
+            "name": "Technogym Shoulder Press",
+            "description": "Isolation for the deltoids.",
+            "image_url": "https://www.technogym.com/media/catalog/product/cache/1/image/602f0fa2c1f0d1ba5e241f914e856ff9/s/h/shoulder_press_selection_700_hero.jpg",
+            "exercises": [{"name": "Machine Overhead Press", "muscles": ["Shoulders", "Triceps"]}]
         },
         {
-            "name": "Bicep Curl Machine",
-            "description": "Isolates the biceps brachii.",
-            "image_url": "https://images.unsplash.com/photo-1583454110551-21f2fa2afe61?q=80&w=800&auto=format&fit=crop",
-            "exercises": [{"name": "Machine Bicep Curl", "muscles": ["Biceps"]}]
+            "name": "Technogym Dual Adjustable Pulley",
+            "description": "Versatile cable station for full body training.",
+            "image_url": "https://www.technogym.com/media/catalog/product/cache/1/image/602f0fa2c1f0d1ba5e241f914e856ff9/d/u/dual_adjustable_pulley_performance_hero.jpg",
+            "exercises": [
+                {"name": "Cable Flyes", "muscles": ["Chest"]},
+                {"name": "Cable Rows", "muscles": ["Back"]},
+                {"name": "Cable Bicep Curls", "muscles": ["Biceps"]},
+                {"name": "Tricep Pushdowns", "muscles": ["Triceps"]}
+            ]
         },
         {
-            "name": "Tricep Extension Machine",
-            "description": "Isolates the triceps muscles.",
-            "image_url": "https://images.unsplash.com/photo-1590239062391-9e79435b2e65?q=80&w=800&auto=format&fit=crop",
-            "exercises": [{"name": "Machine Tricep Extension", "muscles": ["Triceps"]}]
+            "name": "Technogym Lower Back",
+            "description": "Targeted lower back extension.",
+            "image_url": "https://www.technogym.com/media/catalog/product/cache/1/image/602f0fa2c1f0d1ba5e241f914e856ff9/l/o/lower_back_selection_700_hero.jpg",
+            "exercises": [{"name": "Machine Back Extension", "muscles": ["Lower Back"]}]
+        },
+        {
+            "name": "Bodyweight / No Equipment",
+            "description": "Standard bodyweight exercises.",
+            "image_url": "https://images.unsplash.com/photo-1598971639058-fab3c3109a00?q=80&w=800&auto=format&fit=crop",
+            "exercises": [
+                {"name": "Push-ups", "muscles": ["Chest", "Triceps"]},
+                {"name": "Bodyweight Squats", "muscles": ["Quads"]},
+                {"name": "Plank", "muscles": ["Core"]}
+            ]
         }
     ]
 
@@ -93,12 +77,8 @@ def seed_machinery():
     
     db.commit()
     db.close()
-    print("Machinery seeded and updated successfully")
+    print("Technogym machinery seeded successfully")
 
 if __name__ == "__main__":
-    # Ensure tables are created first
-    # Note: If database already exists, create_all won't modify existing tables.
-    # But since we added image_url, users might need to drop fittrack.db if it fails.
-    # For now we assume the SQLAlchemy models handle the session properly.
     Base.metadata.create_all(bind=engine)
     seed_machinery()

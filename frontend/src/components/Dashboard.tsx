@@ -6,6 +6,7 @@ export const Dashboard = () => {
   const [stepsInput, setStepsInput] = useState<number>(0);
   const [waterInput, setWaterInput] = useState<number>(0);
   const [weightInput, setWeightInput] = useState<number>(0);
+  const [loadingAI, setLoadingAI] = useState(false);
 
   const fetchData = async () => {
     try {
@@ -22,6 +23,18 @@ export const Dashboard = () => {
   useEffect(() => {
     fetchData();
   }, []);
+
+  const refreshAI = async () => {
+      setLoadingAI(true);
+      try {
+          const res = await api.get('/log/feedback');
+          setData({ ...data, feedback: res.data });
+      } catch (err) {
+          console.error(err);
+      } finally {
+          setLoadingAI(false);
+      }
+  };
 
   const updateSteps = async () => {
     try {
@@ -64,14 +77,12 @@ export const Dashboard = () => {
   const circumference = 2 * Math.PI * radius;
   const offset = circumference - (Math.min(kcalPercent, 100) / 100) * circumference;
 
-  // Macro Totals
   const totals = today.food_items.reduce((acc: any, item: any) => ({
       p: acc.p + (item.protein || 0),
       c: acc.c + (item.carbs || 0),
       f: acc.f + (item.fat || 0)
   }), { p: 0, c: 0, f: 0 });
 
-  // Targets (Simple heuristic: 30% P, 40% C, 30% F)
   const targets = {
       p: Math.round((profile.target_kcal * 0.3) / 4),
       c: Math.round((profile.target_kcal * 0.4) / 4),
@@ -82,7 +93,7 @@ export const Dashboard = () => {
     <div className="container">
       <div className="card" style={{ textAlign: 'left', marginBottom: '2rem' }}>
         <h1 style={{ marginBottom: '0.5rem' }}>Welcome Back, {profile.name || 'Athlete'}</h1>
-        <p className="text-muted" style={{ fontSize: '1.1rem' }}>Your daily targets are personalized for your <strong>{profile.objective?.replace('_', ' ')}</strong> plan.</p>
+        <p className="text-muted" style={{ fontSize: '1.1rem' }}>Personalized plan: <strong>{profile.objective?.replace('_', ' ')}</strong></p>
       </div>
 
       {feedback && (
@@ -108,9 +119,17 @@ export const Dashboard = () => {
                     {feedback.status === 'on_track' ? 'ON TRACK' : 'NEEDS ATTENTION'}
                 </div>
             </div>
+            
             <p style={{ fontSize: '1.1rem', fontWeight: 500, marginBottom: '1rem', color: '#fff', lineHeight: 1.4 }}>
-                "{feedback.summary}"
+                {feedback.summary === "Your AI Coach is analyzing your progress..." ? (
+                    <button className="btn btn-secondary" onClick={refreshAI} disabled={loadingAI} style={{ padding: '0.5rem 1rem', fontSize: '0.8rem' }}>
+                        {loadingAI ? 'Analyzing...' : 'Generate Daily Summary ✨'}
+                    </button>
+                ) : (
+                    `"${feedback.summary}"`
+                )}
             </p>
+
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem' }}>
                 {feedback.insights.map((insight: string, i: number) => (
                     <div key={i} style={{ 
@@ -128,8 +147,9 @@ export const Dashboard = () => {
         </div>
       )}
 
-      <div className="dashboard-grid">
-        <div className="card stat-card">
+      {/* Main Trackers Row */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '2rem', marginBottom: '2rem' }}>
+        <div className="card stat-card" style={{ marginBottom: 0 }}>
           <h3>Daily Calories</h3>
           <div className="progress-ring-container">
             <svg className="progress-ring-svg" width="160" height="160">
@@ -172,35 +192,13 @@ export const Dashboard = () => {
           </div>
         </div>
 
-        <div className="card stat-card">
-          <h3>Activity & Weight</h3>
-          <div style={{ display: 'grid', gap: '2rem', marginTop: '1rem' }}>
-              <div>
-                  <div className="stat-value" style={{ margin: '0 0 0.5rem' }}>{today.steps.toLocaleString()}</div>
-                  <p className="text-muted" style={{ marginBottom: '1rem' }}>Steps (Goal: 10,000)</p>
-                  <div style={{ display: 'flex', gap: '0.5rem' }}>
-                      <input type="number" className="btn btn-secondary" value={stepsInput} onChange={e => setStepsInput(parseInt(e.target.value)||0)} style={{ flex: 1, cursor: 'text' }}/>
-                      <button className="btn btn-primary" onClick={updateSteps}>Update</button>
-                  </div>
-              </div>
-              <div style={{ borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '1.5rem' }}>
-                  <div className="stat-value" style={{ margin: '0 0 0.5rem', color: 'var(--success)' }}>{today.weight || '--'} <span style={{ fontSize: '1rem' }}>KG</span></div>
-                  <p className="text-muted" style={{ marginBottom: '1rem' }}>Current Body Weight</p>
-                  <div style={{ display: 'flex', gap: '0.5rem' }}>
-                      <input type="number" step="0.1" className="btn btn-secondary" value={weightInput} onChange={e => setWeightInput(parseFloat(e.target.value)||0)} style={{ flex: 1, cursor: 'text' }}/>
-                      <button className="btn btn-primary" onClick={updateWeight}>Log</button>
-                  </div>
-              </div>
-          </div>
-        </div>
-
-        <div className="card stat-card">
+        <div className="card stat-card" style={{ marginBottom: 0 }}>
           <h3>Hydration</h3>
-          <div className="stat-value" style={{ background: 'linear-gradient(135deg, #fff 0%, #3498db 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+          <div className="stat-value" style={{ background: 'linear-gradient(135deg, #fff 0%, #3498db 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', fontSize: '4.5rem' }}>
             {today.water_ml} <span style={{ fontSize: '1rem', WebkitTextFillColor: 'var(--text-muted)' }}>ML</span>
           </div>
           <p className="text-muted" style={{ marginBottom: '1.5rem' }}>Goal: 3,000 ml</p>
-          <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center' }}>
+          <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center', marginTop: '2rem' }}>
             <input 
               type="number" 
               className="btn btn-secondary"
@@ -210,6 +208,42 @@ export const Dashboard = () => {
             />
             <button className="btn btn-primary" onClick={updateWater}>Update</button>
           </div>
+          <div style={{ marginTop: '3rem', display: 'flex', justifyContent: 'center', gap: '0.5rem' }}>
+              {[250, 500].map(amt => (
+                  <button key={amt} className="btn btn-secondary" style={{ padding: '0.5rem', fontSize: '0.7rem' }} onClick={() => { setWaterInput(waterInput + amt); }}>+{amt}ml</button>
+              ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Activity & Weight Row (Requested separate line) */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '2rem', marginBottom: '2rem' }}>
+        <div className="card stat-card" style={{ marginBottom: 0, textAlign: 'left', padding: '2rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                    <h3 style={{ margin: 0 }}>Daily Steps</h3>
+                    <div className="stat-value" style={{ margin: '0.5rem 0', fontSize: '3rem' }}>{today.steps.toLocaleString()}</div>
+                    <p className="text-muted">Goal: 10,000</p>
+                </div>
+                <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                    <input type="number" className="btn btn-secondary" value={stepsInput} onChange={e => setStepsInput(parseInt(e.target.value)||0)} style={{ width: '100px', cursor: 'text' }}/>
+                    <button className="btn btn-primary" onClick={updateSteps}>Set</button>
+                </div>
+            </div>
+        </div>
+
+        <div className="card stat-card" style={{ marginBottom: 0, textAlign: 'left', padding: '2rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                    <h3 style={{ margin: 0 }}>Current Weight</h3>
+                    <div className="stat-value" style={{ margin: '0.5rem 0', fontSize: '3rem', color: 'var(--success)' }}>{today.weight || '--'} <span style={{ fontSize: '1.2rem' }}>KG</span></div>
+                    <p className="text-muted">Tracking progress</p>
+                </div>
+                <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                    <input type="number" step="0.1" className="btn btn-secondary" value={weightInput} onChange={e => setWeightInput(parseFloat(e.target.value)||0)} style={{ width: '100px', cursor: 'text' }}/>
+                    <button className="btn btn-primary" onClick={updateWeight}>Log</button>
+                </div>
+            </div>
         </div>
       </div>
 
