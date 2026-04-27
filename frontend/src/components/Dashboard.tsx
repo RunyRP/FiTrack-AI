@@ -24,6 +24,13 @@ export const Dashboard = () => {
     fetchData();
   }, []);
 
+  // Auto-refresh AI feedback if it's in the initial state
+  useEffect(() => {
+      if (data?.feedback?.summary === "Your AI Coach is analyzing your progress...") {
+          refreshAI();
+      }
+  }, [data]);
+
   const refreshAI = async () => {
       setLoadingAI(true);
       try {
