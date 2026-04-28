@@ -37,8 +37,15 @@ export const Profile = () => {
     if (e) e.preventDefault();
     setUpdating(true);
     try {
-      const dataToSave = { ...profile, ...partialUpdate };
+      const dataToSave = { 
+          ...profile, 
+          ...partialUpdate,
+          age: parseInt(String(partialUpdate?.age || profile.age)),
+          weight: parseFloat(String(partialUpdate?.weight || profile.weight)),
+          height: parseFloat(String(partialUpdate?.height || profile.height))
+      };
       await api.put('/user/profile', dataToSave);
+      localStorage.removeItem('dashboard_cache');
       await refreshUser();
       setMessage('Profile updated and goals recalculated!');
       setTimeout(() => setMessage(''), 3000);

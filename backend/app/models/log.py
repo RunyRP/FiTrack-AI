@@ -17,5 +17,6 @@ class DailyLog(Base):
     # Store food items: [{"label": "pizza", "kcal": 266, "grams": 100, "type": "Lunch", "protein": 10, "carbs": 30, "fat": 12}, ...]
     food_items = Column(JSON, default=list)
     total_kcal = Column(Integer, default=0)
+    ai_summary = Column(String, nullable=True)
 
     user = relationship("User", back_populates="logs")

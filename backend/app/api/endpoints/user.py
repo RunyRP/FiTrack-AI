@@ -27,6 +27,9 @@ def update_profile(
     for var, value in vars(profile_update).items():
         if value is not None:
             setattr(profile, var, value)
+    
+    # Ensure setup is marked complete if we are updating it
+    profile.setup_complete = True
             
     # Recalculate with updated logic (objective aware)
     profile.target_kcal = calculate_target_kcal_logic(

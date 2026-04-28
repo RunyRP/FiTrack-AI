@@ -147,9 +147,13 @@ def get_dashboard_data(
             history.append({"date": curr_date, "total_kcal": 0, "steps": 0, "water_ml": 0, "weight": None, "food_items": []})
 
     # 3. Get Feedback (Only generate if needed or requested, or just return basic insights for speed)
-    # To keep dashboard fast, we return the insights immediately and generate the AI summary only if it doesn't exist for today.
+    profile = current_user.profile
+    
+    # Try to get cached summary from today's log
+    cached_summary = getattr(log, 'ai_summary', None)
+    
     feedback = {
-        "summary": "Your AI Coach is analyzing your progress...",
+        "summary": cached_summary or "Your AI Coach is analyzing your progress...",
         "insights": [],
         "status": "on_track"
     }
@@ -227,6 +231,10 @@ def get_daily_feedback(
             "name": user_name
         }
     )
+    
+    # Cache the result
+    log.ai_summary = ai_feedback
+    db.commit()
     
     return {
         "summary": ai_feedback,

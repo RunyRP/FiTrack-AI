@@ -32,7 +32,8 @@ class FitnessChatService:
         # Strict, concise system prompt with no-nonsense instructions
         prompt = (
             f"<|system|>\nYou are a professional AI Fitness Coach. "
-            f"You MUST address the user directly as {user_name}. "
+            f"Address the user as {user_name}. "
+            f"NEVER use the placeholder '[user]' or '[User]'. "
             f"NEVER use formal greetings like 'Dear' or 'Hi Athlete'. "
             f"Never introduce yourself. Just give the coaching advice directly. "
             f"Respond in exactly 2 short sentences. {profile_info}</s>\n"
@@ -57,11 +58,20 @@ class FitnessChatService:
         assistant_reply = full_text.split("<|assistant|>\n")[-1].strip()
         assistant_reply = assistant_reply.split("</s>")[0].strip()
 
+        # Handle placeholders that the model might hallucinate
+        assistant_reply = assistant_reply.replace("[user]", user_name).replace("[User]", user_name)
+
         # Aggressive cleanup of hallucinated roles and salutations
         bad_starts = [
             f"{user_name}:", "Assistant:", "Coach:", "AI:", "Athlete:", "System:", 
             "Dear", "Greetings", "Hello", "Hi", "Hi Athlete", "@"
         ]
+        
+        # If user_name is Athlete, don't strip it if it's just the name
+        if user_name.lower() == "athlete":
+             # remove "Athlete:" but keep "Athlete, " if it's part of the sentence (though prompt says don't greet)
+             bad_starts = [b for b in bad_starts if b != "Athlete:"]
+             bad_starts.append("Athlete:") 
 
         # Run multiple passes to clean up nested prefixes
         for _ in range(3):
