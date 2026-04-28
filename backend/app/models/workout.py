@@ -7,8 +7,8 @@ class WorkoutSession(Base):
     __tablename__ = "workout_sessions"
 
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"))
-    date = Column(DateTime, default=datetime.datetime.utcnow)
+    user_id = Column(Integer, ForeignKey("users.id"), index=True)
+    date = Column(DateTime, default=datetime.datetime.utcnow, index=True)
     name = Column(String)  # e.g., "Upper Body", "Leg Day"
     notes = Column(String, nullable=True)
 

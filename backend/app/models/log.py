@@ -7,8 +7,8 @@ class DailyLog(Base):
     __tablename__ = "daily_logs"
 
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"))
-    date = Column(Date, default=date.today)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    date = Column(Date, default=date.today, index=True)
     
     steps = Column(Integer, default=0)
     water_ml = Column(Integer, default=0)

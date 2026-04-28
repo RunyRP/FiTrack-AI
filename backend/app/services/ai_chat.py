@@ -60,7 +60,7 @@ class FitnessChatService:
         # Aggressive cleanup of hallucinated roles and salutations
         bad_starts = [
             f"{user_name}:", "Assistant:", "Coach:", "AI:", "Athlete:", "System:", 
-            "Dear", "Greetings", "Hello", "Hi", "Hi Athlete"
+            "Dear", "Greetings", "Hello", "Hi", "Hi Athlete", "@"
         ]
 
         # Run multiple passes to clean up nested prefixes

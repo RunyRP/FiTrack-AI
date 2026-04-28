@@ -2,7 +2,10 @@ import { useState, useEffect } from 'react';
 import api from '../api';
 
 export const Dashboard = () => {
-  const [data, setData] = useState<any>(null);
+  const [data, setData] = useState<any>(() => {
+      const cached = localStorage.getItem('dashboard_cache');
+      return cached ? JSON.parse(cached) : null;
+  });
   const [stepsInput, setStepsInput] = useState<number>(0);
   const [waterInput, setWaterInput] = useState<number>(0);
   const [weightInput, setWeightInput] = useState<number>(0);
@@ -12,6 +15,7 @@ export const Dashboard = () => {
     try {
       const res = await api.get('/log/dashboard-data');
       setData(res.data);
+      localStorage.setItem('dashboard_cache', JSON.stringify(res.data));
       setStepsInput(res.data.today.steps);
       setWaterInput(res.data.today.water_ml);
       setWeightInput(res.data.today.weight || res.data.user.profile.weight || 0);
@@ -35,7 +39,9 @@ export const Dashboard = () => {
       setLoadingAI(true);
       try {
           const res = await api.get('/log/feedback');
-          setData({ ...data, feedback: res.data });
+          const newData = { ...data, feedback: res.data };
+          setData(newData);
+          localStorage.setItem('dashboard_cache', JSON.stringify(newData));
       } catch (err) {
           console.error(err);
       } finally {
@@ -72,7 +78,7 @@ export const Dashboard = () => {
 
   if (!data) return (
     <div className="container" style={{ display: 'flex', height: '50vh', alignItems: 'center', justifyContent: 'center' }}>
-      <div className="stat-value" style={{ fontSize: '1.5rem' }}>Loading your dashboard...</div>
+      <div className="stat-value" style={{ fontSize: '1.5rem' }}>Preparing your dashboard...</div>
     </div>
   );
 
@@ -223,7 +229,7 @@ export const Dashboard = () => {
         </div>
       </div>
 
-      {/* Activity & Weight Row (Requested separate line) */}
+      {/* Activity & Weight Row */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '2rem', marginBottom: '2rem' }}>
         <div className="card stat-card" style={{ marginBottom: 0, textAlign: 'left', padding: '2rem' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
