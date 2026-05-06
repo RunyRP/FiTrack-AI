@@ -245,7 +245,14 @@ export const Dashboard = () => {
           </div>
         </div>
 
-        <div className="card stat-card" style={{ marginBottom: 0 }}>
+        <div className="card stat-card" style={{ marginBottom: 0, position: 'relative' }}>
+          <button 
+            onClick={() => document.getElementById('water-input')?.focus()}
+            style={{ position: 'absolute', top: '1rem', right: '1rem', background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.2rem', opacity: 0.6 }}
+            title="Edit Total"
+          >
+            ✏️
+          </button>
           <h3>Hydration</h3>
           <div className="stat-value" style={{ background: 'linear-gradient(135deg, #fff 0%, #3498db 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', fontSize: '4.5rem' }}>
             {(today.water_ml / 1000).toFixed(2)} <span style={{ fontSize: '1rem', WebkitTextFillColor: 'var(--text-muted)' }}>LITERS</span>
@@ -254,34 +261,37 @@ export const Dashboard = () => {
           <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center', marginTop: '2rem' }}>
             <div style={{ position: 'relative' }}>
                 <input 
+                id="water-input"
                 type="number" 
+                step="0.01"
                 className="btn btn-secondary"
                 value={waterInput} 
-                onChange={(e) => setWaterInput(parseInt(e.target.value) || 0)}
-                style={{ width: '120px', cursor: 'text', textAlign: 'center', paddingRight: '2.5rem' }}
+                onChange={(e) => setWaterInput(parseFloat(e.target.value) || 0)}
+                style={{ width: '120px', cursor: 'text', textAlign: 'center', paddingRight: '2rem' }}
                 />
-                <span style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', fontSize: '0.7rem', opacity: 0.5 }}>ML</span>
+                <span style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', fontSize: '0.7rem', opacity: 0.5 }}>L</span>
             </div>
             <button className="btn btn-primary" onClick={updateWater}>Update</button>
+            <button 
+                className="btn btn-secondary" 
+                onClick={() => setWaterInput(0)}
+                style={{ padding: '0.5rem', background: 'rgba(255,255,255,0.05)', borderColor: 'transparent' }}
+                title="Reset Input"
+            >
+                🧹
+            </button>
           </div>
           <div style={{ marginTop: '3rem', display: 'flex', justifyContent: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
               {[
-                  { label: '🧹 Reset (0L)', amt: -waterInput }, // Subtracting current input results in 0
-                  { label: '💧 Sip (0.05L)', amt: 0.05 },
-                  { label: '🥛 Glass (0.25L)', amt: 0.25 },
-                  { label: '🍼 Bottle (0.5L)', amt: 0.5 }
+                  { label: '💧 Sip (+0.05L)', amt: 0.05 },
+                  { label: '🥛 Glass (+0.25L)', amt: 0.25 },
+                  { label: '🍼 Bottle (+0.5L)', amt: 0.5 }
               ].map(item => (
                   <button 
                     key={item.label} 
                     className="btn btn-secondary" 
                     style={{ padding: '0.5rem 0.8rem', fontSize: '0.75rem', fontWeight: 600 }} 
-                    onClick={() => {
-                        if (item.label.includes('Reset')) {
-                            setWaterInput(0);
-                        } else {
-                            setWaterInput(parseFloat((waterInput + item.amt).toFixed(2)));
-                        }
-                    }}
+                    onClick={() => setWaterInput(prev => parseFloat((prev + item.amt).toFixed(2)))}
                   >
                     {item.label}
                   </button>
