@@ -76,9 +76,19 @@ export const Dashboard = () => {
 
   const updateWater = async () => {
     try {
-      // Convert Liters back to ML for backend
+      // Convert Liters back to ML for backend (Absolute update)
       const ml = Math.round(waterInput * 1000);
       await api.put(`/log/water?water_ml=${ml}`);
+      fetchData();
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const addWater = async (liters: number) => {
+    try {
+      const ml = Math.round(liters * 1000);
+      await api.put(`/log/add-water?water_ml=${ml}`);
       fetchData();
     } catch (err) {
       console.error(err);
@@ -247,40 +257,55 @@ export const Dashboard = () => {
 
         <div className="card stat-card" style={{ marginBottom: 0, position: 'relative' }}>
           <button 
-            onClick={() => document.getElementById('water-input')?.focus()}
-            style={{ position: 'absolute', top: '1rem', right: '1rem', background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.2rem', opacity: 0.6 }}
+            onClick={() => document.getElementById('main-water-input')?.focus()}
+            style={{ position: 'absolute', top: '1.5rem', right: '1.5rem', background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.2rem', opacity: 0.6 }}
             title="Edit Total"
           >
             ✏️
           </button>
           <h3>Hydration</h3>
-          <div className="stat-value" style={{ background: 'linear-gradient(135deg, #fff 0%, #3498db 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', fontSize: '4.5rem' }}>
-            {(today.water_ml / 1000).toFixed(2)} <span style={{ fontSize: '1rem', WebkitTextFillColor: 'var(--text-muted)' }}>LITERS</span>
-          </div>
-          <p className="text-muted" style={{ marginBottom: '1.5rem' }}>Goal: 3.00 L</p>
-          <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center', marginTop: '2rem' }}>
-            <div style={{ position: 'relative' }}>
+          
+          <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+            <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'center', width: '100%' }}>
                 <input 
-                id="water-input"
-                type="number" 
-                step="0.01"
-                className="btn btn-secondary"
-                value={waterInput} 
-                onChange={(e) => setWaterInput(parseFloat(e.target.value) || 0)}
-                style={{ width: '120px', cursor: 'text', textAlign: 'center', paddingRight: '2rem' }}
+                    id="main-water-input"
+                    type="number" 
+                    step="0.01"
+                    value={waterInput} 
+                    onChange={(e) => setWaterInput(parseFloat(e.target.value) || 0)}
+                    className="stat-value"
+                    style={{ 
+                        background: 'linear-gradient(135deg, #fff 0%, #3498db 100%)', 
+                        WebkitBackgroundClip: 'text', 
+                        WebkitTextFillColor: 'initial', 
+                        color: '#fff',
+                        fontSize: '4.5rem',
+                        border: 'none',
+                        outline: 'none',
+                        textAlign: 'center',
+                        width: '200px',
+                        padding: 0,
+                        margin: 0,
+                        cursor: 'text'
+                    }}
                 />
-                <span style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', fontSize: '0.7rem', opacity: 0.5 }}>L</span>
+                <span style={{ fontSize: '1.2rem', color: 'var(--text-muted)', fontWeight: 800, marginLeft: '0.5rem' }}>LITERS</span>
             </div>
-            <button className="btn btn-primary" onClick={updateWater}>Update</button>
-            <button 
-                className="btn btn-secondary" 
-                onClick={() => setWaterInput(0)}
-                style={{ padding: '0.5rem', background: 'rgba(255,255,255,0.05)', borderColor: 'transparent' }}
-                title="Reset Input"
-            >
-                🧹
-            </button>
+            <p className="text-muted" style={{ marginBottom: '1.5rem' }}>Goal: 3.00 L</p>
+            
+            <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center' }}>
+                <button className="btn btn-primary" onClick={updateWater} style={{ padding: '0.6rem 2rem' }}>Update Daily Total</button>
+                <button 
+                    className="btn btn-secondary" 
+                    onClick={() => setWaterInput(0)}
+                    style={{ padding: '0.6rem 1rem', background: 'rgba(255,255,255,0.05)', borderColor: 'rgba(255,255,255,0.1)' }}
+                    title="Reset to 0"
+                >
+                    🧹 Reset
+                </button>
+            </div>
           </div>
+
           <div style={{ marginTop: '3rem', display: 'flex', justifyContent: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
               {[
                   { label: '💧 Sip (+0.05L)', amt: 0.05 },
@@ -291,7 +316,10 @@ export const Dashboard = () => {
                     key={item.label} 
                     className="btn btn-secondary" 
                     style={{ padding: '0.5rem 0.8rem', fontSize: '0.75rem', fontWeight: 600 }} 
-                    onClick={() => setWaterInput(prev => parseFloat((prev + item.amt).toFixed(2)))}
+                    onClick={() => {
+                        setWaterInput(prev => parseFloat((prev + item.amt).toFixed(2)));
+                        addWater(item.amt);
+                    }}
                   >
                     {item.label}
                   </button>

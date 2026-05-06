@@ -94,6 +94,23 @@ def update_water(
     db.refresh(log)
     return log
 
+@router.put("/add-water")
+def add_water(
+    water_ml: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    today = date.today()
+    log = db.query(DailyLog).filter(DailyLog.user_id == current_user.id, DailyLog.date == today).first()
+    if not log:
+        log = DailyLog(user_id=current_user.id, date=today)
+        db.add(log)
+    
+    log.water_ml += water_ml
+    db.commit()
+    db.refresh(log)
+    return log
+
 @router.put("/weight")
 def update_weight(
     weight: float,
