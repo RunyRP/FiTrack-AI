@@ -272,10 +272,15 @@ export const Dashboard = () => {
                     key={item.label} 
                     className="btn btn-secondary" 
                     style={{ padding: '0.5rem 0.8rem', fontSize: '0.75rem', fontWeight: 600 }} 
-                    onClick={() => { 
+                    onClick={async () => { 
                         const newTotal = waterInput + item.amt;
                         setWaterInput(newTotal);
-                        api.put(`/log/water?water_ml=${newTotal}`).then(() => fetchData());
+                        try {
+                            await api.put(`/log/water?water_ml=${newTotal}`);
+                            await fetchData();
+                        } catch (err) {
+                            console.error("Hydration update failed:", err);
+                        }
                     }}
                   >
                     {item.label}
