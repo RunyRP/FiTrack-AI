@@ -281,12 +281,8 @@ def google_store_code(
     client_id = os.getenv("GOOGLE_CLIENT_ID")
     client_secret = os.getenv("GOOGLE_CLIENT_SECRET")
     
-    # We need to know the redirect URI used by the frontend
-    # For Vite dev, it's usually http://localhost:5173
-    # In production, we'd use the actual domain.
-    # Since we can't easily detect the frontend's current origin from here without a header,
-    # we'll use a common default or expect it in the request.
-    redirect_uri = "http://localhost:5173" 
+    # Using 'postmessage' is the standard for react-oauth/google auth-code flow
+    redirect_uri = "postmessage" 
     
     data = {
         "code": request.code,
