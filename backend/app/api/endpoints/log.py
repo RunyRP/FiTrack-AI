@@ -314,11 +314,11 @@ def google_store_code(
 
 @router.post("/sync-google-fit")
 def sync_google_fit(
-    request: GoogleSyncRequest,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
+    request: GoogleSyncRequest = None
 ):
-    access_token = request.access_token
+    access_token = request.access_token if request else None
     
     # If no access token provided or it's expired, try to use refresh token
     if not access_token and current_user.google_refresh_token:

@@ -121,7 +121,7 @@ export const Dashboard = () => {
       setLoadingAI(true); 
       try {
         await api.post('/log/google-store-code', { code: codeResponse.code });
-        await api.post('/log/sync-google-fit'); // Now backend will use refresh token
+        await api.post('/log/sync-google-fit', {}); // Send empty object to satisfy Pydantic
         await fetchData();
         alert('Steps synced successfully! Permanent background sync is now active for your account.');
       } catch (err) {
