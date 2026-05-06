@@ -11,6 +11,7 @@ export const Dashboard = () => {
   const [waterInput, setWaterInput] = useState<number>(0); // Store as Liters in UI
   const [weightInput, setWeightInput] = useState<number>(0);
   const [loadingAI, setLoadingAI] = useState(false);
+  const [savingWater, setSavingWater] = useState(false);
 
   const fetchData = async () => {
     try {
@@ -76,22 +77,28 @@ export const Dashboard = () => {
 
   const updateWater = async () => {
     try {
+      setSavingWater(true);
       // Convert Liters back to ML for backend (Absolute update)
       const ml = Math.round(waterInput * 1000);
       await api.put(`/log/water?water_ml=${ml}`);
-      fetchData();
+      await fetchData();
+      setTimeout(() => setSavingWater(false), 2000);
     } catch (err) {
       console.error(err);
+      setSavingWater(false);
     }
   };
 
   const addWater = async (liters: number) => {
     try {
+      setSavingWater(true);
       const ml = Math.round(liters * 1000);
       await api.put(`/log/add-water?water_ml=${ml}`);
-      fetchData();
+      await fetchData();
+      setTimeout(() => setSavingWater(false), 2000);
     } catch (err) {
       console.error(err);
+      setSavingWater(false);
     }
   };
 
@@ -294,7 +301,18 @@ export const Dashboard = () => {
             <p className="text-muted" style={{ marginBottom: '1.5rem' }}>Goal: 3.00 L</p>
             
             <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center' }}>
-                <button className="btn btn-primary" onClick={updateWater} style={{ padding: '0.6rem 2rem' }}>Update Daily Total</button>
+                <button 
+                  className="btn btn-primary" 
+                  onClick={updateWater} 
+                  style={{ 
+                    padding: '0.6rem 2rem', 
+                    transition: 'all 0.3s ease',
+                    background: savingWater ? 'var(--success)' : 'var(--primary)',
+                    borderColor: savingWater ? 'var(--success)' : 'var(--primary)'
+                  }}
+                >
+                  {savingWater ? '✅ Saved!' : 'Update Daily Total'}
+                </button>
                 <button 
                     className="btn btn-secondary" 
                     onClick={() => setWaterInput(0)}
@@ -308,7 +326,7 @@ export const Dashboard = () => {
 
           <div style={{ marginTop: '3rem', display: 'flex', justifyContent: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
               {[
-                  { label: '💧 Sip (+0.05L)', amt: 0.05 },
+                  { label: '💧 Sip (+0.1L)', amt: 0.1 },
                   { label: '🥛 Glass (+0.25L)', amt: 0.25 },
                   { label: '🍼 Bottle (+0.5L)', amt: 0.5 }
               ].map(item => (
