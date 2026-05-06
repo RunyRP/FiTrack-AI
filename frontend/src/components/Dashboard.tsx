@@ -246,24 +246,27 @@ export const Dashboard = () => {
         <div className="card stat-card" style={{ marginBottom: 0 }}>
           <h3>Hydration</h3>
           <div className="stat-value" style={{ background: 'linear-gradient(135deg, #fff 0%, #3498db 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', fontSize: '4.5rem' }}>
-            {today.water_ml} <span style={{ fontSize: '1rem', WebkitTextFillColor: 'var(--text-muted)' }}>ML</span>
+            {(today.water_ml / 1000).toFixed(2)} <span style={{ fontSize: '1rem', WebkitTextFillColor: 'var(--text-muted)' }}>LITERS</span>
           </div>
-          <p className="text-muted" style={{ marginBottom: '1.5rem' }}>Goal: 3,000 ml</p>
+          <p className="text-muted" style={{ marginBottom: '1.5rem' }}>Goal: 3.00 L</p>
           <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center', marginTop: '2rem' }}>
-            <input 
-              type="number" 
-              className="btn btn-secondary"
-              value={waterInput} 
-              onChange={(e) => setWaterInput(parseInt(e.target.value) || 0)}
-              style={{ width: '120px', cursor: 'text', textAlign: 'center' }}
-            />
+            <div style={{ position: 'relative' }}>
+                <input 
+                type="number" 
+                className="btn btn-secondary"
+                value={waterInput} 
+                onChange={(e) => setWaterInput(parseInt(e.target.value) || 0)}
+                style={{ width: '120px', cursor: 'text', textAlign: 'center', paddingRight: '2.5rem' }}
+                />
+                <span style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', fontSize: '0.7rem', opacity: 0.5 }}>ML</span>
+            </div>
             <button className="btn btn-primary" onClick={updateWater}>Update</button>
           </div>
           <div style={{ marginTop: '3rem', display: 'flex', justifyContent: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
               {[
-                  { label: '💧 1 Sip', amt: 50 },
-                  { label: '🥛 1 Glass', amt: 250 },
-                  { label: '🍼 500ml', amt: 500 }
+                  { label: '💧 Sip (0.05L)', amt: 50 },
+                  { label: '🥛 Glass (0.25L)', amt: 250 },
+                  { label: '🍼 Bottle (0.5L)', amt: 500 }
               ].map(item => (
                   <button 
                     key={item.label} 
@@ -272,7 +275,6 @@ export const Dashboard = () => {
                     onClick={() => { 
                         const newTotal = waterInput + item.amt;
                         setWaterInput(newTotal);
-                        // We also trigger the actual update to the backend for convenience
                         api.put(`/log/water?water_ml=${newTotal}`).then(() => fetchData());
                     }}
                   >
