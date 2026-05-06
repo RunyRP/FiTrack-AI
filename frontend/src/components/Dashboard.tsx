@@ -48,7 +48,71 @@ export const Dashboard = () => {
     return () => clearInterval(syncInterval);
   }, []);
 
-  // ... (rest of the component)
+  // Auto-refresh AI feedback if it's in the initial state
+  useEffect(() => {
+      if (data?.feedback?.summary === "Your AI Coach is analyzing your progress...") {
+          refreshAI();
+      }
+  }, [data]);
+
+  const refreshAI = async () => {
+      setLoadingAI(true);
+      try {
+          const res = await api.get('/log/feedback');
+          const newData = { ...data, feedback: res.data };
+          setData(newData);
+          localStorage.setItem('dashboard_cache', JSON.stringify(newData));
+      } catch (err) {
+          console.error(err);
+      } finally {
+          setLoadingAI(false);
+      }
+  };
+
+  const updateSteps = async () => {
+    try {
+      await api.put(`/log/steps?steps=${stepsInput}`);
+      fetchData();
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const updateWater = async () => {
+    try {
+      setSavingWater(true);
+      // Convert Liters back to ML for backend (Absolute update)
+      const ml = Math.round(waterInput * 1000);
+      await api.put(`/log/water?water_ml=${ml}`);
+      await fetchData();
+      setTimeout(() => setSavingWater(false), 800);
+    } catch (err) {
+      console.error(err);
+      setSavingWater(false);
+    }
+  };
+
+  const addWater = async (liters: number) => {
+    try {
+      setSavingWater(true);
+      const ml = Math.round(liters * 1000);
+      await api.put(`/log/add-water?water_ml=${ml}`);
+      await fetchData();
+      setTimeout(() => setSavingWater(false), 800);
+    } catch (err) {
+      console.error(err);
+      setSavingWater(false);
+    }
+  };
+
+  const updateWeight = async () => {
+    try {
+        await api.put(`/log/weight?weight=${weightInput}`);
+        fetchData();
+    } catch (err) {
+        console.error(err);
+    }
+  };
 
   const googleSync = useGoogleLogin({
     flow: 'auth-code',
