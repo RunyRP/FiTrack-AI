@@ -78,9 +78,11 @@ export const Dashboard = () => {
   };
 
   const googleSync = useGoogleLogin({
+    flow: 'implicit',
+    ux_mode: 'redirect',
     onSuccess: async (tokenResponse) => {
       console.log("DEBUG Google: Token received", tokenResponse.access_token.substring(0, 10) + "...");
-      setLoadingAI(true); // Reuse loading state for UI feedback
+      setLoadingAI(true); 
       try {
         await api.post('/log/sync-google-fit', { access_token: tokenResponse.access_token });
         await fetchData();
@@ -95,7 +97,7 @@ export const Dashboard = () => {
     scope: 'https://www.googleapis.com/auth/fitness.activity.read',
     onError: (error) => {
         console.error('Login Failed:', error);
-        alert('Google Login Failed. This is usually caused by a popup blocker or blocked third-party cookies. Please check your browser settings.');
+        alert('Google Login Failed. Please check your internet connection and Google Cloud Console settings.');
     }
   });
 
@@ -264,7 +266,7 @@ export const Dashboard = () => {
                 <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
                     <button 
                         className="btn btn-secondary" 
-                        onClick={() => googleSync()} 
+                        onClick={googleSync} 
                         style={{ padding: '0.4rem 0.8rem', fontSize: '0.7rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}
                     >
                         <span>🔄</span> Sync Google Fit
