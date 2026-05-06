@@ -8,7 +8,7 @@ export const Dashboard = () => {
       return cached ? JSON.parse(cached) : null;
   });
   const [stepsInput, setStepsInput] = useState<number>(0);
-  const [waterInput, setWaterInput] = useState<number>(0);
+  const [waterInput, setWaterInput] = useState<number>(0); // Store as Liters in UI
   const [weightInput, setWeightInput] = useState<number>(0);
   const [loadingAI, setLoadingAI] = useState(false);
 
@@ -18,7 +18,7 @@ export const Dashboard = () => {
       setData(res.data);
       localStorage.setItem('dashboard_cache', JSON.stringify(res.data));
       setStepsInput(res.data.today.steps);
-      setWaterInput(res.data.today.water_ml);
+      setWaterInput(res.data.today.water_ml / 1000); // Display as L
       setWeightInput(res.data.today.weight || res.data.user.profile.weight || 0);
     } catch (err) {
       console.error(err);
@@ -76,7 +76,9 @@ export const Dashboard = () => {
 
   const updateWater = async () => {
     try {
-      await api.put(`/log/water?water_ml=${waterInput}`);
+      // Convert Liters back to ML for backend
+      const ml = Math.round(waterInput * 1000);
+      await api.put(`/log/water?water_ml=${ml}`);
       fetchData();
     } catch (err) {
       console.error(err);
@@ -264,15 +266,22 @@ export const Dashboard = () => {
           </div>
           <div style={{ marginTop: '3rem', display: 'flex', justifyContent: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
               {[
-                  { label: '💧 Sip (0.05L)', amt: 50 },
-                  { label: '🥛 Glass (0.25L)', amt: 250 },
-                  { label: '🍼 Bottle (0.5L)', amt: 500 }
+                  { label: '🧹 Reset (0L)', amt: -waterInput }, // Subtracting current input results in 0
+                  { label: '💧 Sip (0.05L)', amt: 0.05 },
+                  { label: '🥛 Glass (0.25L)', amt: 0.25 },
+                  { label: '🍼 Bottle (0.5L)', amt: 0.5 }
               ].map(item => (
                   <button 
                     key={item.label} 
                     className="btn btn-secondary" 
                     style={{ padding: '0.5rem 0.8rem', fontSize: '0.75rem', fontWeight: 600 }} 
-                    onClick={() => setWaterInput(waterInput + item.amt)}
+                    onClick={() => {
+                        if (item.label.includes('Reset')) {
+                            setWaterInput(0);
+                        } else {
+                            setWaterInput(parseFloat((waterInput + item.amt).toFixed(2)));
+                        }
+                    }}
                   >
                     {item.label}
                   </button>
