@@ -11,6 +11,7 @@ from app.models.chat import ChatMessage
 from app.models.workout import WorkoutSession, WorkoutExercise
 
 # Create database tables
+# Force reload for new routes
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="FitTrack AI")
