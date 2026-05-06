@@ -33,6 +33,7 @@ app.add_middleware(
         "https://fitrack-ai-omega.vercel.app/",
         "https://fit-track-ai.vercel.app",
         "https://fittrack-ai.vercel.app",
+        "https://unconservative-nonadjudicatively-kathlyn.ngrok-free.dev",
     ],  
     allow_origin_regex="https://.*\.vercel\.app", # Allow any Vercel subdomain
     allow_credentials=True,
