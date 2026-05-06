@@ -93,8 +93,6 @@ export const Dashboard = () => {
   };
 
   const googleSync = useGoogleLogin({
-    flow: 'implicit',
-    ux_mode: 'redirect',
     onSuccess: async (tokenResponse) => {
       console.log("DEBUG Google: Token received", tokenResponse.access_token.substring(0, 10) + "...");
       setLoadingAI(true); 
@@ -112,7 +110,7 @@ export const Dashboard = () => {
     scope: 'https://www.googleapis.com/auth/fitness.activity.read',
     onError: (error) => {
         console.error('Login Failed:', error);
-        alert('Google Login Failed. Please check your internet connection and Google Cloud Console settings.');
+        alert('Google Login Failed. Please ensure popups are allowed for this site.');
     }
   });
 
