@@ -241,3 +241,72 @@ def get_daily_feedback(
         "insights": insights,
         "status": "on_track" if log.steps >= 8000 and abs(log.total_kcal - target_kcal) < 300 else "needs_work"
     }
+
+from pydantic import BaseModel
+class GoogleSyncRequest(BaseModel):
+    access_token: str
+
+@router.post("/sync-google-fit")
+def sync_google_fit(
+    request: GoogleSyncRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    import requests
+    import datetime
+    
+    # Calculate start and end of today in milliseconds
+    now = datetime.datetime.now()
+    start_of_today = datetime.datetime(now.year, now.month, now.day)
+    end_of_today = start_of_today + datetime.timedelta(days=1)
+    
+    start_ms = int(start_of_today.timestamp() * 1000)
+    end_ms = int(end_of_today.timestamp() * 1000)
+    
+    # Google Fit Aggregate API
+    url = "https://www.googleapis.com/fitness/v1/users/me/dataset:aggregate"
+    headers = {
+        "Authorization": f"Bearer {request.access_token}",
+        "Content-Type": "application/json"
+    }
+    
+    body = {
+        "aggregateBy": [{
+            "dataSourceId": "derived:com.google.step_count.delta:com.google.android.gms:estimated_steps"
+        }],
+        "bucketByTime": { "durationMillis": end_ms - start_ms },
+        "startTimeMillis": start_ms,
+        "endTimeMillis": end_ms
+    }
+    
+    try:
+        response = requests.post(url, json=body, headers=headers)
+        if response.status_code != 200:
+            raise HTTPException(status_code=response.status_code, detail=f"Google Fit API error: {response.text}")
+            
+        data = response.json()
+        total_steps = 0
+        
+        # Parse the nested Google Fit response
+        for bucket in data.get("bucket", []):
+            for dataset in bucket.get("dataset", []):
+                for point in dataset.get("point", []):
+                    for value in point.get("value", []):
+                        total_steps += value.get("intVal", 0)
+        
+        # Update our database
+        today_date = date.today()
+        log = db.query(DailyLog).filter(DailyLog.user_id == current_user.id, DailyLog.date == today_date).first()
+        if not log:
+            log = DailyLog(user_id=current_user.id, date=today_date, steps=total_steps)
+            db.add(log)
+        else:
+            log.steps = total_steps
+            
+        db.commit()
+        db.refresh(log)
+        
+        return {"steps": total_steps, "date": today_date}
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

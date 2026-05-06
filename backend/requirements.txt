@@ -13,3 +13,5 @@ requests
 python-dotenv
 alembic
 pydantic[email]
+google-api-python-client
+google-auth

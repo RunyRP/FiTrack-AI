@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, createContext, useContext } from 'react';
 import { BrowserRouter as Router, Routes, Route, Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
+import { GoogleOAuthProvider } from '@react-oauth/google';
 import api from './api';
 import { Dashboard } from './components/Dashboard';
 import { Profile } from './components/Profile';
@@ -144,76 +145,80 @@ const Navbar = () => {
 };
 
 function App() {
+  const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+  
   return (
-    <Router>
-      <AuthProvider>
-        <div className="bg-shape bg-shape-1"></div>
-        <div className="bg-shape bg-shape-2"></div>
-        <Navbar />
-        <main className="animate-fade-in">
-          <Routes>
-            <Route path="/login" element={<Login />} />
-            <Route path="/register" element={<Register />} />
-            <Route 
-              path="/" 
-              element={
-                <ProtectedRoute>
-                  <Dashboard />
-                </ProtectedRoute>
-              } 
-            />
-            <Route 
-              path="/profile" 
-              element={
-                <ProtectedRoute>
-                  <Profile />
-                </ProtectedRoute>
-              } 
-            />
-            <Route 
-              path="/setup" 
-              element={
-                <ProtectedRoute>
-                  <Setup />
-                </ProtectedRoute>
-              } 
-            />
-            <Route 
-              path="/meal" 
-              element={
-                <ProtectedRoute>
-                  <MealAnalysis />
-                </ProtectedRoute>
-              } 
-            />
-            <Route 
-              path="/history" 
-              element={
-                <ProtectedRoute>
-                  <MealHistory />
-                </ProtectedRoute>
-              } 
-            />
-            <Route 
-              path="/workout" 
-              element={
-                <ProtectedRoute>
-                  <WorkoutSuggestions />
-                </ProtectedRoute>
-              } 
-            />
-            <Route 
-              path="/chat" 
-              element={
-                <ProtectedRoute>
-                  <Chat />
-                </ProtectedRoute>
-              } 
-            />
-          </Routes>
-        </main>
-      </AuthProvider>
-    </Router>
+    <GoogleOAuthProvider clientId={clientId}>
+        <Router>
+          <AuthProvider>
+            <div className="bg-shape bg-shape-1"></div>
+            <div className="bg-shape bg-shape-2"></div>
+            <Navbar />
+            <main className="animate-fade-in">
+              <Routes>
+                <Route path="/login" element={<Login />} />
+                <Route path="/register" element={<Register />} />
+                <Route 
+                  path="/" 
+                  element={
+                    <ProtectedRoute>
+                      <Dashboard />
+                    </ProtectedRoute>
+                  } 
+                />
+                <Route 
+                  path="/profile" 
+                  element={
+                    <ProtectedRoute>
+                      <Profile />
+                    </ProtectedRoute>
+                  } 
+                />
+                <Route 
+                  path="/setup" 
+                  element={
+                    <ProtectedRoute>
+                      <Setup />
+                    </ProtectedRoute>
+                  } 
+                />
+                <Route 
+                  path="/meal" 
+                  element={
+                    <ProtectedRoute>
+                      <MealAnalysis />
+                    </ProtectedRoute>
+                  } 
+                />
+                <Route 
+                  path="/history" 
+                  element={
+                    <ProtectedRoute>
+                      <MealHistory />
+                    </ProtectedRoute>
+                  } 
+                />
+                <Route 
+                  path="/workout" 
+                  element={
+                    <ProtectedRoute>
+                      <WorkoutSuggestions />
+                    </ProtectedRoute>
+                  } 
+                />
+                <Route 
+                  path="/chat" 
+                  element={
+                    <ProtectedRoute>
+                      <Chat />
+                    </ProtectedRoute>
+                  } 
+                />
+              </Routes>
+            </main>
+          </AuthProvider>
+        </Router>
+    </GoogleOAuthProvider>
   );
 }
 

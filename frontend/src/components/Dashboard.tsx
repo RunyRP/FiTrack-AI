@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useGoogleLogin } from '@react-oauth/google';
 import api from '../api';
 
 export const Dashboard = () => {
@@ -75,6 +76,25 @@ export const Dashboard = () => {
         console.error(err);
     }
   };
+
+  const googleSync = useGoogleLogin({
+    onSuccess: async (tokenResponse) => {
+      console.log("DEBUG Google: Token received", tokenResponse.access_token.substring(0, 10) + "...");
+      setLoadingAI(true); // Reuse loading state for UI feedback
+      try {
+        await api.post('/log/sync-google-fit', { access_token: tokenResponse.access_token });
+        await fetchData();
+        alert('Steps synced successfully from Google Fit!');
+      } catch (err) {
+        console.error("DEBUG Google Sync error:", err);
+        alert('Failed to sync with Google Fit.');
+      } finally {
+        setLoadingAI(false);
+      }
+    },
+    scope: 'https://www.googleapis.com/auth/fitness.activity.read',
+    onError: (error) => console.log('Login Failed:', error)
+  });
 
   if (!data) return (
     <div className="container" style={{ display: 'flex', height: '50vh', alignItems: 'center', justifyContent: 'center' }}>
@@ -239,6 +259,13 @@ export const Dashboard = () => {
                     <p className="text-muted">Goal: 10,000</p>
                 </div>
                 <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                    <button 
+                        className="btn btn-secondary" 
+                        onClick={() => googleSync()} 
+                        style={{ padding: '0.4rem 0.8rem', fontSize: '0.7rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}
+                    >
+                        <span>🔄</span> Sync Google Fit
+                    </button>
                     <input type="number" className="btn btn-secondary" value={stepsInput} onChange={e => setStepsInput(parseInt(e.target.value)||0)} style={{ width: '100px', cursor: 'text' }}/>
                     <button className="btn btn-primary" onClick={updateSteps}>Set</button>
                 </div>

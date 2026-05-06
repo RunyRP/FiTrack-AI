@@ -76,6 +76,10 @@ class FitnessChatService:
         # Run multiple passes to clean up nested prefixes
         for _ in range(3):
             assistant_reply = assistant_reply.strip()
+            # Remove leading/trailing quotes if the model hallucinated them
+            if assistant_reply.startswith('"'): assistant_reply = assistant_reply[1:].strip()
+            if assistant_reply.endswith('"'): assistant_reply = assistant_reply[:-1].strip()
+            
             for p in bad_starts:
                 if assistant_reply.lower().startswith(p.lower()):
                     # Remove the prefix and the following character if it's a colon or comma
