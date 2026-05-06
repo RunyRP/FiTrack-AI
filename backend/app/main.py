@@ -51,6 +51,10 @@ app.include_router(chat.router, prefix="/chat", tags=["chat"])
 def read_root():
     return {"message": "Welcome to FitTrack AI API"}
 
+@app.get("/health")
+def health_check():
+    return {"status": "ok", "version": "1.0.1"}
+
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 8000))
     uvicorn.run("app.main:app", host="0.0.0.0", port=port, reload=True)

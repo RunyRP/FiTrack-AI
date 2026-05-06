@@ -11,6 +11,12 @@ import requests
 import datetime
 from pydantic import BaseModel
 
+class GoogleSyncRequest(BaseModel):
+    access_token: Optional[str] = None
+
+class GoogleStoreCodeRequest(BaseModel):
+    code: str
+
 router = APIRouter()
 
 @router.get("/today")
