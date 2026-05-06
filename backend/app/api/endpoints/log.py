@@ -5,6 +5,7 @@ from app.core.auth import get_current_user
 from app.models.user import User
 from app.models.log import DailyLog
 from datetime import date
+from typing import Optional
 import os
 import requests
 import datetime
