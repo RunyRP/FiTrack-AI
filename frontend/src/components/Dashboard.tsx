@@ -295,7 +295,7 @@ export const Dashboard = () => {
                 <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
                     <button 
                         className="btn btn-secondary" 
-                        onClick={googleSync} 
+                        onClick={() => googleSync()} 
                         style={{ padding: '0.4rem 0.8rem', fontSize: '0.7rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}
                     >
                         <span>🔄</span> Sync Google Fit
