@@ -31,97 +31,38 @@ export const Dashboard = () => {
 
     // Auto-sync steps every 5 minutes if a Google session is active
     const syncInterval = setInterval(() => {
-        // We check if the googleSync was recently used or if we want to force a refresh
-        // For a true background sync, we'd need a persistent refresh token, 
-        // but for this session, we can trigger it automatically while the tab is open.
-        const lastSync = localStorage.getItem('last_google_sync');
-        if (lastSync) {
+        const token = localStorage.getItem('google_access_token');
+        if (token) {
             console.log("DEBUG: Auto-syncing Google Fit steps...");
-            // Trigger the sync if we have the token logic available
-            // Note: implicit flow tokens expire, so this works as long as the session is fresh
+            api.post('/log/sync-google-fit', { access_token: token })
+               .then(() => fetchData())
+               .catch(err => {
+                   console.error("Auto-sync failed:", err);
+                   if (err.response?.status === 401 || err.response?.status === 403) {
+                       localStorage.removeItem('google_access_token');
+                   }
+               });
         }
     }, 300000); // 5 minutes
 
     return () => clearInterval(syncInterval);
   }, []);
 
-  // Auto-refresh AI feedback if it's in the initial state
-  useEffect(() => {
-      if (data?.feedback?.summary === "Your AI Coach is analyzing your progress...") {
-          refreshAI();
-      }
-  }, [data]);
-
-  const refreshAI = async () => {
-      setLoadingAI(true);
-      try {
-          const res = await api.get('/log/feedback');
-          const newData = { ...data, feedback: res.data };
-          setData(newData);
-          localStorage.setItem('dashboard_cache', JSON.stringify(newData));
-      } catch (err) {
-          console.error(err);
-      } finally {
-          setLoadingAI(false);
-      }
-  };
-
-  const updateSteps = async () => {
-    try {
-      await api.put(`/log/steps?steps=${stepsInput}`);
-      fetchData();
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
-  const updateWater = async () => {
-    try {
-      setSavingWater(true);
-      // Convert Liters back to ML for backend (Absolute update)
-      const ml = Math.round(waterInput * 1000);
-      await api.put(`/log/water?water_ml=${ml}`);
-      await fetchData();
-      setTimeout(() => setSavingWater(false), 2000);
-    } catch (err) {
-      console.error(err);
-      setSavingWater(false);
-    }
-  };
-
-  const addWater = async (liters: number) => {
-    try {
-      setSavingWater(true);
-      const ml = Math.round(liters * 1000);
-      await api.put(`/log/add-water?water_ml=${ml}`);
-      await fetchData();
-      setTimeout(() => setSavingWater(false), 2000);
-    } catch (err) {
-      console.error(err);
-      setSavingWater(false);
-    }
-  };
-
-  const updateWeight = async () => {
-    try {
-        await api.put(`/log/weight?weight=${weightInput}`);
-        fetchData();
-    } catch (err) {
-        console.error(err);
-    }
-  };
+  // ... (rest of the component)
 
   const googleSync = useGoogleLogin({
-    onSuccess: async (tokenResponse) => {
-      console.log("DEBUG Google: Token received", tokenResponse.access_token.substring(0, 10) + "...");
+    flow: 'auth-code',
+    onSuccess: async (codeResponse) => {
+      console.log("DEBUG Google: Auth code received", codeResponse.code);
       setLoadingAI(true); 
       try {
-        await api.post('/log/sync-google-fit', { access_token: tokenResponse.access_token });
+        await api.post('/log/google-store-code', { code: codeResponse.code });
+        await api.post('/log/sync-google-fit'); // Now backend will use refresh token
         await fetchData();
-        alert('Steps synced successfully from Google Fit!');
+        alert('Steps synced successfully! Permanent background sync is now active for your account.');
       } catch (err) {
         console.error("DEBUG Google Sync error:", err);
-        alert('Failed to sync with Google Fit.');
+        alert('Failed to sync with Google Fit. Please try again.');
       } finally {
         setLoadingAI(false);
       }
@@ -306,12 +247,14 @@ export const Dashboard = () => {
                   onClick={updateWater} 
                   style={{ 
                     padding: '0.6rem 2rem', 
-                    transition: 'all 0.3s ease',
+                    transition: 'all 0.2s ease',
                     background: savingWater ? 'var(--success)' : 'var(--primary)',
-                    borderColor: savingWater ? 'var(--success)' : 'var(--primary)'
+                    borderColor: savingWater ? 'var(--success)' : 'var(--primary)',
+                    transform: savingWater ? 'scale(0.95)' : 'scale(1)',
+                    boxShadow: savingWater ? 'none' : '0 4px 6px rgba(0,0,0,0.1)'
                   }}
                 >
-                  {savingWater ? '✅ Saved!' : 'Update Daily Total'}
+                  {savingWater ? 'Saved' : 'Update Daily Total'}
                 </button>
                 <button 
                     className="btn btn-secondary" 

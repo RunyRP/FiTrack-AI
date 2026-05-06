@@ -22,6 +22,7 @@ class User(Base):
     email = Column(String, unique=True, index=True, nullable=False)
     hashed_password = Column(String, nullable=False)
     is_active = Column(Boolean, default=True)
+    google_refresh_token = Column(String, nullable=True)
 
     profile = relationship("UserProfile", back_populates="user", uselist=False, cascade="all, delete-orphan")
     logs = relationship("DailyLog", back_populates="user", cascade="all, delete-orphan")

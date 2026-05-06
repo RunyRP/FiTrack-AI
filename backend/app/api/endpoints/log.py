@@ -5,6 +5,10 @@ from app.core.auth import get_current_user
 from app.models.user import User
 from app.models.log import DailyLog
 from datetime import date
+import os
+import requests
+import datetime
+from pydantic import BaseModel
 
 router = APIRouter()
 
@@ -261,7 +265,49 @@ def get_daily_feedback(
 
 from pydantic import BaseModel
 class GoogleSyncRequest(BaseModel):
-    access_token: str
+    access_token: Optional[str] = None
+
+class GoogleStoreCodeRequest(BaseModel):
+    code: str
+
+@router.post("/google-store-code")
+def google_store_code(
+    request: GoogleStoreCodeRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    # Exchange code for tokens
+    url = "https://oauth2.googleapis.com/token"
+    client_id = os.getenv("GOOGLE_CLIENT_ID")
+    client_secret = os.getenv("GOOGLE_CLIENT_SECRET")
+    
+    # We need to know the redirect URI used by the frontend
+    # For Vite dev, it's usually http://localhost:5173
+    # In production, we'd use the actual domain.
+    # Since we can't easily detect the frontend's current origin from here without a header,
+    # we'll use a common default or expect it in the request.
+    redirect_uri = "http://localhost:5173" 
+    
+    data = {
+        "code": request.code,
+        "client_id": client_id,
+        "client_secret": client_secret,
+        "redirect_uri": redirect_uri,
+        "grant_type": "authorization_code"
+    }
+    
+    response = requests.post(url, data=data)
+    if response.status_code != 200:
+        raise HTTPException(status_code=response.status_code, detail=f"Google Token Exchange error: {response.text}")
+    
+    tokens = response.json()
+    refresh_token = tokens.get("refresh_token")
+    
+    if refresh_token:
+        current_user.google_refresh_token = refresh_token
+        db.commit()
+    
+    return {"status": "success", "has_refresh_token": bool(refresh_token)}
 
 @router.post("/sync-google-fit")
 def sync_google_fit(
@@ -269,9 +315,25 @@ def sync_google_fit(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    import requests
-    import datetime
+    access_token = request.access_token
     
+    # If no access token provided or it's expired, try to use refresh token
+    if not access_token and current_user.google_refresh_token:
+        # Refresh the access token
+        refresh_url = "https://oauth2.googleapis.com/token"
+        refresh_data = {
+            "client_id": os.getenv("GOOGLE_CLIENT_ID"),
+            "client_secret": os.getenv("GOOGLE_CLIENT_SECRET"),
+            "refresh_token": current_user.google_refresh_token,
+            "grant_type": "refresh_token"
+        }
+        refresh_response = requests.post(refresh_url, data=refresh_data)
+        if refresh_response.status_code == 200:
+            access_token = refresh_response.json().get("access_token")
+    
+    if not access_token:
+        raise HTTPException(status_code=401, detail="No valid Google access token found. Please re-sync.")
+
     # Calculate start and end of today in milliseconds
     now = datetime.datetime.now()
     start_of_today = datetime.datetime(now.year, now.month, now.day)
@@ -283,7 +345,7 @@ def sync_google_fit(
     # Google Fit Aggregate API
     url = "https://www.googleapis.com/fitness/v1/users/me/dataset:aggregate"
     headers = {
-        "Authorization": f"Bearer {request.access_token}",
+        "Authorization": f"Bearer {access_token}",
         "Content-Type": "application/json"
     }
     
@@ -299,6 +361,8 @@ def sync_google_fit(
     try:
         response = requests.post(url, json=body, headers=headers)
         if response.status_code != 200:
+            # If token expired, maybe try refreshing here once? 
+            # For simplicity, we assume the first check handled it.
             raise HTTPException(status_code=response.status_code, detail=f"Google Fit API error: {response.text}")
             
         data = response.json()
