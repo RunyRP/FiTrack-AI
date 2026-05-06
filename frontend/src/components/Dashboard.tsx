@@ -93,7 +93,10 @@ export const Dashboard = () => {
       }
     },
     scope: 'https://www.googleapis.com/auth/fitness.activity.read',
-    onError: (error) => console.log('Login Failed:', error)
+    onError: (error) => {
+        console.error('Login Failed:', error);
+        alert('Google Login Failed. This is usually caused by a popup blocker or blocked third-party cookies. Please check your browser settings.');
+    }
   });
 
   if (!data) return (
