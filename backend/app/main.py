@@ -14,6 +14,17 @@ from app.models.workout import WorkoutSession, WorkoutExercise
 # Force reload for new routes
 Base.metadata.create_all(bind=engine)
 
+# Manual migration for SQLite as create_all doesn't handle schema changes
+from sqlalchemy import text
+with engine.connect() as conn:
+    try:
+        conn.execute(text("ALTER TABLE users ADD COLUMN google_refresh_token VARCHAR"))
+        conn.commit()
+        print("DEBUG: Added google_refresh_token column to users table")
+    except Exception as e:
+        # Column likely already exists
+        pass
+
 app = FastAPI(title="FitTrack AI")
 
 @app.middleware("http")
