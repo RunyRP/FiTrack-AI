@@ -145,8 +145,11 @@ const Navbar = () => {
 };
 
 function App() {
-  const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+  const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || '393563449346-h9l7hrac2c7j6sto53smh682mqn8rib5.apps.googleusercontent.com';
   
+  // Prevent crash if clientId is somehow still missing
+  if (!clientId) return <div className="container">Configuration error: Missing Client ID</div>;
+
   return (
     <GoogleOAuthProvider clientId={clientId}>
         <Router>
