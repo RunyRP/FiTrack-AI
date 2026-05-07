@@ -38,9 +38,10 @@ def get_dashboard_data(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
+    import datetime
     today_dt = datetime.date.today()
     
-    # 1. Get today's log
+    # 1. Get today's log (ensure it exists)
     log = db.query(DailyLog).filter(DailyLog.user_id == current_user.id, DailyLog.date == today_dt).first()
     if not log:
         log = DailyLog(user_id=current_user.id, date=today_dt, food_items=[], total_kcal=0, steps=0, water_ml=0)
@@ -65,7 +66,7 @@ def get_dashboard_data(
         else:
             history_7.append({"date": curr_date, "total_kcal": 0, "steps": 0, "water_ml": 0, "weight": None, "food_items": []})
 
-    # 3. Get 30-day weight history for the progressive chart
+    # 3. Get 30-day weight history (progressive)
     start_date_30 = today_dt - datetime.timedelta(days=29)
     logs_30 = db.query(DailyLog).filter(
         DailyLog.user_id == current_user.id,
@@ -75,7 +76,10 @@ def get_dashboard_data(
     
     weight_map_30 = {l.date.isoformat(): l.weight for l in logs_30 if l.weight is not None}
     
-    # Find baseline weight
+    # Robust Baseline Search:
+    # 1. Start with Profile Weight
+    # 2. Check for most recent weight log BEFORE our 30-day window
+    # 3. Check for ANY weight log if still None
     last_weight = current_user.profile.weight if current_user.profile else None
     
     prev_log = db.query(DailyLog).filter(
@@ -86,8 +90,12 @@ def get_dashboard_data(
     
     if prev_log:
         last_weight = prev_log.weight
-    elif last_weight is None:
-        any_log = db.query(DailyLog).filter(DailyLog.user_id == current_user.id, DailyLog.weight != None).first()
+    
+    if last_weight is None:
+        any_log = db.query(DailyLog).filter(
+            DailyLog.user_id == current_user.id,
+            DailyLog.weight != None
+        ).order_by(DailyLog.date.desc()).first()
         if any_log:
             last_weight = any_log.weight
 
@@ -96,40 +104,37 @@ def get_dashboard_data(
         curr_date = start_date_30 + datetime.timedelta(days=i)
         curr_iso = curr_date.isoformat()
         actual_weight = weight_map_30.get(curr_iso)
+        
         if actual_weight is not None:
             last_weight = actual_weight
-        
+            
         if last_weight is not None:
             weight_history.append({
                 "date": curr_iso,
-                "weight": last_weight,
+                "weight": float(last_weight),
                 "is_actual": actual_weight is not None
             })
 
-    # 4. Basic Insights
+    # 4. Feedback & Insights
     profile = current_user.profile
     cached_summary = getattr(log, 'ai_summary', None)
-    
     feedback = {
         "summary": cached_summary or "Your AI Coach is analyzing your progress...",
         "insights": [],
         "status": "on_track"
     }
     
-    insights = []
     target_kcal = profile.target_kcal or 2000
     if log.total_kcal < target_kcal * 0.8:
-        insights.append(f"You're currently {target_kcal - log.total_kcal} kcal under target.")
+        feedback["insights"].append(f"You're currently {target_kcal - log.total_kcal} kcal under target.")
     elif log.total_kcal > target_kcal * 1.1:
-        insights.append(f"You've exceeded your target by {log.total_kcal - target_kcal} kcal.")
+        feedback["insights"].append(f"You've exceeded your target by {log.total_kcal - target_kcal} kcal.")
     
     if log.steps < 5000:
-        insights.append("Activity is low today.")
+        feedback["insights"].append("Activity is low today.")
     elif log.steps >= 10000:
-        insights.append("Goal reached!")
+        feedback["insights"].append("Goal reached!")
 
-    feedback["insights"] = insights
-    
     return {
         "user": current_user,
         "today": log,
@@ -197,6 +202,113 @@ def get_daily_feedback(
         "insights": insights,
         "status": "on_track" if log.steps >= 8000 and abs(log.total_kcal - target_kcal) < 300 else "needs_work"
     }
+
+@router.put("/steps")
+def update_steps(
+    steps: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    today = date.today()
+    log = db.query(DailyLog).filter(DailyLog.user_id == current_user.id, DailyLog.date == today).first()
+    if not log:
+        log = DailyLog(user_id=current_user.id, date=today, steps=steps)
+        db.add(log)
+    else:
+        log.steps = steps
+    db.commit()
+    return log
+
+@router.put("/water")
+def update_water(
+    water_ml: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    today = date.today()
+    log = db.query(DailyLog).filter(DailyLog.user_id == current_user.id, DailyLog.date == today).first()
+    if not log:
+        log = DailyLog(user_id=current_user.id, date=today, water_ml=water_ml)
+        db.add(log)
+    else:
+        log.water_ml = water_ml
+    db.commit()
+    return log
+
+@router.put("/add-water")
+def add_water(
+    water_ml: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    today = date.today()
+    log = db.query(DailyLog).filter(DailyLog.user_id == current_user.id, DailyLog.date == today).first()
+    if not log:
+        log = DailyLog(user_id=current_user.id, date=today, water_ml=water_ml)
+        db.add(log)
+    else:
+        log.water_ml += water_ml
+    db.commit()
+    return log
+
+@router.put("/weight")
+def update_weight(
+    weight: float,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    today = date.today()
+    log = db.query(DailyLog).filter(DailyLog.user_id == current_user.id, DailyLog.date == today).first()
+    if not log:
+        log = DailyLog(user_id=current_user.id, date=today, weight=weight)
+        db.add(log)
+    else:
+        log.weight = weight
+
+    # Also update user profile weight if it's the latest
+    if current_user.profile:
+        current_user.profile.weight = weight
+        # Recalculate target_kcal based on new weight
+        from app.core.calculations import calculate_target_kcal_logic
+        current_user.profile.target_kcal = calculate_target_kcal_logic(
+            current_user.profile.age,
+            current_user.profile.gender,
+            current_user.profile.weight,
+            current_user.profile.height,
+            current_user.profile.activity_level,
+            current_user.profile.objective
+        )
+
+    db.commit()
+    return log
+
+
+@router.get("/history")
+def get_log_history(
+    days: int = 7,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    import datetime
+    today_dt = datetime.date.today()
+    start_date = today_dt - datetime.timedelta(days=days-1)
+    
+    existing_logs = db.query(DailyLog).filter(
+        DailyLog.user_id == current_user.id,
+        DailyLog.date >= start_date,
+        DailyLog.date <= today_dt
+    ).all()
+    
+    log_map = {l.date: l for l in existing_logs}
+    history = []
+    for i in range(days):
+        curr_date = start_date + datetime.timedelta(days=i)
+        if curr_date in log_map:
+            history.append(log_map[curr_date])
+        else:
+            history.append({"date": curr_date, "total_kcal": 0, "steps": 0, "water_ml": 0, "weight": None, "food_items": []})
+    
+    return history
 
 @router.post("/google-store-code")
 def google_store_code(
