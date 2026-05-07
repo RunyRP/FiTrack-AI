@@ -312,6 +312,26 @@ def google_store_code(
     
     return {"status": "success", "has_refresh_token": bool(refresh_token)}
 
+@router.get("/weight-history")
+def get_weight_history(
+    days: int = 30,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    import datetime
+    end_date = datetime.date.today()
+    start_date = end_date - datetime.timedelta(days=days-1)
+    
+    # Fetch logs with weight in range
+    logs = db.query(DailyLog).filter(
+        DailyLog.user_id == current_user.id,
+        DailyLog.date >= start_date,
+        DailyLog.date <= end_date,
+        DailyLog.weight != None
+    ).order_by(DailyLog.date.asc()).all()
+    
+    return logs
+
 @router.post("/sync-google-fit")
 def sync_google_fit(
     db: Session = Depends(get_db),
@@ -352,10 +372,13 @@ def sync_google_fit(
         "Content-Type": "application/json"
     }
     
+    # We'll sync both steps and weight in one go if possible, or separate calls
+    # For reliability, let's do one aggregate call with both data types
     body = {
-        "aggregateBy": [{
-            "dataSourceId": "derived:com.google.step_count.delta:com.google.android.gms:estimated_steps"
-        }],
+        "aggregateBy": [
+            { "dataSourceId": "derived:com.google.step_count.delta:com.google.android.gms:estimated_steps" },
+            { "dataTypeName": "com.google.weight" }
+        ],
         "bucketByTime": { "durationMillis": end_ms - start_ms },
         "startTimeMillis": start_ms,
         "endTimeMillis": end_ms
@@ -364,33 +387,40 @@ def sync_google_fit(
     try:
         response = requests.post(url, json=body, headers=headers)
         if response.status_code != 200:
-            # If token expired, maybe try refreshing here once? 
-            # For simplicity, we assume the first check handled it.
             raise HTTPException(status_code=response.status_code, detail=f"Google Fit API error: {response.text}")
             
         data = response.json()
         total_steps = 0
+        latest_weight = None
         
         # Parse the nested Google Fit response
         for bucket in data.get("bucket", []):
             for dataset in bucket.get("dataset", []):
+                # Check data type
+                source = dataset.get("dataSourceId", "")
                 for point in dataset.get("point", []):
                     for value in point.get("value", []):
-                        total_steps += value.get("intVal", 0)
+                        if "step_count" in source:
+                            total_steps += value.get("intVal", 0)
+                        elif "weight" in source or dataset.get("dataTypeName") == "com.google.weight":
+                            # Weight is usually a float
+                            latest_weight = value.get("fpVal")
         
         # Update our database
         today_date = date.today()
         log = db.query(DailyLog).filter(DailyLog.user_id == current_user.id, DailyLog.date == today_date).first()
         if not log:
-            log = DailyLog(user_id=current_user.id, date=today_date, steps=total_steps)
+            log = DailyLog(user_id=current_user.id, date=today_date, steps=total_steps, weight=latest_weight)
             db.add(log)
         else:
             log.steps = total_steps
+            if latest_weight:
+                log.weight = latest_weight
             
         db.commit()
         db.refresh(log)
         
-        return {"steps": total_steps, "date": today_date}
+        return {"steps": total_steps, "weight": latest_weight, "date": today_date}
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

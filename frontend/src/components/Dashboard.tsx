@@ -1,12 +1,16 @@
 import { useState, useEffect } from 'react';
 import { useGoogleLogin } from '@react-oauth/google';
 import api from '../api';
+import { 
+  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
+} from 'recharts';
 
 export const Dashboard = () => {
   const [data, setData] = useState<any>(() => {
       const cached = localStorage.getItem('dashboard_cache');
       return cached ? JSON.parse(cached) : null;
   });
+  const [weightHistory, setWeightHistory] = useState<any[]>([]);
   const [stepsInput, setStepsInput] = useState<number>(0);
   const [waterInput, setWaterInput] = useState<number>(0); // Store as Liters in UI
   const [weightInput, setWeightInput] = useState<number>(0);
@@ -21,6 +25,10 @@ export const Dashboard = () => {
       setStepsInput(res.data.today.steps);
       setWaterInput(res.data.today.water_ml / 1000); // Display as L
       setWeightInput(res.data.today.weight || res.data.user.profile.weight || 0);
+
+      // Fetch extended weight history for the trend chart
+      const wRes = await api.get('/log/weight-history?days=30');
+      setWeightHistory(wRes.data);
     } catch (err) {
       console.error(err);
     }
@@ -28,21 +36,20 @@ export const Dashboard = () => {
 
   useEffect(() => {
     fetchData();
+    
+    // Trigger an initial sync as soon as we land on the dashboard
+    api.post('/log/sync-google-fit', {})
+       .then(() => fetchData())
+       .catch(err => console.log("Initial background sync skipped or failed:", err));
 
-    // Auto-sync steps every 5 minutes if a Google session is active
+    // Auto-sync steps every 5 minutes using the server-side refresh token
     const syncInterval = setInterval(() => {
-        const token = localStorage.getItem('google_access_token');
-        if (token) {
-            console.log("DEBUG: Auto-syncing Google Fit steps...");
-            api.post('/log/sync-google-fit', { access_token: token })
-               .then(() => fetchData())
-               .catch(err => {
-                   console.error("Auto-sync failed:", err);
-                   if (err.response?.status === 401 || err.response?.status === 403) {
-                       localStorage.removeItem('google_access_token');
-                   }
-               });
-        }
+        console.log("DEBUG: Running scheduled Google Fit sync...");
+        api.post('/log/sync-google-fit', {})
+            .then(() => fetchData())
+            .catch(err => {
+                console.error("Scheduled sync failed:", err);
+            });
     }, 300000); // 5 minutes
 
     return () => clearInterval(syncInterval);
@@ -131,7 +138,7 @@ export const Dashboard = () => {
         setLoadingAI(false);
       }
     },
-    scope: 'https://www.googleapis.com/auth/fitness.activity.read',
+    scope: 'https://www.googleapis.com/auth/fitness.activity.read https://www.googleapis.com/auth/fitness.body.read',
     onError: (error) => {
         console.error('Login Failed:', error);
         alert('Google Login Failed. Please ensure popups are allowed for this site.');
@@ -163,6 +170,9 @@ export const Dashboard = () => {
       c: Math.round((profile.target_kcal * 0.4) / 4),
       f: Math.round((profile.target_kcal * 0.3) / 9)
   };
+
+  const lastKnownWeight = today.weight || (weightHistory.length > 0 ? weightHistory[weightHistory.length - 1].weight : profile.weight);
+  const weightLabel = today.weight ? "Today" : (weightHistory.length > 0 ? "Last Recorded" : "Profile Target");
 
   return (
     <div className="container">
@@ -366,12 +376,31 @@ export const Dashboard = () => {
                     <button 
                         className="btn btn-secondary" 
                         onClick={() => googleSync()} 
-                        style={{ padding: '0.4rem 0.8rem', fontSize: '0.7rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}
+                        style={{ 
+                            padding: '0.4rem 0.8rem', 
+                            fontSize: '0.7rem', 
+                            display: 'flex', 
+                            alignItems: 'center', 
+                            gap: '0.4rem',
+                            borderColor: user.google_refresh_token ? 'var(--success)' : 'rgba(255,255,255,0.1)',
+                            background: user.google_refresh_token ? 'rgba(0, 255, 175, 0.05)' : 'rgba(255,255,255,0.05)'
+                        }}
                     >
-                        <span>🔄</span> Sync Google Fit
+                        <span>{user.google_refresh_token ? '✅' : '🔄'}</span> {user.google_refresh_token ? 'Google Fit Connected' : 'Sync Google Fit'}
                     </button>
-                    <input type="number" className="btn btn-secondary" value={stepsInput} onChange={e => setStepsInput(parseInt(e.target.value)||0)} style={{ width: '100px', cursor: 'text' }}/>
-                    <button className="btn btn-primary" onClick={updateSteps}>Set</button>
+                    
+                    {!user.google_refresh_token && (
+                        <>
+                            <input 
+                                type="number" 
+                                className="btn btn-secondary" 
+                                value={stepsInput} 
+                                onChange={e => setStepsInput(parseInt(e.target.value)||0)} 
+                                style={{ width: '100px', cursor: 'text' }}
+                            />
+                            <button className="btn btn-primary" onClick={updateSteps}>Set</button>
+                        </>
+                    )}
                 </div>
             </div>
         </div>
@@ -380,8 +409,10 @@ export const Dashboard = () => {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div>
                     <h3 style={{ margin: 0 }}>Current Weight</h3>
-                    <div className="stat-value" style={{ margin: '0.5rem 0', fontSize: '3rem', color: 'var(--success)' }}>{today.weight || '--'} <span style={{ fontSize: '1.2rem' }}>KG</span></div>
-                    <p className="text-muted">Tracking progress</p>
+                    <div className="stat-value" style={{ margin: '0.5rem 0', fontSize: '3rem', color: 'var(--success)' }}>
+                        {lastKnownWeight || '--'} <span style={{ fontSize: '1.2rem' }}>KG</span>
+                    </div>
+                    <p className="text-muted">{weightLabel}</p>
                 </div>
                 <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
                     <input type="number" step="0.1" className="btn btn-secondary" value={weightInput} onChange={e => setWeightInput(parseFloat(e.target.value)||0)} style={{ width: '100px', cursor: 'text' }}/>
@@ -394,30 +425,40 @@ export const Dashboard = () => {
       <h2 style={{ margin: '3rem 0 1.5rem' }}>History & Progress</h2>
       <div className="dashboard-grid" style={{ marginBottom: '3rem' }}>
         <div className="card">
-            <h3 className="text-muted" style={{ fontSize: '0.9rem', textTransform: 'uppercase' }}>Weight Tracking</h3>
-            <div className="chart-container">
-            {history.map((h: any, i: number) => {
-                const weights = history.map((x: any) => x.weight).filter((x: any) => x !== null);
-                const minWeight = Math.min(...weights, 50) - 2;
-                const maxWeight = Math.max(...weights, 100) + 2;
-                const barHeight = h.weight ? ((h.weight - minWeight) / (maxWeight - minWeight)) * 100 : 0;
-                const isToday = i === history.length - 1;
-                
-                return (
-                <div key={i} className="chart-bar-wrapper">
-                    <div 
-                        className="chart-bar"
-                        title={h.weight ? `${h.weight} kg` : 'No entry'}
-                        style={{ 
-                            height: `${Math.max(barHeight, 2)}%`, 
-                            background: isToday ? 'var(--success)' : 'rgba(0, 255, 175, 0.2)',
-                            borderRadius: '4px'
-                        }} 
-                    ></div>
-                    <span className="chart-label">{new Date(h.date).toLocaleDateString('en-US', { weekday: 'short' })}</span>
-                </div>
-                );
-            })}
+            <h3 className="text-muted" style={{ fontSize: '0.9rem', textTransform: 'uppercase', marginBottom: '1.5rem' }}>Weight Tracking (30D)</h3>
+            <div style={{ width: '100%', height: 200 }}>
+                {weightHistory.length > 0 ? (
+                    <ResponsiveContainer width="100%" height="100%">
+                        <AreaChart data={weightHistory}>
+                            <defs>
+                                <linearGradient id="colorWeight" x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="5%" stopColor="var(--success)" stopOpacity={0.3}/>
+                                    <stop offset="95%" stopColor="var(--success)" stopOpacity={0}/>
+                                </linearGradient>
+                            </defs>
+                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.05)" />
+                            <XAxis 
+                                dataKey="date" 
+                                tick={{fontSize: 10}} 
+                                tickFormatter={(str) => new Date(str).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                                stroke="var(--text-muted)"
+                            />
+                            <YAxis 
+                                domain={['dataMin - 2', 'dataMax + 2']} 
+                                hide 
+                            />
+                            <Tooltip 
+                                contentStyle={{ background: '#1a1a1a', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', fontSize: '0.8rem' }}
+                                labelFormatter={(label) => new Date(label).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
+                            />
+                            <Area type="monotone" dataKey="weight" stroke="var(--success)" fillOpacity={1} fill="url(#colorWeight)" strokeWidth={3} dot={{ r: 4, fill: 'var(--success)' }} activeDot={{ r: 6 }} />
+                        </AreaChart>
+                    </ResponsiveContainer>
+                ) : (
+                    <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', fontSize: '0.8rem' }}>
+                        Log your weight to see the trend.
+                    </div>
+                )}
             </div>
         </div>
 
