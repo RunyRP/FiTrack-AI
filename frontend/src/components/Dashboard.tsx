@@ -27,9 +27,10 @@ export const Dashboard = () => {
       setWaterInput(res.data.today.water_ml / 1000); // Display as L
       setWeightInput(res.data.today.weight || res.data.user.profile.weight || 0);
 
-      // Fetch extended weight history for the trend chart
-      const wRes = await api.get('/log/weight-history?days=30');
-      setWeightHistory(wRes.data);
+      // Consolidated data contains weightHistory already
+      if (res.data.weightHistory) {
+          setWeightHistory(res.data.weightHistory);
+      }
     } catch (err) {
       console.error(err);
     }

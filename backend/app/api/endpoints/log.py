@@ -5,7 +5,7 @@ from app.core.auth import get_current_user
 from app.models.user import User
 from app.models.log import DailyLog
 from datetime import date
-from typing import Optional
+from typing import Optional, List
 import os
 import requests
 import datetime
@@ -33,151 +33,81 @@ def get_today_log(
         db.refresh(log)
     return log
 
-@router.get("/history")
-def get_log_history(
-    days: int = 7,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
-):
-    import datetime
-    end_date = datetime.date.today()
-    start_date = end_date - datetime.timedelta(days=days-1)
-    
-    # Fetch existing logs in range
-    existing_logs = db.query(DailyLog).filter(
-        DailyLog.user_id == current_user.id,
-        DailyLog.date >= start_date,
-        DailyLog.date <= end_date
-    ).all()
-    
-    # Map by date for easy lookup
-    log_map = {log.date: log for log in existing_logs}
-    
-    # Create complete list including missing days
-    history = []
-    for i in range(days):
-        current_date = start_date + datetime.timedelta(days=i)
-        if current_date in log_map:
-            history.append(log_map[current_date])
-        else:
-            # Return empty log object for missing days
-            history.append({
-                "date": current_date,
-                "total_kcal": 0,
-                "steps": 0,
-                "water_ml": 0,
-                "food_items": []
-            })
-            
-    return history
-
-@router.put("/steps")
-def update_steps(
-    steps: int,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
-):
-    today = date.today()
-    log = db.query(DailyLog).filter(DailyLog.user_id == current_user.id, DailyLog.date == today).first()
-    if not log:
-        log = DailyLog(user_id=current_user.id, date=today)
-        db.add(log)
-    
-    log.steps = steps
-    db.commit()
-    db.refresh(log)
-    return log
-
-@router.put("/water")
-def update_water(
-    water_ml: int,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
-):
-    today = date.today()
-    log = db.query(DailyLog).filter(DailyLog.user_id == current_user.id, DailyLog.date == today).first()
-    if not log:
-        log = DailyLog(user_id=current_user.id, date=today)
-        db.add(log)
-    
-    log.water_ml = water_ml
-    db.commit()
-    db.refresh(log)
-    return log
-
-@router.put("/add-water")
-def add_water(
-    water_ml: int,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
-):
-    today = date.today()
-    log = db.query(DailyLog).filter(DailyLog.user_id == current_user.id, DailyLog.date == today).first()
-    if not log:
-        log = DailyLog(user_id=current_user.id, date=today)
-        db.add(log)
-    
-    log.water_ml += water_ml
-    db.commit()
-    db.refresh(log)
-    return log
-
-@router.put("/weight")
-def update_weight(
-    weight: float,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
-):
-    today = date.today()
-    log = db.query(DailyLog).filter(DailyLog.user_id == current_user.id, DailyLog.date == today).first()
-    if not log:
-        log = DailyLog(user_id=current_user.id, date=today)
-        db.add(log)
-    
-    log.weight = weight
-    db.commit()
-    db.refresh(log)
-    return log
-
 @router.get("/dashboard-data")
 def get_dashboard_data(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    # This single endpoint replaces 4 calls
-    today = date.today()
+    today_dt = datetime.date.today()
     
     # 1. Get today's log
-    log = db.query(DailyLog).filter(DailyLog.user_id == current_user.id, DailyLog.date == today).first()
+    log = db.query(DailyLog).filter(DailyLog.user_id == current_user.id, DailyLog.date == today_dt).first()
     if not log:
-        log = DailyLog(user_id=current_user.id, date=today, food_items=[], total_kcal=0, steps=0, water_ml=0)
+        log = DailyLog(user_id=current_user.id, date=today_dt, food_items=[], total_kcal=0, steps=0, water_ml=0)
         db.add(log)
         db.commit()
         db.refresh(log)
     
-    # 2. Get history
-    import datetime
-    end_date = datetime.date.today()
-    start_date = end_date - datetime.timedelta(days=6)
-    existing_logs = db.query(DailyLog).filter(
+    # 2. Get 7-day history for kcal/steps charts
+    start_date_7 = today_dt - datetime.timedelta(days=6)
+    existing_logs_7 = db.query(DailyLog).filter(
         DailyLog.user_id == current_user.id,
-        DailyLog.date >= start_date,
-        DailyLog.date <= end_date
+        DailyLog.date >= start_date_7,
+        DailyLog.date <= today_dt
     ).all()
     
-    log_map = {l.date: l for l in existing_logs}
-    history = []
+    log_map_7 = {l.date: l for l in existing_logs_7}
+    history_7 = []
     for i in range(7):
-        curr_date = start_date + datetime.timedelta(days=i)
-        if curr_date in log_map:
-            history.append(log_map[curr_date])
+        curr_date = start_date_7 + datetime.timedelta(days=i)
+        if curr_date in log_map_7:
+            history_7.append(log_map_7[curr_date])
         else:
-            history.append({"date": curr_date, "total_kcal": 0, "steps": 0, "water_ml": 0, "weight": None, "food_items": []})
+            history_7.append({"date": curr_date, "total_kcal": 0, "steps": 0, "water_ml": 0, "weight": None, "food_items": []})
 
-    # 3. Get Feedback (Only generate if needed or requested, or just return basic insights for speed)
-    profile = current_user.profile
+    # 3. Get 30-day weight history for the progressive chart
+    start_date_30 = today_dt - datetime.timedelta(days=29)
+    logs_30 = db.query(DailyLog).filter(
+        DailyLog.user_id == current_user.id,
+        DailyLog.date >= start_date_30,
+        DailyLog.date <= today_dt
+    ).order_by(DailyLog.date.asc()).all()
     
-    # Try to get cached summary from today's log
+    weight_map_30 = {l.date.isoformat(): l.weight for l in logs_30 if l.weight is not None}
+    
+    # Find baseline weight
+    last_weight = current_user.profile.weight if current_user.profile else None
+    
+    prev_log = db.query(DailyLog).filter(
+        DailyLog.user_id == current_user.id,
+        DailyLog.date < start_date_30,
+        DailyLog.weight != None
+    ).order_by(DailyLog.date.desc()).first()
+    
+    if prev_log:
+        last_weight = prev_log.weight
+    elif last_weight is None:
+        any_log = db.query(DailyLog).filter(DailyLog.user_id == current_user.id, DailyLog.weight != None).first()
+        if any_log:
+            last_weight = any_log.weight
+
+    weight_history = []
+    for i in range(30):
+        curr_date = start_date_30 + datetime.timedelta(days=i)
+        curr_iso = curr_date.isoformat()
+        actual_weight = weight_map_30.get(curr_iso)
+        if actual_weight is not None:
+            last_weight = actual_weight
+        
+        if last_weight is not None:
+            weight_history.append({
+                "date": curr_iso,
+                "weight": last_weight,
+                "is_actual": actual_weight is not None
+            })
+
+    # 4. Basic Insights
+    profile = current_user.profile
     cached_summary = getattr(log, 'ai_summary', None)
     
     feedback = {
@@ -186,7 +116,6 @@ def get_dashboard_data(
         "status": "on_track"
     }
     
-    # Calculate insights immediately (very fast)
     insights = []
     target_kcal = profile.target_kcal or 2000
     if log.total_kcal < target_kcal * 0.8:
@@ -201,12 +130,11 @@ def get_dashboard_data(
 
     feedback["insights"] = insights
     
-    # For now, we'll return a faster response. The user can click 'Refresh' or we can fetch AI feedback separately.
-    # To truly fix the lag, I'll provide the data first.
     return {
         "user": current_user,
         "today": log,
-        "history": history,
+        "history": history_7,
+        "weightHistory": weight_history,
         "feedback": feedback
     }
 
@@ -270,13 +198,6 @@ def get_daily_feedback(
         "status": "on_track" if log.steps >= 8000 and abs(log.total_kcal - target_kcal) < 300 else "needs_work"
     }
 
-from pydantic import BaseModel
-class GoogleSyncRequest(BaseModel):
-    access_token: Optional[str] = None
-
-class GoogleStoreCodeRequest(BaseModel):
-    code: str
-
 @router.post("/google-store-code")
 def google_store_code(
     request: GoogleStoreCodeRequest,
@@ -318,56 +239,47 @@ def get_weight_history(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
+    # We'll keep this as a standalone endpoint too for specific needs, 
+    # but the dashboard now gets it via /dashboard-data
     import datetime
-    end_date = datetime.date.today()
-    start_date = end_date - datetime.timedelta(days=days-1)
+    today_dt = datetime.date.today()
+    start_dt = today_dt - datetime.timedelta(days=days-1)
     
-    # Fetch all logs in range
     logs = db.query(DailyLog).filter(
         DailyLog.user_id == current_user.id,
-        DailyLog.date >= start_date,
-        DailyLog.date <= end_date
+        DailyLog.date >= start_dt,
+        DailyLog.date <= today_dt
     ).order_by(DailyLog.date.asc()).all()
     
-    log_map = {l.date: l.weight for l in logs}
-    
-    # Also check the user's profile weight as a baseline if no history exists
+    log_map = {l.date.isoformat(): l.weight for l in logs if l.weight is not None}
     last_weight = current_user.profile.weight if current_user.profile else None
     
-    # If the earliest log is after start_date, try to find the most recent weight before start_date
-    if start_date not in log_map:
-        prev_log = db.query(DailyLog).filter(
-            DailyLog.user_id == current_user.id,
-            DailyLog.date < start_date,
-            DailyLog.weight != None
-        ).order_by(DailyLog.date.desc()).first()
-        if prev_log:
-            last_weight = prev_log.weight
+    prev_log = db.query(DailyLog).filter(
+        DailyLog.user_id == current_user.id,
+        DailyLog.date < start_dt,
+        DailyLog.weight != None
+    ).order_by(DailyLog.date.desc()).first()
+    
+    if prev_log:
+        last_weight = prev_log.weight
+    elif last_weight is None:
+        any_log = db.query(DailyLog).filter(DailyLog.user_id == current_user.id, DailyLog.weight != None).first()
+        if any_log:
+            last_weight = any_log.weight
 
     progressive_history = []
     for i in range(days):
-        curr_date = start_date + datetime.timedelta(days=i)
-        weight = log_map.get(curr_date)
-        
-        if weight is not None:
-            last_weight = weight
-        
-        # If we still have no weight, we can't really plot it, but we'll try to find ANY weight
-        display_weight = last_weight
-        if display_weight is None:
-            # Last ditch effort: find ANY weight this user ever recorded
-            any_log = db.query(DailyLog).filter(DailyLog.user_id == current_user.id, DailyLog.weight != None).first()
-            if any_log:
-                display_weight = any_log.weight
-                last_weight = any_log.weight
-        
-        if display_weight is not None:
+        curr_date = start_dt + datetime.timedelta(days=i)
+        curr_iso = curr_date.isoformat()
+        actual_weight = log_map.get(curr_iso)
+        if actual_weight is not None:
+            last_weight = actual_weight
+        if last_weight is not None:
             progressive_history.append({
-                "date": curr_date.isoformat(),
-                "weight": display_weight,
-                "is_actual": weight is not None
+                "date": curr_iso,
+                "weight": last_weight,
+                "is_actual": actual_weight is not None
             })
-            
     return progressive_history
 
 @router.post("/sync-google-fit")
