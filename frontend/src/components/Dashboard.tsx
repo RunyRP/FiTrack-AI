@@ -11,6 +11,7 @@ export const Dashboard = () => {
       return cached ? JSON.parse(cached) : null;
   });
   const [weightHistory, setWeightHistory] = useState<any[]>([]);
+  const [lastSync, setLastSync] = useState<Date | null>(null);
   const [stepsInput, setStepsInput] = useState<number>(0);
   const [waterInput, setWaterInput] = useState<number>(0); // Store as Liters in UI
   const [weightInput, setWeightInput] = useState<number>(0);
@@ -34,23 +35,25 @@ export const Dashboard = () => {
     }
   };
 
+  const syncGoogleFit = async () => {
+    try {
+        console.log("DEBUG: Running Google Fit sync...");
+        await api.post('/log/sync-google-fit', {});
+        await fetchData();
+        setLastSync(new Date());
+    } catch (err) {
+        console.error("Scheduled sync failed:", err);
+    }
+  };
+
   useEffect(() => {
     fetchData();
     
     // Trigger an initial sync as soon as we land on the dashboard
-    api.post('/log/sync-google-fit', {})
-       .then(() => fetchData())
-       .catch(err => console.log("Initial background sync skipped or failed:", err));
+    syncGoogleFit();
 
     // Auto-sync steps every 5 minutes using the server-side refresh token
-    const syncInterval = setInterval(() => {
-        console.log("DEBUG: Running scheduled Google Fit sync...");
-        api.post('/log/sync-google-fit', {})
-            .then(() => fetchData())
-            .catch(err => {
-                console.error("Scheduled sync failed:", err);
-            });
-    }, 300000); // 5 minutes
+    const syncInterval = setInterval(syncGoogleFit, 300000); // 5 minutes
 
     return () => clearInterval(syncInterval);
   }, []);
@@ -85,14 +88,15 @@ export const Dashboard = () => {
     }
   };
 
-  const updateWater = async () => {
+  const updateWater = async (litersOverride?: number) => {
     try {
       setSavingWater(true);
       // Convert Liters back to ML for backend (Absolute update)
-      const ml = Math.round(waterInput * 1000);
+      const valueToSave = litersOverride !== undefined ? litersOverride : waterInput;
+      const ml = Math.round(valueToSave * 1000);
       await api.put(`/log/water?water_ml=${ml}`);
       await fetchData();
-      setTimeout(() => setSavingWater(false), 800);
+      setTimeout(() => setSavingWater(false), 1200);
     } catch (err) {
       console.error(err);
       setSavingWater(false);
@@ -105,7 +109,7 @@ export const Dashboard = () => {
       const ml = Math.round(liters * 1000);
       await api.put(`/log/add-water?water_ml=${ml}`);
       await fetchData();
-      setTimeout(() => setSavingWater(false), 800);
+      setTimeout(() => setSavingWater(false), 1200);
     } catch (err) {
       console.error(err);
       setSavingWater(false);
@@ -318,7 +322,7 @@ export const Dashboard = () => {
             <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center' }}>
                 <button 
                   className="btn btn-primary" 
-                  onClick={updateWater} 
+                  onClick={() => updateWater()} 
                   style={{ 
                     padding: '0.6rem 2rem', 
                     transition: 'all 0.2s ease',
@@ -332,7 +336,10 @@ export const Dashboard = () => {
                 </button>
                 <button 
                     className="btn btn-secondary" 
-                    onClick={() => setWaterInput(0)}
+                    onClick={() => {
+                        setWaterInput(0);
+                        updateWater(0);
+                    }}
                     style={{ padding: '0.6rem 1rem', background: 'rgba(255,255,255,0.05)', borderColor: 'rgba(255,255,255,0.1)' }}
                     title="Reset to 0"
                 >
@@ -351,10 +358,7 @@ export const Dashboard = () => {
                     key={item.label} 
                     className="btn btn-secondary" 
                     style={{ padding: '0.5rem 0.8rem', fontSize: '0.75rem', fontWeight: 600 }} 
-                    onClick={() => {
-                        setWaterInput(prev => parseFloat((prev + item.amt).toFixed(2)));
-                        addWater(item.amt);
-                    }}
+                    onClick={() => addWater(item.amt)}
                   >
                     {item.label}
                   </button>
@@ -370,7 +374,10 @@ export const Dashboard = () => {
                 <div>
                     <h3 style={{ margin: 0 }}>Daily Steps</h3>
                     <div className="stat-value" style={{ margin: '0.5rem 0', fontSize: '3rem' }}>{today.steps.toLocaleString()}</div>
-                    <p className="text-muted">Goal: 10,000</p>
+                    <p className="text-muted" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        Goal: 10,000 
+                        {lastSync && <span style={{ fontSize: '0.7rem', color: 'var(--success)' }}>• Sync: {lastSync.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>}
+                    </p>
                 </div>
                 <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
                     <button 

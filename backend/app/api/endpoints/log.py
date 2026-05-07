@@ -322,15 +322,45 @@ def get_weight_history(
     end_date = datetime.date.today()
     start_date = end_date - datetime.timedelta(days=days-1)
     
-    # Fetch logs with weight in range
+    # Fetch all logs in range
     logs = db.query(DailyLog).filter(
         DailyLog.user_id == current_user.id,
         DailyLog.date >= start_date,
-        DailyLog.date <= end_date,
-        DailyLog.weight != None
+        DailyLog.date <= end_date
     ).order_by(DailyLog.date.asc()).all()
     
-    return logs
+    log_map = {l.date: l.weight for l in logs}
+    
+    # Also check the user's profile weight as a baseline if no history exists
+    last_weight = current_user.profile.weight if current_user.profile else None
+    
+    # If the earliest log is after start_date, try to find the most recent weight before start_date
+    if start_date not in log_map:
+        prev_log = db.query(DailyLog).filter(
+            DailyLog.user_id == current_user.id,
+            DailyLog.date < start_date,
+            DailyLog.weight != None
+        ).order_by(DailyLog.date.desc()).first()
+        if prev_log:
+            last_weight = prev_log.weight
+
+    progressive_history = []
+    for i in range(days):
+        curr_date = start_date + datetime.timedelta(days=i)
+        weight = log_map.get(curr_date)
+        
+        if weight is not None:
+            last_weight = weight
+        
+        # We only add to history if we have at least one weight point to start from
+        if last_weight is not None:
+            progressive_history.append({
+                "date": curr_date,
+                "weight": last_weight,
+                "is_actual": weight is not None
+            })
+            
+    return progressive_history
 
 @router.post("/sync-google-fit")
 def sync_google_fit(
