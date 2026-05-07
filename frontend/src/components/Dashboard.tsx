@@ -41,8 +41,13 @@ export const Dashboard = () => {
         await api.post('/log/sync-google-fit', {});
         await fetchData();
         setLastSync(new Date());
-    } catch (err) {
+    } catch (err: any) {
         console.error("Scheduled sync failed:", err);
+        if (err.response?.status === 403) {
+            console.warn("Google Fit disconnected or token expired.");
+            // We don't alert here to avoid annoying the user every 5 mins, 
+            // but we could show a small indicator on the UI.
+        }
     }
   };
 
@@ -350,9 +355,9 @@ export const Dashboard = () => {
 
           <div style={{ marginTop: '3rem', display: 'flex', justifyContent: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
               {[
-                  { label: '💧 Sip (+0.1L)', amt: 0.1 },
-                  { label: '🥛 Glass (+0.25L)', amt: 0.25 },
-                  { label: '🍼 Bottle (+0.5L)', amt: 0.5 }
+                  { label: '💧 Sip (+15ml)', amt: 0.015 },
+                  { label: '🥛 Glass (+250ml)', amt: 0.25 },
+                  { label: '🍼 Bottle (+500ml)', amt: 0.5 }
               ].map(item => (
                   <button 
                     key={item.label} 
@@ -431,12 +436,12 @@ export const Dashboard = () => {
 
       <h2 style={{ margin: '3rem 0 1.5rem' }}>History & Progress</h2>
       <div className="dashboard-grid" style={{ marginBottom: '3rem' }}>
-        <div className="card">
+        <div className="card" style={{ minWidth: 0 }}>
             <h3 className="text-muted" style={{ fontSize: '0.9rem', textTransform: 'uppercase', marginBottom: '1.5rem' }}>Weight Tracking (30D)</h3>
-            <div style={{ width: '100%', height: 200 }}>
-                {weightHistory.length > 0 ? (
+            <div style={{ width: '100%', height: 220, minWidth: 0 }}>
+                {weightHistory && weightHistory.length > 0 ? (
                     <ResponsiveContainer width="100%" height="100%">
-                        <AreaChart data={weightHistory}>
+                        <AreaChart data={weightHistory} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                             <defs>
                                 <linearGradient id="colorWeight" x1="0" y1="0" x2="0" y2="1">
                                     <stop offset="5%" stopColor="var(--success)" stopOpacity={0.3}/>
@@ -446,19 +451,42 @@ export const Dashboard = () => {
                             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.05)" />
                             <XAxis 
                                 dataKey="date" 
-                                tick={{fontSize: 10}} 
-                                tickFormatter={(str) => new Date(str).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                                stroke="var(--text-muted)"
+                                tick={{fontSize: 10, fill: 'var(--text-muted)'}} 
+                                tickFormatter={(str) => {
+                                    try {
+                                        return new Date(str).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                                    } catch(e) { return str; }
+                                }}
+                                stroke="rgba(255,255,255,0.1)"
                             />
                             <YAxis 
-                                domain={['dataMin - 2', 'dataMax + 2']} 
+                                domain={['dataMin - 1', 'dataMax + 1']} 
                                 hide 
                             />
                             <Tooltip 
                                 contentStyle={{ background: '#1a1a1a', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', fontSize: '0.8rem' }}
-                                labelFormatter={(label) => new Date(label).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
+                                labelFormatter={(label) => {
+                                    try {
+                                        return new Date(label).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+                                    } catch(e) { return label; }
+                                }}
                             />
-                            <Area type="monotone" dataKey="weight" stroke="var(--success)" fillOpacity={1} fill="url(#colorWeight)" strokeWidth={3} dot={{ r: 4, fill: 'var(--success)' }} activeDot={{ r: 6 }} />
+                            <Area 
+                                type="monotone" 
+                                dataKey="weight" 
+                                stroke="var(--success)" 
+                                fillOpacity={1} 
+                                fill="url(#colorWeight)" 
+                                strokeWidth={3} 
+                                isAnimationActive={false}
+                                dot={(props: any) => {
+                                    const { cx, cy, payload } = props;
+                                    if (payload.is_actual) {
+                                        return <circle key={props.key} cx={cx} cy={cy} r={4} fill="var(--success)" />;
+                                    }
+                                    return <circle r={0} />; // Invisible dot
+                                }}
+                            />
                         </AreaChart>
                     </ResponsiveContainer>
                 ) : (

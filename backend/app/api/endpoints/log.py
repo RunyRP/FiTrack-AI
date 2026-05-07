@@ -352,11 +352,19 @@ def get_weight_history(
         if weight is not None:
             last_weight = weight
         
-        # We only add to history if we have at least one weight point to start from
-        if last_weight is not None:
+        # If we still have no weight, we can't really plot it, but we'll try to find ANY weight
+        display_weight = last_weight
+        if display_weight is None:
+            # Last ditch effort: find ANY weight this user ever recorded
+            any_log = db.query(DailyLog).filter(DailyLog.user_id == current_user.id, DailyLog.weight != None).first()
+            if any_log:
+                display_weight = any_log.weight
+                last_weight = any_log.weight
+        
+        if display_weight is not None:
             progressive_history.append({
-                "date": curr_date,
-                "weight": last_weight,
+                "date": curr_date.isoformat(),
+                "weight": display_weight,
                 "is_actual": weight is not None
             })
             
@@ -385,7 +393,7 @@ def sync_google_fit(
             access_token = refresh_response.json().get("access_token")
     
     if not access_token:
-        raise HTTPException(status_code=401, detail="No valid Google access token found. Please re-sync.")
+        raise HTTPException(status_code=403, detail="No valid Google access token found. Please re-sync.")
 
     # Calculate start and end of today in milliseconds
     now = datetime.datetime.now()
