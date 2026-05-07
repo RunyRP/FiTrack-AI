@@ -4,12 +4,13 @@ from app.db.session import get_db
 from app.core.auth import get_current_user
 from app.models.user import User
 from app.models.log import DailyLog
-from datetime import date
+from datetime import date, timedelta
 from typing import Optional, List
 import os
 import requests
 import datetime
 from pydantic import BaseModel
+from sqlalchemy import isnot
 
 class GoogleSyncRequest(BaseModel):
     access_token: Optional[str] = None
@@ -38,8 +39,7 @@ def get_dashboard_data(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    import datetime
-    today_dt = datetime.date.today()
+    today_dt = date.today()
     
     # 1. Get today's log (ensure it exists)
     log = db.query(DailyLog).filter(DailyLog.user_id == current_user.id, DailyLog.date == today_dt).first()
@@ -50,7 +50,7 @@ def get_dashboard_data(
         db.refresh(log)
     
     # 2. Get 7-day history for kcal/steps charts
-    start_date_7 = today_dt - datetime.timedelta(days=6)
+    start_date_7 = today_dt - timedelta(days=6)
     existing_logs_7 = db.query(DailyLog).filter(
         DailyLog.user_id == current_user.id,
         DailyLog.date >= start_date_7,
@@ -60,14 +60,14 @@ def get_dashboard_data(
     log_map_7 = {l.date: l for l in existing_logs_7}
     history_7 = []
     for i in range(7):
-        curr_date = start_date_7 + datetime.timedelta(days=i)
+        curr_date = start_date_7 + timedelta(days=i)
         if curr_date in log_map_7:
             history_7.append(log_map_7[curr_date])
         else:
             history_7.append({"date": curr_date, "total_kcal": 0, "steps": 0, "water_ml": 0, "weight": None, "food_items": []})
 
     # 3. Get 30-day weight history (progressive)
-    start_date_30 = today_dt - datetime.timedelta(days=29)
+    start_date_30 = today_dt - timedelta(days=29)
     logs_30 = db.query(DailyLog).filter(
         DailyLog.user_id == current_user.id,
         DailyLog.date >= start_date_30,
@@ -80,12 +80,14 @@ def get_dashboard_data(
     # 1. Start with Profile Weight
     # 2. Check for most recent weight log BEFORE our 30-day window
     # 3. Check for ANY weight log if still None
-    last_weight = current_user.profile.weight if current_user.profile else None
+    last_weight = None
+    if current_user.profile and current_user.profile.weight is not None:
+        last_weight = current_user.profile.weight
     
     prev_log = db.query(DailyLog).filter(
         DailyLog.user_id == current_user.id,
         DailyLog.date < start_date_30,
-        DailyLog.weight != None
+        isnot(DailyLog.weight, None)
     ).order_by(DailyLog.date.desc()).first()
     
     if prev_log:
@@ -94,26 +96,32 @@ def get_dashboard_data(
     if last_weight is None:
         any_log = db.query(DailyLog).filter(
             DailyLog.user_id == current_user.id,
-            DailyLog.weight != None
+            isnot(DailyLog.weight, None)
         ).order_by(DailyLog.date.desc()).first()
         if any_log:
             last_weight = any_log.weight
+            
+    # Absolute fallback to avoid empty chart
+    if last_weight is None:
+        last_weight = 70.0
 
     weight_history = []
+    # If still None, use a safe default for the chart
+    chart_last_weight = last_weight if last_weight is not None else 70.0
+
     for i in range(30):
-        curr_date = start_date_30 + datetime.timedelta(days=i)
+        curr_date = start_date_30 + timedelta(days=i)
         curr_iso = curr_date.isoformat()
         actual_weight = weight_map_30.get(curr_iso)
         
         if actual_weight is not None:
-            last_weight = actual_weight
+            chart_last_weight = actual_weight
             
-        if last_weight is not None:
-            weight_history.append({
-                "date": curr_iso,
-                "weight": float(last_weight),
-                "is_actual": actual_weight is not None
-            })
+        weight_history.append({
+            "date": curr_iso,
+            "weight": float(chart_last_weight),
+            "is_actual": actual_weight is not None
+        })
 
     # 4. Feedback & Insights
     profile = current_user.profile
@@ -124,7 +132,7 @@ def get_dashboard_data(
         "status": "on_track"
     }
     
-    target_kcal = profile.target_kcal or 2000
+    target_kcal = (profile.target_kcal if profile else 2000) or 2000
     if log.total_kcal < target_kcal * 0.8:
         feedback["insights"].append(f"You're currently {target_kcal - log.total_kcal} kcal under target.")
     elif log.total_kcal > target_kcal * 1.1:
@@ -135,10 +143,35 @@ def get_dashboard_data(
     elif log.steps >= 10000:
         feedback["insights"].append("Goal reached!")
 
+    # Explicit serialization to avoid lazy-loading issues in JSON response
     return {
-        "user": current_user,
-        "today": log,
-        "history": history_7,
+        "user": {
+            "id": current_user.id,
+            "email": current_user.email,
+            "profile": {
+                "name": profile.name if profile else None,
+                "weight": profile.weight if profile else None,
+                "target_kcal": profile.target_kcal if profile else 2000,
+                "objective": profile.objective if profile else "maintain"
+            }
+        },
+        "today": {
+            "date": log.date.isoformat(),
+            "steps": log.steps,
+            "water_ml": log.water_ml,
+            "weight": log.weight,
+            "total_kcal": log.total_kcal,
+            "food_items": log.food_items,
+            "ai_summary": log.ai_summary
+        },
+        "history": [
+            {
+                "date": h.date.isoformat() if hasattr(h, 'date') else h['date'].isoformat(),
+                "total_kcal": h.total_kcal if hasattr(h, 'total_kcal') else h['total_kcal'],
+                "steps": h.steps if hasattr(h, 'steps') else h['steps'],
+                "weight": h.weight if hasattr(h, 'weight') else h['weight']
+            } for h in history_7
+        ],
         "weightHistory": weight_history,
         "feedback": feedback
     }
