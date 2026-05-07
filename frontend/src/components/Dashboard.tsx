@@ -10,7 +10,6 @@ export const Dashboard = () => {
       const cached = localStorage.getItem('dashboard_cache');
       return cached ? JSON.parse(cached) : null;
   });
-  const [weightHistory, setWeightHistory] = useState<any[]>([]);
   const [lastSync, setLastSync] = useState<Date | null>(null);
   const [stepsInput, setStepsInput] = useState<number>(0);
   const [waterInput, setWaterInput] = useState<number>(0); // Store as Liters in UI
@@ -26,11 +25,6 @@ export const Dashboard = () => {
       setStepsInput(res.data.today.steps);
       setWaterInput(res.data.today.water_ml / 1000); // Display as L
       setWeightInput(res.data.today.weight || res.data.user.profile.weight || 0);
-
-      // Consolidated data contains weightHistory already
-      if (res.data.weightHistory) {
-          setWeightHistory(res.data.weightHistory);
-      }
     } catch (err) {
       console.error(err);
     }
@@ -161,7 +155,7 @@ export const Dashboard = () => {
     </div>
   );
 
-  const { today, user, history, feedback } = data;
+  const { today, user, history, feedback, weightHistory = [] } = data;
   const profile = user.profile;
 
   const kcalPercent = profile.target_kcal ? (today.total_kcal / profile.target_kcal) * 100 : 0;
