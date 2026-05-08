@@ -254,17 +254,25 @@ export const Dashboard = () => {
           <h3>Daily Calories</h3>
           <div className="progress-ring-container">
             <svg className="progress-ring-svg" width="160" height="160">
-              <circle className="progress-ring-circle-bg" cx="80" cy="80" r={radius} />
+              <circle 
+                className="progress-ring-circle-bg" 
+                cx="80" cy="80" r={radius} 
+                fill="transparent"
+                style={{ stroke: 'var(--card-border)' }}
+              />
               <circle 
                 className="progress-ring-circle" 
                 cx="80" cy="80" r={radius} 
+                fill="transparent"
                 strokeDasharray={circumference}
                 strokeDashoffset={offset}
+                strokeLinecap="square"
+                style={{ stroke: 'var(--primary)' }}
               />
             </svg>
             <div className="progress-content">
               <div className="stat-value" style={{ fontSize: '2rem', margin: 0 }}>{today.total_kcal}</div>
-              <div className="text-muted" style={{ fontSize: '0.8rem', fontWeight: 600 }}>KCAL</div>
+              <div className="text-muted" style={{ fontSize: '0.8rem', fontWeight: 800 }}>KCAL</div>
             </div>
           </div>
           <p className="text-muted">Goal: {profile.target_kcal} kcal</p>
