@@ -527,7 +527,11 @@ export const Dashboard = () => {
                     <div 
                         className="chart-bar"
                         title={`${h.total_kcal} kcal`}
-                        style={{ height: `${Math.max(barHeight, 5)}%`, opacity: isToday ? 1 : 0.6 }} 
+                        style={{ 
+                            height: `${Math.max(barHeight, 5)}%`, 
+                            background: isToday ? 'var(--primary)' : 'rgba(251, 197, 49, 0.2)',
+                            opacity: 1 
+                        }} 
                     ></div>
                     <span className="chart-label">{new Date(h.date).toLocaleDateString('en-US', { weekday: 'short' })}</span>
                 </div>
@@ -550,8 +554,8 @@ export const Dashboard = () => {
                         title={`${h.steps} steps`}
                         style={{ 
                             height: `${Math.max(barHeight, 5)}%`,
-                            background: isToday ? 'var(--secondary)' : 'rgba(79, 172, 254, 0.2)',
-                            opacity: isToday ? 1 : 0.6
+                            background: isToday ? 'var(--primary)' : 'rgba(251, 197, 49, 0.2)',
+                            opacity: 1
                         }} 
                     ></div>
                     <span className="chart-label">{new Date(h.date).toLocaleDateString('en-US', { weekday: 'short' })}</span>
