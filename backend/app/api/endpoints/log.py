@@ -82,22 +82,23 @@ def get_dashboard_data(
     # 3. Check for ANY weight log if still None
     last_weight = None
     if current_user.profile and current_user.profile.weight is not None:
-        last_weight = current_user.profile.weight
-    
-    prev_log = db.query(DailyLog).filter(
-        DailyLog.user_id == current_user.id,
-        DailyLog.date < start_date_30,
-        isnot(DailyLog.weight, None)
-    ).order_by(DailyLog.date.desc()).first()
-    
-    if prev_log:
-        last_weight = prev_log.weight
-    
-    if last_weight is None:
-        any_log = db.query(DailyLog).filter(
-            DailyLog.user_id == current_user.id,
-            isnot(DailyLog.weight, None)
-        ).order_by(DailyLog.date.desc()).first()
+        from sqlalchemy import and_
+        ...
+            prev_log = db.query(DailyLog).filter(
+                DailyLog.user_id == current_user.id,
+                DailyLog.date < start_date_30,
+                DailyLog.weight != None
+            ).order_by(DailyLog.date.desc()).first()
+
+            if prev_log:
+                last_weight = prev_log.weight
+
+            if last_weight is None:
+                any_log = db.query(DailyLog).filter(
+                    DailyLog.user_id == current_user.id,
+                    DailyLog.weight != None
+                ).order_by(DailyLog.date.desc()).first()
+
         if any_log:
             last_weight = any_log.weight
             

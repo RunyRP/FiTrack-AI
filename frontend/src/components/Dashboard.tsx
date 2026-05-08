@@ -143,6 +143,7 @@ export const Dashboard = () => {
       }
     },
     scope: 'https://www.googleapis.com/auth/fitness.activity.read https://www.googleapis.com/auth/fitness.body.read',
+    // @ts-expect-error - access_type and prompt are required for offline sync but missing in library types
     access_type: 'offline',
     prompt: 'consent',
     onError: (error) => {
