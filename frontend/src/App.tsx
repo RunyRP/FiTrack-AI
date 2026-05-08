@@ -118,27 +118,28 @@ const Navbar = () => {
   const isActive = (path: string) => location.pathname === path ? 'active' : '';
 
   return (
-    <nav className="container">
-      <Link to="/" className="nav-logo" style={{ background: 'linear-gradient(135deg, var(--primary), var(--secondary))', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-        FitTrack AI
-      </Link>
-      <div className="nav-links">
-        {user ? (
-          <>
-            <Link to="/" className={isActive('/')}>Dashboard</Link>
-            <Link to="/meal" className={isActive('/meal')}>Log Meal</Link>
-            <Link to="/history" className={isActive('/history')}>History</Link>
-            <Link to="/workout" className={isActive('/workout')}>Workouts</Link>
-            <Link to="/chat" className={isActive('/chat')}>AI Chat</Link>
-            <Link to="/profile" className={isActive('/profile')}>Profile</Link>
-            <a href="#" onClick={handleLogoutClick}>Logout</a>
-          </>
-        ) : (
-          <>
-            <Link to="/login" className={isActive('/login')}>Login</Link>
-            <Link to="/register" className={isActive('/register')}>Register</Link>
-          </>
-        )}
+    <nav>
+      <div className="nav-content">
+        <Link to="/" className="logo">
+          FIT<span>TRACK</span> AI
+        </Link>
+        <div className="nav-links">
+          {user ? (
+            <>
+              <Link to="/" className={isActive('/')}>DASHBOARD</Link>
+              <Link to="/meal" className={isActive('/meal')}>MEALS</Link>
+              <Link to="/workout" className={isActive('/workout')}>TRAINING</Link>
+              <Link to="/chat" className={isActive('/chat')}>COACH</Link>
+              <Link to="/profile" className={isActive('/profile')}>PROFILE</Link>
+              <a href="#" onClick={handleLogoutClick} style={{ color: 'var(--accent)', opacity: 0.5 }}>LOGOUT</a>
+            </>
+          ) : (
+            <>
+              <Link to="/login" className={isActive('/login')}>LOGIN</Link>
+              <Link to="/register" className={isActive('/register')}>REGISTER</Link>
+            </>
+          )}
+        </div>
       </div>
     </nav>
   );

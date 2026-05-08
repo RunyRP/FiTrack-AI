@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from app.db.session import get_db
@@ -6,17 +6,20 @@ from app.core.auth import get_current_user
 from app.models.user import User
 from app.models.chat import ChatMessage
 from app.services.ai_chat import get_chat_service
-from typing import List
+from typing import List, Optional
 import datetime
 
 router = APIRouter()
 
 class ChatRequest(BaseModel):
     message: str
+    thread_id: str = "1"
 
 class ChatMessageSchema(BaseModel):
+    id: int
     role: str
     content: str
+    thread_id: str
     created_at: datetime.datetime
 
     class Config:
@@ -24,10 +27,14 @@ class ChatMessageSchema(BaseModel):
 
 @router.get("/history", response_model=List[ChatMessageSchema])
 def get_chat_history(
+    thread_id: str = "1",
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    messages = db.query(ChatMessage).filter(ChatMessage.user_id == current_user.id).order_by(ChatMessage.created_at.asc()).all()
+    messages = db.query(ChatMessage).filter(
+        ChatMessage.user_id == current_user.id,
+        ChatMessage.thread_id == thread_id
+    ).order_by(ChatMessage.created_at.asc()).all()
     return messages
 
 @router.post("/message")
@@ -38,10 +45,10 @@ def send_chat_message(
 ):
     from app.services.ai_chat import get_chat_service
     # 1. Save user message
-    user_msg = ChatMessage(user_id=current_user.id, role="user", content=request.message)
+    user_msg = ChatMessage(user_id=current_user.id, role="user", content=request.message, thread_id=request.thread_id)
     db.add(user_msg)
     
-    # 2. Get AI response
+    # 2. Get AI response with context from this thread
     chat_service = get_chat_service()
     
     profile_data = None
@@ -49,16 +56,41 @@ def send_chat_message(
         profile_data = {
             "age": current_user.profile.age,
             "weight": current_user.profile.weight,
-            "objective": current_user.profile.objective
+            "objective": current_user.profile.objective,
+            "name": current_user.profile.name
         }
         
+    # Get previous messages for context
+    history = db.query(ChatMessage).filter(
+        ChatMessage.user_id == current_user.id,
+        ChatMessage.thread_id == request.thread_id
+    ).order_by(ChatMessage.created_at.desc()).limit(5).all()
+    history.reverse()
+    
+    context = ""
+    for msg in history:
+        context += f"{msg.role}: {msg.content}\n"
+
     ai_reply = chat_service.generate_response(request.message, profile_data)
     
     # 3. Save AI message
-    assistant_msg = ChatMessage(user_id=current_user.id, role="assistant", content=ai_reply)
+    assistant_msg = ChatMessage(user_id=current_user.id, role="assistant", content=ai_reply, thread_id=request.thread_id)
     db.add(assistant_msg)
     
     db.commit()
     db.refresh(assistant_msg)
     
     return assistant_msg
+
+@router.delete("/thread/{thread_id}")
+def delete_chat_thread(
+    thread_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    db.query(ChatMessage).filter(
+        ChatMessage.user_id == current_user.id,
+        ChatMessage.thread_id == thread_id
+    ).delete()
+    db.commit()
+    return {"status": "success", "message": f"Thread {thread_id} deleted"}

@@ -7,8 +7,12 @@ export const Setup = () => {
   const location = useLocation();
   const isEquipmentOnly = location.state?.equipmentOnly;
   
-  const [step, setStep] = useState<0 | 1 | 2>(isEquipmentOnly ? 2 : 0);
+  const [step, setStep] = useState<0 | 1 | 2 | 3>(isEquipmentOnly ? 3 : 0);
   const [name, setName] = useState('');
+  const [age, setAge] = useState('');
+  const [weight, setWeight] = useState('');
+  const [height, setHeight] = useState('');
+  const [gender, setGender] = useState('male');
   const [objective, setObjective] = useState('maintain');
   const [machinery, setMachinery] = useState<any[]>([]);
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
@@ -17,11 +21,15 @@ export const Setup = () => {
   const { refreshUser, user } = useAuth();
 
   useEffect(() => {
-      if (step === 2) {
+      if (step === 3) {
           fetchMachinery();
       }
       if (user?.profile) {
           setName(user.profile.name || '');
+          setAge(user.profile.age ? String(user.profile.age) : '');
+          setWeight(user.profile.weight ? String(user.profile.weight) : '');
+          setHeight(user.profile.height ? String(user.profile.height) : '');
+          setGender(user.profile.gender || 'male');
           setObjective(user.profile.objective || 'maintain');
       }
   }, [step, user]);
@@ -46,6 +54,10 @@ export const Setup = () => {
     try {
       await api.put('/user/profile', { 
         name,
+        age: parseInt(age),
+        weight: parseFloat(weight),
+        height: parseFloat(height),
+        gender,
         objective, 
         selected_machinery: selectedIds,
         setup_complete: true 
@@ -59,6 +71,8 @@ export const Setup = () => {
       setLoading(false);
     }
   };
+
+  const isStep2Valid = age && weight && height && gender;
 
   return (
     <div className="container animate-fade-in" style={{ maxWidth: '800px' }}>
@@ -83,14 +97,58 @@ export const Setup = () => {
                     onClick={() => setStep(1)}
                     disabled={!name.trim()}
                 >
-                    Next: Choose Your Goal
+                    Next: Your Vitals
                 </button>
             </div>
         )}
 
         {step === 1 && (
             <div className="animate-fade-in">
-                <h2>Step 2: Your Goal</h2>
+                <h2>Step 2: Your Vitals</h2>
+                <p className="text-muted">We need these to calculate your calorie targets.</p>
+                
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', marginTop: '2rem' }}>
+                    <div className="input-group">
+                        <label>Age</label>
+                        <input type="number" value={age} onChange={e => setAge(e.target.value)} placeholder="Years" />
+                    </div>
+                    <div className="input-group">
+                        <label>Gender</label>
+                        <select value={gender} onChange={e => setGender(e.target.value)}>
+                            <option value="male">Male</option>
+                            <option value="female">Female</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
+                    <div className="input-group">
+                        <label>Current Weight (kg)</label>
+                        <input type="number" step="0.1" value={weight} onChange={e => setWeight(e.target.value)} placeholder="0.0" />
+                    </div>
+                    <div className="input-group">
+                        <label>Height (cm)</label>
+                        <input type="number" value={height} onChange={e => setHeight(e.target.value)} placeholder="170" />
+                    </div>
+                </div>
+
+                <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem' }}>
+                    <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => setStep(0)}>Back</button>
+                    <button 
+                        className="btn btn-primary" 
+                        style={{ flex: 2 }} 
+                        onClick={() => setStep(2)}
+                        disabled={!isStep2Valid}
+                    >
+                        Next: Choose Goal
+                    </button>
+                </div>
+            </div>
+        )}
+
+        {step === 2 && (
+            <div className="animate-fade-in">
+                <h2>Step 3: Your Goal</h2>
                 <p className="text-muted">Hi {name}, what's your primary fitness objective?</p>
                 
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '1rem', marginTop: '2rem' }}>
@@ -107,7 +165,7 @@ export const Setup = () => {
                             style={{ 
                                 cursor: 'pointer', padding: '1.25rem', marginBottom: 0,
                                 border: objective === opt.id ? '2px solid var(--primary)' : '1px solid var(--card-border)',
-                                background: objective === opt.id ? 'rgba(0, 242, 254, 0.05)' : undefined,
+                                background: objective === opt.id ? 'rgba(251, 197, 49, 0.05)' : undefined,
                                 transition: 'all 0.2s ease'
                             }}
                         >
@@ -123,17 +181,17 @@ export const Setup = () => {
                 </div>
 
                 <div style={{ display: 'flex', gap: '1rem', marginTop: '2rem' }}>
-                    <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => setStep(0)}>Back</button>
-                    <button className="btn btn-primary" style={{ flex: 2 }} onClick={() => setStep(2)}>Next: Equipment</button>
+                    <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => setStep(1)}>Back</button>
+                    <button className="btn btn-primary" style={{ flex: 2 }} onClick={() => setStep(3)}>Next: Equipment</button>
                 </div>
             </div>
         )}
 
-        {step === 2 && (
+        {step === 3 && (
             <div className="animate-fade-in">
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                     <div>
-                        <h2>Step 3: Equipment (Optional)</h2>
+                        <h2>Step 4: Equipment (Optional)</h2>
                         <p className="text-muted">Select the machines you have. Skip to use only bodyweight.</p>
                     </div>
                     <button 
@@ -160,9 +218,9 @@ export const Setup = () => {
                             key={m.id} 
                             onClick={() => toggleMachine(m.id)}
                             style={{ 
-                                cursor: 'pointer', borderRadius: '1rem', overflow: 'hidden',
+                                cursor: 'pointer', borderRadius: '0', overflow: 'hidden',
                                 border: selectedIds.includes(m.id) ? '2px solid var(--primary)' : '1px solid var(--card-border)',
-                                background: selectedIds.includes(m.id) ? 'rgba(0, 242, 254, 0.05)' : 'rgba(255,255,255,0.02)',
+                                background: selectedIds.includes(m.id) ? 'rgba(251, 197, 49, 0.05)' : 'rgba(255,255,255,0.02)',
                                 transition: 'all 0.2s ease'
                             }}
                         >
@@ -175,7 +233,7 @@ export const Setup = () => {
                 </div>
 
                 <div style={{ display: 'flex', gap: '1rem' }}>
-                    <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => setStep(1)}>Back</button>
+                    <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => setStep(2)}>Back</button>
                     <button 
                         className="btn btn-primary" 
                         style={{ flex: 2 }} 
