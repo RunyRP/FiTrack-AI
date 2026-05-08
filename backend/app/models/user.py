@@ -24,6 +24,10 @@ class User(Base):
     is_active = Column(Boolean, default=True)
     google_refresh_token = Column(String, nullable=True)
 
+    @property
+    def has_google_sync(self):
+        return bool(self.google_refresh_token)
+
     profile = relationship("UserProfile", back_populates="user", uselist=False, cascade="all, delete-orphan")
     logs = relationship("DailyLog", back_populates="user", cascade="all, delete-orphan")
     chat_messages = relationship("ChatMessage", back_populates="user", cascade="all, delete-orphan")

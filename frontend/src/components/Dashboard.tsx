@@ -143,6 +143,8 @@ export const Dashboard = () => {
       }
     },
     scope: 'https://www.googleapis.com/auth/fitness.activity.read https://www.googleapis.com/auth/fitness.body.read',
+    access_type: 'offline',
+    prompt: 'consent',
     onError: (error) => {
         console.error('Login Failed:', error);
         alert('Google Login Failed. Please ensure popups are allowed for this site.');
@@ -159,6 +161,7 @@ export const Dashboard = () => {
   const profile = user.profile;
 
   const kcalPercent = profile.target_kcal ? (today.total_kcal / profile.target_kcal) * 100 : 0;
+// ... (omitting lines for brevity in thought, but tool call will have full content)
   const radius = 70;
   const circumference = 2 * Math.PI * radius;
   const offset = circumference - (Math.min(kcalPercent, 100) / 100) * circumference;
@@ -389,14 +392,14 @@ export const Dashboard = () => {
                             display: 'flex', 
                             alignItems: 'center', 
                             gap: '0.4rem',
-                            borderColor: user.google_refresh_token ? 'var(--success)' : 'rgba(255,255,255,0.1)',
-                            background: user.google_refresh_token ? 'rgba(0, 255, 175, 0.05)' : 'rgba(255,255,255,0.05)'
+                            borderColor: user.has_google_sync ? 'var(--success)' : 'rgba(255,255,255,0.1)',
+                            background: user.has_google_sync ? 'rgba(0, 255, 175, 0.05)' : 'rgba(255,255,255,0.05)'
                         }}
                     >
-                        <span>{user.google_refresh_token ? '✅' : '🔄'}</span> {user.google_refresh_token ? 'Google Fit Connected' : 'Sync Google Fit'}
+                        <span>{user.has_google_sync ? '✅' : '🔄'}</span> {user.has_google_sync ? 'Google Fit Connected' : 'Sync Google Fit'}
                     </button>
                     
-                    {!user.google_refresh_token && (
+                    {!user.has_google_sync && (
                         <>
                             <input 
                                 type="number" 

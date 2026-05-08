@@ -148,6 +148,7 @@ def get_dashboard_data(
         "user": {
             "id": current_user.id,
             "email": current_user.email,
+            "has_google_sync": current_user.has_google_sync,
             "profile": {
                 "name": profile.name if profile else None,
                 "weight": profile.weight if profile else None,
