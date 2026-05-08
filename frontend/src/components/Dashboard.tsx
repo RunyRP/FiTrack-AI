@@ -417,7 +417,7 @@ export const Dashboard = () => {
                 <div>
                     <h3 style={{ margin: 0 }}>Current Weight</h3>
                     <div className="stat-value" style={{ margin: '0.5rem 0', fontSize: '3rem', color: 'var(--success)' }}>
-                        {lastKnownWeight || '--'} <span style={{ fontSize: '1.2rem' }}>KG</span>
+                        {' '} <span style={{ fontSize: '1.2rem' }}>KG</span>
                     </div>
                     <p className="text-muted">{weightLabel}</p>
                 </div>

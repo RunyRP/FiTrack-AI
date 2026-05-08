@@ -433,55 +433,62 @@ def sync_google_fit(
     current_user: User = Depends(get_current_user),
     request: GoogleSyncRequest = None
 ):
-    access_token = request.access_token if request else None
-    
-    # If no access token provided or it's expired, try to use refresh token
-    if not access_token and current_user.google_refresh_token:
-        # Refresh the access token
-        refresh_url = "https://oauth2.googleapis.com/token"
-        refresh_data = {
-            "client_id": os.getenv("GOOGLE_CLIENT_ID"),
-            "client_secret": os.getenv("GOOGLE_CLIENT_SECRET"),
-            "refresh_token": current_user.google_refresh_token,
-            "grant_type": "refresh_token"
-        }
-        refresh_response = requests.post(refresh_url, data=refresh_data)
-        if refresh_response.status_code == 200:
-            access_token = refresh_response.json().get("access_token")
-    
-    if not access_token:
-        raise HTTPException(status_code=403, detail="No valid Google access token found. Please re-sync.")
-
-    # Calculate start and end of today in milliseconds
-    now = datetime.datetime.now()
-    start_of_today = datetime.datetime(now.year, now.month, now.day)
-    end_of_today = start_of_today + datetime.timedelta(days=1)
-    
-    start_ms = int(start_of_today.timestamp() * 1000)
-    end_ms = int(end_of_today.timestamp() * 1000)
-    
-    # Google Fit Aggregate API
-    url = "https://www.googleapis.com/fitness/v1/users/me/dataset:aggregate"
-    headers = {
-        "Authorization": f"Bearer {access_token}",
-        "Content-Type": "application/json"
-    }
-    
-    # We'll sync both steps and weight in one go if possible, or separate calls
-    # For reliability, let's do one aggregate call with both data types
-    body = {
-        "aggregateBy": [
-            { "dataSourceId": "derived:com.google.step_count.delta:com.google.android.gms:estimated_steps" },
-            { "dataTypeName": "com.google.weight" }
-        ],
-        "bucketByTime": { "durationMillis": end_ms - start_ms },
-        "startTimeMillis": start_ms,
-        "endTimeMillis": end_ms
-    }
-    
     try:
+        print(f"DEBUG: Starting Google Fit sync for user {current_user.email}")
+        access_token = request.access_token if request else None
+        
+        # If no access token provided or it's expired, try to use refresh token
+        if not access_token and current_user.google_refresh_token:
+            print("DEBUG: Refreshing Google Access Token...")
+            # Refresh the access token
+            refresh_url = "https://oauth2.googleapis.com/token"
+            refresh_data = {
+                "client_id": os.getenv("GOOGLE_CLIENT_ID"),
+                "client_secret": os.getenv("GOOGLE_CLIENT_SECRET"),
+                "refresh_token": current_user.google_refresh_token,
+                "grant_type": "refresh_token"
+            }
+            refresh_response = requests.post(refresh_url, data=refresh_data)
+            if refresh_response.status_code == 200:
+                access_token = refresh_response.json().get("access_token")
+                print("DEBUG: Access token refreshed successfully.")
+            else:
+                print(f"DEBUG: Token refresh failed: {refresh_response.status_code} - {refresh_response.text}")
+        
+        if not access_token:
+            print("DEBUG: No access token available, raising 403.")
+            raise HTTPException(status_code=403, detail="No valid Google access token found. Please re-sync.")
+
+        # Calculate start and end of today in milliseconds
+        now = datetime.datetime.now()
+        start_of_today = datetime.datetime(now.year, now.month, now.day)
+        end_of_today = start_of_today + datetime.timedelta(days=1)
+        
+        start_ms = int(start_of_today.timestamp() * 1000)
+        end_ms = int(end_of_today.timestamp() * 1000)
+        
+        # Google Fit Aggregate API
+        url = "https://www.googleapis.com/fitness/v1/users/me/dataset:aggregate"
+        headers = {
+            "Authorization": f"Bearer {access_token}",
+            "Content-Type": "application/json"
+        }
+        
+        # We'll sync both steps and weight in one go if possible, or separate calls
+        # For reliability, let's do one aggregate call with both data types
+        body = {
+            "aggregateBy": [
+                { "dataSourceId": "derived:com.google.step_count.delta:com.google.android.gms:estimated_steps" },
+                { "dataTypeName": "com.google.weight" }
+            ],
+            "bucketByTime": { "durationMillis": end_ms - start_ms },
+            "startTimeMillis": start_ms,
+            "endTimeMillis": end_ms
+        }
+        
         response = requests.post(url, json=body, headers=headers)
         if response.status_code != 200:
+            print(f"DEBUG: Google Fit API error {response.status_code}: {response.text}")
             raise HTTPException(status_code=response.status_code, detail=f"Google Fit API error: {response.text}")
             
         data = response.json()
@@ -501,6 +508,8 @@ def sync_google_fit(
                             # Weight is usually a float
                             latest_weight = value.get("fpVal")
         
+        print(f"DEBUG: Parsed steps={total_steps}, weight={latest_weight}")
+        
         # Update our database
         today_date = date.today()
         log = db.query(DailyLog).filter(DailyLog.user_id == current_user.id, DailyLog.date == today_date).first()
@@ -517,5 +526,10 @@ def sync_google_fit(
         
         return {"steps": total_steps, "weight": latest_weight, "date": today_date}
         
+    except HTTPException:
+        raise
     except Exception as e:
+        import traceback
+        print(f"DEBUG: Sync exception: {str(e)}")
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
