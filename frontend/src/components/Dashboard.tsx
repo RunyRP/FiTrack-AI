@@ -257,17 +257,12 @@ export const Dashboard = () => {
               <circle 
                 className="progress-ring-circle-bg" 
                 cx="80" cy="80" r={radius} 
-                fill="transparent"
-                style={{ stroke: 'var(--card-border)' }}
               />
               <circle 
                 className="progress-ring-circle" 
                 cx="80" cy="80" r={radius} 
-                fill="transparent"
                 strokeDasharray={circumference}
                 strokeDashoffset={offset}
-                strokeLinecap="square"
-                style={{ stroke: 'var(--primary)' }}
               />
             </svg>
             <div className="progress-content">
@@ -438,7 +433,7 @@ export const Dashboard = () => {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div>
                     <h3 style={{ margin: 0 }}>Current Weight</h3>
-                    <div className="stat-value" style={{ margin: '0.5rem 0', fontSize: '3rem', color: 'var(--success)' }}>
+                    <div className="stat-value" style={{ margin: '0.5rem 0', fontSize: '3rem', color: 'var(--primary)' }}>
                         {lastKnownWeight || '--'} <span style={{ fontSize: '1.2rem' }}>KG</span>
                     </div>
                     <p className="text-muted">{weightLabel}</p>
@@ -523,25 +518,25 @@ export const Dashboard = () => {
         </div>
 
         <div className="card">
-            <h3 className="text-muted" style={{ fontSize: '0.9rem', textTransform: 'uppercase' }}>Daily Calories</h3>
-            <div className="chart-container">
+            <h3 className="text-muted" style={{ fontSize: '0.8rem', textTransform: 'uppercase' }}>Daily Calories</h3>
+            <div className="chart-container" style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', height: '120px', gap: '4px' }}>
             {history.map((h: any, i: number) => {
                 const maxKcal = Math.max(...history.map((x: any) => x.total_kcal), profile.target_kcal, 1);
                 const barHeight = (h.total_kcal / maxKcal) * 100;
                 const isToday = i === history.length - 1;
                 
                 return (
-                <div key={i} className="chart-bar-wrapper">
+                <div key={i} style={{ flex: 1, height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', alignItems: 'center', gap: '8px' }}>
                     <div 
-                        className="chart-bar"
                         title={`${h.total_kcal} kcal`}
                         style={{ 
+                            width: '100%',
                             height: `${Math.max(barHeight, 5)}%`, 
-                            background: isToday ? 'var(--primary)' : 'rgba(251, 197, 49, 0.2)',
-                            opacity: 1 
+                            background: isToday ? 'var(--primary)' : 'rgba(251, 197, 49, 0.15)',
+                            border: '1px solid rgba(251, 197, 49, 0.1)'
                         }} 
                     ></div>
-                    <span className="chart-label">{new Date(h.date).toLocaleDateString('en-US', { weekday: 'short' })}</span>
+                    <span style={{ fontSize: '0.6rem', fontWeight: 900, color: 'var(--text-muted)' }}>{new Date(h.date).toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase()}</span>
                 </div>
                 );
             })}
@@ -549,24 +544,24 @@ export const Dashboard = () => {
         </div>
 
         <div className="card">
-            <h3 className="text-muted" style={{ fontSize: '0.9rem', textTransform: 'uppercase' }}>Steps</h3>
-            <div className="chart-container">
+            <h3 className="text-muted" style={{ fontSize: '0.8rem', textTransform: 'uppercase' }}>Steps</h3>
+            <div className="chart-container" style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', height: '120px', gap: '4px' }}>
             {history.map((h: any, i: number) => {
                 const barHeight = (h.steps / 12000) * 100;
                 const isToday = i === history.length - 1;
                 
                 return (
-                <div key={i} className="chart-bar-wrapper">
+                <div key={i} style={{ flex: 1, height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', alignItems: 'center', gap: '8px' }}>
                     <div 
-                        className="chart-bar"
                         title={`${h.steps} steps`}
                         style={{ 
+                            width: '100%',
                             height: `${Math.max(barHeight, 5)}%`,
-                            background: isToday ? 'var(--primary)' : 'rgba(251, 197, 49, 0.2)',
-                            opacity: 1
+                            background: isToday ? 'var(--primary)' : 'rgba(251, 197, 49, 0.15)',
+                            border: '1px solid rgba(251, 197, 49, 0.1)'
                         }} 
                     ></div>
-                    <span className="chart-label">{new Date(h.date).toLocaleDateString('en-US', { weekday: 'short' })}</span>
+                    <span style={{ fontSize: '0.6rem', fontWeight: 900, color: 'var(--text-muted)' }}>{new Date(h.date).toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase()}</span>
                 </div>
                 );
             })}

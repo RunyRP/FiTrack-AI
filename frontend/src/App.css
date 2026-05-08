@@ -206,24 +206,85 @@ nav {
   line-height: 1;
 }
 
-/* PROGRESS RING OVERRIDE */
+/* PROGRESS RING */
+.progress-ring-svg {
+    transform: rotate(-90deg);
+}
+
+.progress-ring-circle, .progress-ring-circle-bg {
+    fill: none;
+    stroke-width: 12px;
+}
+
 .progress-ring-circle {
-  stroke: var(--primary);
-  stroke-width: 10;
+    stroke: var(--primary);
+    stroke-linecap: square;
+    transition: stroke-dashoffset 0.5s ease;
 }
 
 .progress-ring-circle-bg {
-  stroke: var(--card-border);
-  stroke-width: 10;
+    stroke: var(--card-border);
 }
 
-/* CHART OVERRIDES */
+/* CHARTS & HISTORY SECTION */
+.dashboard-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 2rem;
+}
+
+.chart-container {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    height: 150px;
+    gap: 0.5rem;
+    padding-top: 1rem;
+}
+
+.chart-bar-wrapper {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    height: 100%;
+    gap: 0.5rem;
+}
+
 .chart-bar {
-  background: var(--primary);
+    width: 100%;
+    background: var(--primary);
+    min-height: 4px;
+    transition: all 0.3s ease;
+    border: 1px solid rgba(251, 197, 49, 0.1);
 }
 
 .chart-bar-wrapper:hover .chart-bar {
     background: #fff;
+    box-shadow: 0 0 15px rgba(251, 197, 49, 0.4);
+}
+
+.chart-label {
+    font-size: 0.6rem;
+    font-weight: 800;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.progress-ring-container {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin: 2rem 0;
+}
+
+.progress-content {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
 /* LOGO STYLE */
