@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useGoogleLogin } from '@react-oauth/google';
 import api from '../api';
+import { useAuth } from '../App';
 import { 
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
 } from 'recharts';
@@ -13,9 +14,10 @@ export const Dashboard = () => {
   const [lastSync, setLastSync] = useState<Date | null>(null);
   const [stepsInput, setStepsInput] = useState<number>(0);
   const [waterInput, setWaterInput] = useState<number>(0); // Store as Liters in UI
-  const [weightInput, setWeightInput] = useState<number>(0);
+  const [weightInput, setWeightInput] = useState<string>('');
   const [loadingAI, setLoadingAI] = useState(false);
   const [savingWater, setSavingWater] = useState(false);
+  const { refreshUser } = useAuth();
 
   const fetchData = async () => {
     try {
@@ -24,11 +26,12 @@ export const Dashboard = () => {
       localStorage.setItem('dashboard_cache', JSON.stringify(res.data));
       setStepsInput(res.data.today.steps);
       setWaterInput(res.data.today.water_ml / 1000); // Display as L
-      setWeightInput(res.data.today.weight || res.data.user.profile.weight || 0);
+      // Keep weightInput blank for user entry
     } catch (err) {
       console.error(err);
     }
   };
+
 
   const syncGoogleFit = async () => {
     try {
@@ -68,7 +71,8 @@ export const Dashboard = () => {
   const refreshAI = async () => {
       setLoadingAI(true);
       try {
-          const res = await api.get('/log/feedback');
+          const hour = new Date().getHours();
+          const res = await api.get(`/log/feedback?hour=${hour}`);
           const newData = { ...data, feedback: res.data };
           setData(newData);
           localStorage.setItem('dashboard_cache', JSON.stringify(newData));
@@ -117,9 +121,13 @@ export const Dashboard = () => {
   };
 
   const updateWeight = async () => {
+    if (!weightInput) return;
     try {
-        await api.put(`/log/weight?weight=${weightInput}`);
-        fetchData();
+        await api.put(`/log/weight?weight=${parseFloat(weightInput)}`);
+        setWeightInput('');
+        await fetchData();
+        // Sync with Profile page immediately
+        if (refreshUser) await refreshUser();
     } catch (err) {
         console.error(err);
     }
@@ -296,7 +304,7 @@ export const Dashboard = () => {
           <h3>Hydration</h3>
           
           <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-            <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'center', width: '100%' }}>
+            <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'center', width: '100%', overflow: 'hidden' }}>
                 <input 
                     id="main-water-input"
                     type="number" 
@@ -313,10 +321,12 @@ export const Dashboard = () => {
                         border: 'none',
                         outline: 'none',
                         textAlign: 'center',
-                        width: '200px',
+                        width: 'auto',
+                        minWidth: '150px',
                         padding: 0,
                         margin: 0,
-                        cursor: 'text'
+                        cursor: 'text',
+                        overflow: 'hidden'
                     }}
                 />
                 <span style={{ fontSize: '1.2rem', color: 'var(--text-muted)', fontWeight: 800, marginLeft: '0.5rem' }}>LITERS</span>
@@ -426,7 +436,15 @@ export const Dashboard = () => {
                     <p className="text-muted">{weightLabel}</p>
                 </div>
                 <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                    <input type="number" step="0.1" className="btn btn-secondary" value={weightInput} onChange={e => setWeightInput(parseFloat(e.target.value)||0)} style={{ width: '100px', cursor: 'text' }}/>
+                    <input 
+                        type="number" 
+                        step="0.1" 
+                        className="btn btn-secondary" 
+                        value={weightInput} 
+                        placeholder=""
+                        onChange={e => setWeightInput(e.target.value)} 
+                        style={{ width: '100px', cursor: 'text', overflow: 'hidden' }}
+                    />
                     <button className="btn btn-primary" onClick={updateWeight}>Log</button>
                 </div>
             </div>

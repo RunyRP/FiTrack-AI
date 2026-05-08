@@ -1,6 +1,18 @@
 from app.models.user import Gender, ActivityLevel
 
-def calculate_target_kcal_logic(age: int, gender: Gender, weight: float, height: float, activity_level: ActivityLevel, objective: str = "maintain"):
+def calculate_target_kcal_logic(
+    age: int, 
+    gender: Gender, 
+    weight: float, 
+    height: float, 
+    activity_level: ActivityLevel, 
+    objective: str = "maintain",
+    cut_intensity: str = "medium",
+    manual_target_kcal: int = None
+):
+    if manual_target_kcal:
+        return manual_target_kcal
+
     # ... (BMR calculation)
     if not all([weight, height, age, gender]):
         return 2000 # Default
@@ -23,7 +35,12 @@ def calculate_target_kcal_logic(age: int, gender: Gender, weight: float, height:
 
     # Objective Multipliers
     if objective == "lose_weight":
-        return int(tdee - 500) # Calorie deficit
+        deficit = 500
+        if cut_intensity == "light":
+            deficit = 250
+        elif cut_intensity == "aggressive":
+            deficit = 750
+        return int(tdee - deficit)
     elif objective == "gain_muscle":
         return int(tdee + 300) # Calorie surplus
     elif objective == "body_recomposition":

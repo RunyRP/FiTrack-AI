@@ -12,7 +12,9 @@ export const Profile = () => {
     weight: '',
     height: '',
     activity_level: 'sedentary',
-    objective: 'maintain'
+    objective: 'maintain',
+    cut_intensity: 'medium',
+    manual_target_kcal: ''
   });
   const [message, setMessage] = useState('');
   const [updating, setUpdating] = useState(false);
@@ -28,13 +30,29 @@ export const Profile = () => {
         weight: p.weight || '',
         height: p.height || '',
         activity_level: p.activity_level || 'sedentary',
-        objective: p.objective || 'maintain'
+        objective: p.objective || 'maintain',
+        cut_intensity: p.cut_intensity || 'medium',
+        manual_target_kcal: p.manual_target_kcal ? String(p.manual_target_kcal) : ''
       });
     }
   }, [currentUser]);
 
   const handleSubmit = async (e?: React.FormEvent, partialUpdate?: any) => {
     if (e) e.preventDefault();
+    
+    // Medical Disclaimer Warning
+    const hasAcknowledged = localStorage.getItem('medical_disclaimer_accepted');
+    if (!hasAcknowledged) {
+        const accept = window.confirm(
+            "IMPORTANT MEDICAL DISCLAIMER:\n\n" +
+            "FitTrack AI is an informational tool and NOT a substitute for professional medical advice, diagnosis, or treatment. " +
+            "Always seek the advice of your physician or other qualified health provider with any questions regarding a medical condition or diet.\n\n" +
+            "By clicking OK, you acknowledge that you use this tool at your own risk and the app is not responsible for any health issues."
+        );
+        if (!accept) return;
+        localStorage.setItem('medical_disclaimer_accepted', 'true');
+    }
+
     setUpdating(true);
     try {
       const dataToSave = { 
@@ -42,7 +60,10 @@ export const Profile = () => {
           ...partialUpdate,
           age: parseInt(String(partialUpdate?.age || profile.age)),
           weight: parseFloat(String(partialUpdate?.weight || profile.weight)),
-          height: parseFloat(String(partialUpdate?.height || profile.height))
+          height: parseFloat(String(partialUpdate?.height || profile.height)),
+          manual_target_kcal: partialUpdate?.manual_target_kcal !== undefined 
+            ? (partialUpdate.manual_target_kcal ? parseInt(partialUpdate.manual_target_kcal) : null)
+            : (profile.manual_target_kcal ? parseInt(profile.manual_target_kcal) : null)
       };
       await api.put('/user/profile', dataToSave);
       localStorage.removeItem('dashboard_cache');
@@ -60,6 +81,12 @@ export const Profile = () => {
       setProfile({ ...profile, objective: newObj });
       handleSubmit(undefined, { objective: newObj });
   };
+
+  const changeIntensity = (newInt: string) => {
+      setProfile({ ...profile, cut_intensity: newInt });
+      handleSubmit(undefined, { cut_intensity: newInt });
+  };
+// ... (rest of the component structure)
 
   const handleDeleteAccount = async () => {
     if (window.confirm('Are you absolutely sure? This will permanently delete all your data and logs.')) {
@@ -99,10 +126,40 @@ export const Profile = () => {
                     </button>
                 ))}
             </div>
+
+            {profile.objective === 'lose_weight' && (
+                <div className="animate-fade-in" style={{ marginTop: '1.5rem', padding: '1rem', background: 'rgba(255,255,255,0.02)', borderRadius: '1rem', border: '1px solid rgba(255,255,255,0.05)' }}>
+                    <label style={{ fontSize: '0.7rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '0.5rem', display: 'block' }}>Cut Intensity</label>
+                    <div style={{ display: 'flex', gap: '0.5rem' }}>
+                        {[
+                            { id: 'light', label: 'Light (-250)', color: 'var(--success)' },
+                            { id: 'medium', label: 'Medium (-500)', color: 'var(--primary)' },
+                            { id: 'aggressive', label: 'Aggressive (-750)', color: 'var(--accent)' }
+                        ].map(int => (
+                            <button 
+                                key={int.id}
+                                onClick={() => changeIntensity(int.id)}
+                                className="btn btn-secondary"
+                                style={{ 
+                                    flex: 1, 
+                                    fontSize: '0.75rem', 
+                                    padding: '0.5rem',
+                                    borderColor: profile.cut_intensity === int.id ? int.color : 'rgba(255,255,255,0.1)',
+                                    color: profile.cut_intensity === int.id ? int.color : '#fff',
+                                    background: profile.cut_intensity === int.id ? `${int.color}10` : 'rgba(255,255,255,0.05)'
+                                }}
+                            >
+                                {int.label}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            )}
         </div>
 
         <form onSubmit={handleSubmit} style={{ borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '2.5rem' }}>
-          <div className="input-group">
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
+            <div className="input-group">
                 <label>Display Name</label>
                 <input 
                     type="text" 
@@ -110,6 +167,16 @@ export const Profile = () => {
                     onChange={(e) => setProfile({...profile, name: e.target.value})} 
                     required 
                 />
+            </div>
+            <div className="input-group">
+                <label>Manual Calorie Goal (Optional)</label>
+                <input 
+                    type="number" 
+                    placeholder="e.g. 1800"
+                    value={profile.manual_target_kcal} 
+                    onChange={(e) => setProfile({...profile, manual_target_kcal: e.target.value})} 
+                />
+            </div>
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>

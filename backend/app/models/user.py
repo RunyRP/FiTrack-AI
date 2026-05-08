@@ -47,6 +47,8 @@ class UserProfile(Base):
     activity_level = Column(Enum(ActivityLevel))
     
     objective = Column(String) # e.g., "lose_weight", "maintain", "gain_muscle"
+    cut_intensity = Column(String, default="medium") # light, medium, aggressive
+    manual_target_kcal = Column(Integer, nullable=True)
     selected_machinery = Column(JSON, default=list) # List of machine IDs
     setup_complete = Column(Boolean, default=False)
     

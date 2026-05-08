@@ -157,6 +157,30 @@ h1 {
   appearance: none; /* Reset for custom arrows */
   -webkit-appearance: none;
   color-scheme: dark; /* Fixes browser default styles like number arrows */
+  overflow: hidden; /* Prevent vertical scroll */
+  text-overflow: clip;
+  white-space: nowrap; /* Prevent line breaks in standard inputs */
+}
+
+.input-group textarea {
+    white-space: normal;
+    overflow-y: auto;
+}
+
+/* Hide number input spinners globally */
+input::-webkit-outer-spin-button,
+input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+input[type=number] {
+  -moz-appearance: textfield;
+}
+
+/* Fix for large numbers/text scrolling horizontally in fixed-width inputs */
+input:not([type="checkbox"]):not([type="radio"]) {
+    overflow-x: hidden;
 }
 
 .input-group select {

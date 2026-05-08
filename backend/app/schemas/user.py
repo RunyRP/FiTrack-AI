@@ -16,6 +16,8 @@ class UserProfileBase(BaseModel):
     height: Optional[float] = None
     activity_level: Optional[ActivityLevel] = None
     objective: Optional[str] = None
+    cut_intensity: Optional[str] = "medium"
+    manual_target_kcal: Optional[int] = None
     selected_machinery: Optional[list] = []
     setup_complete: Optional[bool] = False
 

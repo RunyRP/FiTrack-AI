@@ -179,6 +179,7 @@ def get_dashboard_data(
 
 @router.get("/feedback")
 def get_daily_feedback(
+    hour: Optional[int] = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
@@ -189,36 +190,60 @@ def get_daily_feedback(
     if not log or not profile:
         return {"feedback": "Start logging your day to get personalized feedback!"}
     
-    # Generate insights
+    # 1. Determine Time Context
+    time_context = "today"
+    if hour is not None:
+        if 5 <= hour < 12:
+            time_context = "this morning"
+        elif 12 <= hour < 17:
+            time_context = "this afternoon"
+        elif 17 <= hour < 21:
+            time_context = "this evening"
+        else:
+            time_context = "tonight"
+
+    # 2. Generate insights
     insights = []
-    
-    # Calorie check
     target_kcal = profile.target_kcal or 2000
+    
+    # Only criticize low data if it's late in the day
+    is_early = hour is not None and hour < 16
+    
     if log.total_kcal < target_kcal * 0.8:
-        insights.append(f"You're currently {target_kcal - log.total_kcal} kcal under your daily target. Consider a healthy snack.")
+        if not is_early:
+            insights.append(f"You're currently {target_kcal - log.total_kcal} kcal under your daily target.")
+        else:
+            insights.append("Plenty of time to hit your calorie goals today!")
     elif log.total_kcal > target_kcal * 1.1:
-        insights.append(f"You've exceeded your calorie target by {log.total_kcal - target_kcal} kcal today.")
+        insights.append(f"You've exceeded your calorie target by {log.total_kcal - target_kcal} kcal.")
     else:
         insights.append("Great job staying within your calorie target!")
         
-    # Step check
     if log.steps < 5000:
-        insights.append("Your activity level is low today. A 15-minute walk could help!")
+        if not is_early:
+            insights.append("Your activity level is low today.")
+        else:
+            insights.append("A morning walk or gym session would be a great start!")
     elif log.steps >= 10000:
         insights.append("Excellent work hitting your step goal!")
-        
-    # Hydration check
-    if log.water_ml < 2000:
-        insights.append("Don't forget to hydrate. Aim for at least 2L of water per day.")
-        
-    # Combine into a prompt for the AI to make it more conversational
+
+    # 3. Time-aware AI Prompt
     from app.services.ai_chat import get_chat_service
     chat_service = get_chat_service()
     
     user_name = profile.name or "Athlete"
     raw_data = f"User Name: {user_name}, Calories: {log.total_kcal}/{target_kcal}, Steps: {log.steps}, Water: {log.water_ml}ml. Goal: {profile.objective}."
+    
+    # Specialized prompt for time of day
+    prompt = (
+        f"You are a fitness coach. It is {time_context}. "
+        f"Provide a short, punchy, 2-sentence motivational tip to {user_name} based on their current stats: {raw_data}. "
+        f"If it's early and data is low, focus on MOTIVATION for the day ahead, not criticism. "
+        f"Be direct, high-energy, and professional. No formal salutations."
+    )
+    
     ai_feedback = chat_service.generate_response(
-        f"Give a short, punchy, 2-sentence motivational coaching tip to {user_name} based on these stats: {raw_data}. Be direct and professional, no formal letter salutations like 'Dear'.",
+        prompt,
         user_profile={
             "age": profile.age,
             "weight": profile.weight,

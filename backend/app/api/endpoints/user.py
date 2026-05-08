@@ -38,7 +38,9 @@ def update_profile(
         profile.weight, 
         profile.height, 
         profile.activity_level,
-        profile.objective
+        profile.objective,
+        profile.cut_intensity,
+        profile.manual_target_kcal
     )
     
     db.commit()
