@@ -48,7 +48,7 @@ def send_chat_message(
     user_msg = ChatMessage(user_id=current_user.id, role="user", content=request.message, thread_id=request.thread_id)
     db.add(user_msg)
     
-    # 2. Get AI response with context from this thread
+    # 2. Get AI response
     chat_service = get_chat_service()
     
     profile_data = None
@@ -60,18 +60,20 @@ def send_chat_message(
             "name": current_user.profile.name
         }
         
-    # Get previous messages for context
-    history = db.query(ChatMessage).filter(
+    # Get previous messages for context (last 10 messages)
+    history_msgs = db.query(ChatMessage).filter(
         ChatMessage.user_id == current_user.id,
         ChatMessage.thread_id == request.thread_id
-    ).order_by(ChatMessage.created_at.desc()).limit(5).all()
-    history.reverse()
+    ).order_by(ChatMessage.created_at.desc()).limit(11).all() # 11 to include the one we just added
+    history_msgs.reverse()
     
     context = ""
-    for msg in history:
+    for msg in history_msgs[:-1]: # All but the current one
         context += f"{msg.role}: {msg.content}\n"
 
-    ai_reply = chat_service.generate_response(request.message, profile_data)
+    # Pass context to generator
+    full_prompt = f"Previous context:\n{context}\nUser: {request.message}" if context else request.message
+    ai_reply = chat_service.generate_response(full_prompt, profile_data)
     
     # 3. Save AI message
     assistant_msg = ChatMessage(user_id=current_user.id, role="assistant", content=ai_reply, thread_id=request.thread_id)

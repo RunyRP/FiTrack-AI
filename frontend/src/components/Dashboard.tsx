@@ -17,16 +17,22 @@ export const Dashboard = () => {
   const [weightInput, setWeightInput] = useState<string>('');
   const [loadingAI, setLoadingAI] = useState(false);
   const [savingWater, setSavingWater] = useState(false);
-  const { refreshUser } = useAuth();
+  const { user: authUser, refreshUser } = useAuth();
 
   const fetchData = async () => {
     try {
       const res = await api.get('/log/dashboard-data');
-      setData(res.data);
-      localStorage.setItem('dashboard_cache', JSON.stringify(res.data));
+      // Ensure history dates are valid and data is clean
+      const sanitizedHistory = res.data.history.map((h: any) => ({
+          ...h,
+          date: typeof h.date === 'string' ? h.date : new Date(h.date).toISOString()
+      }));
+      const cleanData = { ...res.data, history: sanitizedHistory };
+      setData(cleanData);
+      localStorage.setItem('dashboard_cache', JSON.stringify(cleanData));
+      
       setStepsInput(res.data.today.steps);
-      setWaterInput(res.data.today.water_ml / 1000); // Display as L
-      // Keep weightInput blank for user entry
+      setWaterInput(res.data.today.water_ml / 1000); 
     } catch (err) {
       console.error(err);
     }
@@ -43,25 +49,17 @@ export const Dashboard = () => {
         console.error("Scheduled sync failed:", err);
         if (err.response?.status === 403) {
             console.warn("Google Fit disconnected or token expired.");
-            // We don't alert here to avoid annoying the user every 5 mins, 
-            // but we could show a small indicator on the UI.
         }
     }
   };
 
   useEffect(() => {
     fetchData();
-    
-    // Trigger an initial sync as soon as we land on the dashboard
     syncGoogleFit();
-
-    // Auto-sync steps every 5 minutes using the server-side refresh token
     const syncInterval = setInterval(syncGoogleFit, 300000); // 5 minutes
-
     return () => clearInterval(syncInterval);
   }, []);
 
-  // Auto-refresh AI feedback if it's in the initial state
   useEffect(() => {
       if (data?.feedback?.summary === "Your AI Coach is analyzing your progress...") {
           refreshAI();
@@ -95,7 +93,6 @@ export const Dashboard = () => {
   const updateWater = async (litersOverride?: number) => {
     try {
       setSavingWater(true);
-      // Convert Liters back to ML for backend (Absolute update)
       const valueToSave = litersOverride !== undefined ? litersOverride : waterInput;
       const ml = Math.round(valueToSave * 1000);
       await api.put(`/log/water?water_ml=${ml}`);
@@ -126,7 +123,6 @@ export const Dashboard = () => {
         await api.put(`/log/weight?weight=${parseFloat(weightInput)}`);
         setWeightInput('');
         await fetchData();
-        // Sync with Profile page immediately
         if (refreshUser) await refreshUser();
     } catch (err) {
         console.error(err);
@@ -136,28 +132,23 @@ export const Dashboard = () => {
   const googleSync = useGoogleLogin({
     flow: 'auth-code',
     onSuccess: async (codeResponse) => {
-      console.log("DEBUG Google: Auth code received", codeResponse.code);
       setLoadingAI(true); 
       try {
         await api.post('/log/google-store-code', { code: codeResponse.code });
-        await api.post('/log/sync-google-fit', {}); // Send empty object to satisfy Pydantic
+        await api.post('/log/sync-google-fit', {}); 
         await fetchData();
-        alert('Steps synced successfully! Permanent background sync is now active for your account.');
+        alert('Steps synced successfully! Permanent background sync is now active.');
       } catch (err) {
-        console.error("DEBUG Google Sync error:", err);
-        alert('Failed to sync with Google Fit. Please try again.');
+        alert('Failed to sync with Google Fit.');
       } finally {
         setLoadingAI(false);
       }
     },
     scope: 'https://www.googleapis.com/auth/fitness.activity.read https://www.googleapis.com/auth/fitness.body.read',
-    // @ts-expect-error - access_type and prompt are required for offline sync but missing in library types
+    // @ts-expect-error - missing in library types
     access_type: 'offline',
     prompt: 'consent',
-    onError: (error) => {
-        console.error('Login Failed:', error);
-        alert('Google Login Failed. Please ensure popups are allowed for this site.');
-    }
+    onError: () => alert('Google Login Failed.')
   });
 
   if (!data) return (
@@ -166,11 +157,11 @@ export const Dashboard = () => {
     </div>
   );
 
-  const { today, user, history, feedback, weightHistory = [] } = data;
-  const profile = user.profile;
-
-  const kcalPercent = profile.target_kcal ? (today.total_kcal / profile.target_kcal) * 100 : 0;
-// ... (omitting lines for brevity in thought, but tool call will have full content)
+  const { today, user: dashboardUser, history, feedback, weightHistory = [] } = data;
+  const profile = dashboardUser.profile;
+  const displayName = profile?.name || authUser?.profile?.name || 'Athlete';
+  
+  const kcalPercent = profile?.target_kcal ? (today.total_kcal / profile.target_kcal) * 100 : 0;
   const radius = 70;
   const circumference = 2 * Math.PI * radius;
   const offset = circumference - (Math.min(kcalPercent, 100) / 100) * circumference;
@@ -182,25 +173,25 @@ export const Dashboard = () => {
   }), { p: 0, c: 0, f: 0 });
 
   const targets = {
-      p: Math.round((profile.target_kcal * 0.3) / 4),
-      c: Math.round((profile.target_kcal * 0.4) / 4),
-      f: Math.round((profile.target_kcal * 0.3) / 9)
+      p: Math.round(((profile?.target_kcal || 2000) * 0.3) / 4),
+      c: Math.round(((profile?.target_kcal || 2000) * 0.4) / 4),
+      f: Math.round(((profile?.target_kcal || 2000) * 0.3) / 9)
   };
 
-  const lastKnownWeight = today.weight || (weightHistory.length > 0 ? weightHistory[weightHistory.length - 1].weight : profile.weight);
+  const lastKnownWeight = today.weight || (weightHistory.length > 0 ? weightHistory[weightHistory.length - 1].weight : profile?.weight);
   const weightLabel = today.weight ? "Today" : (weightHistory.length > 0 ? "Last Recorded" : "Profile Target");
 
   return (
     <div className="container">
       <div className="card" style={{ textAlign: 'left', marginBottom: '2rem' }}>
-        <h1 style={{ marginBottom: '0.5rem' }}>Welcome Back, {profile.name || 'Athlete'}</h1>
-        <p className="text-muted" style={{ fontSize: '1.1rem' }}>Personalized plan: <strong>{profile.objective?.replace('_', ' ')}</strong></p>
+        <h1 style={{ marginBottom: '0.5rem' }}>Welcome Back, {displayName}</h1>
+        <p className="text-muted" style={{ fontSize: '1.1rem' }}>Personalized plan: <strong>{profile?.objective?.replace('_', ' ')}</strong></p>
       </div>
 
       {feedback && (
         <div className="card animate-fade-in" style={{ 
-            background: 'linear-gradient(135deg, rgba(0, 242, 254, 0.05) 0%, rgba(79, 172, 254, 0.05) 100%)',
-            borderColor: 'rgba(0, 242, 254, 0.2)',
+            background: '#121212',
+            borderLeft: '4px solid var(--primary)',
             textAlign: 'left',
             padding: '1.5rem 2.5rem',
             marginBottom: '2rem'
@@ -254,10 +245,7 @@ export const Dashboard = () => {
           <h3>Daily Calories</h3>
           <div className="progress-ring-container">
             <svg className="progress-ring-svg" width="160" height="160">
-              <circle 
-                className="progress-ring-circle-bg" 
-                cx="80" cy="80" r={radius} 
-              />
+              <circle className="progress-ring-circle-bg" cx="80" cy="80" r={radius} />
               <circle 
                 className="progress-ring-circle" 
                 cx="80" cy="80" r={radius} 
@@ -270,7 +258,7 @@ export const Dashboard = () => {
               <div className="text-muted" style={{ fontSize: '0.8rem', fontWeight: 800 }}>KCAL</div>
             </div>
           </div>
-          <p className="text-muted">Goal: {profile.target_kcal} kcal</p>
+          <p className="text-muted">Goal: {profile?.target_kcal || 2000} kcal</p>
           
           <div style={{ marginTop: '2rem', display: 'grid', gap: '1rem', textAlign: 'left' }}>
               {[
@@ -286,7 +274,7 @@ export const Dashboard = () => {
                       <div style={{ height: '6px', background: 'rgba(255,255,255,0.05)', borderRadius: '3px', overflow: 'hidden' }}>
                           <div style={{ 
                               height: '100%', 
-                              width: `${Math.min((m.current/m.target)*100, 100)}%`, 
+                              width: `${Math.min((m.current/(m.target || 1))*100, 100)}%`, 
                               background: m.color,
                               transition: 'width 0.5s ease'
                           }}></div>
@@ -312,11 +300,17 @@ export const Dashboard = () => {
                     id="main-water-input"
                     type="number" 
                     step="0.01"
+                    min="0"
+                    max="9.99"
                     value={waterInput} 
-                    onChange={(e) => setWaterInput(parseFloat(e.target.value) || 0)}
+                    onChange={(e) => {
+                        const val = e.target.value;
+                        if (val.length > 4) return;
+                        setWaterInput(parseFloat(val) || 0);
+                    }}
                     className="stat-value"
                     style={{ 
-                        background: 'linear-gradient(135deg, #fff 0%, #3498db 100%)', 
+                        background: 'linear-gradient(135deg, #fff 0%, #fbc531 100%)', 
                         WebkitBackgroundClip: 'text', 
                         WebkitTextFillColor: 'initial', 
                         color: '#fff',
@@ -349,27 +343,23 @@ export const Dashboard = () => {
                     boxShadow: savingWater ? 'none' : '0 4px 6px rgba(0,0,0,0.1)'
                   }}
                 >
-                  {savingWater ? 'Saved' : 'Update Daily Total'}
+                  {savingWater ? 'Saved' : 'Update'}
                 </button>
                 <button 
                     className="btn btn-secondary" 
-                    onClick={() => {
-                        setWaterInput(0);
-                        updateWater(0);
-                    }}
-                    style={{ padding: '0.6rem 1rem', background: 'rgba(255,255,255,0.05)', borderColor: 'rgba(255,255,255,0.1)' }}
-                    title="Reset to 0"
+                    onClick={() => { setWaterInput(0); updateWater(0); }}
+                    style={{ padding: '0.6rem 1rem', background: 'rgba(255,255,255,0.05)' }}
                 >
-                    🧹 Reset
+                    🧹
                 </button>
             </div>
           </div>
 
           <div style={{ marginTop: '3rem', display: 'flex', justifyContent: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
               {[
-                  { label: '💧 Sip (+15ml)', amt: 0.015 },
-                  { label: '🥛 Glass (+250ml)', amt: 0.25 },
-                  { label: '🍼 Bottle (+500ml)', amt: 0.5 }
+                  { label: '💧 Sip', amt: 0.015 },
+                  { label: '🥛 Glass', amt: 0.25 },
+                  { label: '🍼 Bottle', amt: 0.5 }
               ].map(item => (
                   <button 
                     key={item.label} 
@@ -384,7 +374,6 @@ export const Dashboard = () => {
         </div>
       </div>
 
-      {/* Activity & Weight Row */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '2rem', marginBottom: '2rem' }}>
         <div className="card stat-card" style={{ marginBottom: 0, textAlign: 'left', padding: '2rem' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -401,29 +390,15 @@ export const Dashboard = () => {
                         className="btn btn-secondary" 
                         onClick={() => googleSync()} 
                         style={{ 
-                            padding: '0.4rem 0.8rem', 
-                            fontSize: '0.7rem', 
-                            display: 'flex', 
-                            alignItems: 'center', 
-                            gap: '0.4rem',
-                            borderColor: user.has_google_sync ? 'var(--success)' : 'rgba(255,255,255,0.1)',
-                            background: user.has_google_sync ? 'rgba(0, 255, 175, 0.05)' : 'rgba(255,255,255,0.05)'
+                            padding: '0.4rem 0.8rem', fontSize: '0.7rem', display: 'flex', alignItems: 'center', gap: '0.4rem',
+                            borderColor: dashboardUser.has_google_sync ? 'var(--success)' : 'rgba(255,255,255,0.1)',
+                            background: dashboardUser.has_google_sync ? 'rgba(0, 255, 175, 0.05)' : 'rgba(255,255,255,0.05)'
                         }}
                     >
-                        <span>{user.has_google_sync ? '✅' : '🔄'}</span> {user.has_google_sync ? 'Google Fit Connected' : 'Sync Google Fit'}
+                        <span>{dashboardUser.has_google_sync ? '✅' : '🔄'}</span> {dashboardUser.has_google_sync ? 'Connected' : 'Sync'}
                     </button>
-                    
-                    {!user.has_google_sync && (
-                        <>
-                            <input 
-                                type="number" 
-                                className="btn btn-secondary" 
-                                value={stepsInput} 
-                                onChange={e => setStepsInput(parseInt(e.target.value)||0)} 
-                                style={{ width: '100px', cursor: 'text' }}
-                            />
-                            <button className="btn btn-primary" onClick={updateSteps}>Set</button>
-                        </>
+                    {!dashboardUser.has_google_sync && (
+                        <input type="number" className="btn btn-secondary" value={stepsInput} onChange={e => setStepsInput(parseInt(e.target.value)||0)} style={{ width: '80px' }}/>
                     )}
                 </div>
             </div>
@@ -439,15 +414,7 @@ export const Dashboard = () => {
                     <p className="text-muted">{weightLabel}</p>
                 </div>
                 <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                    <input 
-                        type="number" 
-                        step="0.1" 
-                        className="btn btn-secondary" 
-                        value={weightInput} 
-                        placeholder=""
-                        onChange={e => setWeightInput(e.target.value)} 
-                        style={{ width: '100px', cursor: 'text', overflow: 'hidden' }}
-                    />
+                    <input type="number" step="0.1" className="btn btn-secondary" value={weightInput} onChange={e => setWeightInput(e.target.value)} style={{ width: '100px' }}/>
                     <button className="btn btn-primary" onClick={updateWeight}>Log</button>
                 </div>
             </div>
@@ -457,8 +424,8 @@ export const Dashboard = () => {
       <h2 style={{ margin: '3rem 0 1.5rem' }}>History & Progress</h2>
       <div className="dashboard-grid" style={{ marginBottom: '3rem' }}>
         <div className="card" style={{ minWidth: 0 }}>
-            <h3 className="text-muted" style={{ fontSize: '0.9rem', textTransform: 'uppercase', marginBottom: '1.5rem' }}>Weight Tracking (30D)</h3>
-            <div style={{ width: '100%', height: 220, minWidth: 0 }}>
+            <h3 className="text-muted" style={{ fontSize: '0.8rem', textTransform: 'uppercase', marginBottom: '1.5rem' }}>Weight Tracking (30D)</h3>
+            <div style={{ width: '100%', height: 220 }}>
                 {weightHistory && weightHistory.length > 0 ? (
                     <ResponsiveContainer width="100%" height="100%">
                         <AreaChart data={weightHistory} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
@@ -469,134 +436,39 @@ export const Dashboard = () => {
                                 </linearGradient>
                             </defs>
                             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.05)" />
-                            <XAxis 
-                                dataKey="date" 
-                                tick={{fontSize: 10, fill: 'var(--text-muted)'}} 
-                                tickFormatter={(str) => {
-                                    try {
-                                        return new Date(str).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-                                    } catch(e) { return str; }
-                                }}
-                                stroke="rgba(255,255,255,0.1)"
-                            />
-                            <YAxis 
-                                domain={['dataMin - 1', 'dataMax + 1']} 
-                                hide 
-                            />
-                            <Tooltip 
-                                contentStyle={{ background: '#000', border: '1px solid var(--primary)', borderRadius: '0', fontSize: '0.8rem' }}
-                                labelFormatter={(label) => {
-                                    try {
-                                        return new Date(label).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
-                                    } catch(e) { return label; }
-                                }}
-                            />
-                            <Area 
-                                type="monotone" 
-                                dataKey="weight" 
-                                stroke="var(--primary)" 
-                                fillOpacity={1} 
-                                fill="url(#colorWeight)" 
-                                strokeWidth={4} 
-                                isAnimationActive={false}
-                                dot={(props: any) => {
-                                    const { cx, cy, payload } = props;
-                                    if (payload.is_actual) {
-                                        return <circle key={props.key} cx={cx} cy={cy} r={5} fill="var(--primary)" />;
-                                    }
-                                    return <circle r={0} />; 
-                                }}
-                            />
+                            <XAxis dataKey="date" tick={{fontSize: 10, fill: 'var(--text-muted)'}} tickFormatter={(str) => new Date(str).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} stroke="rgba(255,255,255,0.1)"/>
+                            <YAxis domain={['dataMin - 1', 'dataMax + 1']} hide />
+                            <Tooltip contentStyle={{ background: '#000', border: '1px solid var(--primary)', borderRadius: '0' }}/>
+                            <Area type="monotone" dataKey="weight" stroke="var(--primary)" fillOpacity={1} fill="url(#colorWeight)" strokeWidth={4} isAnimationActive={false}/>
                         </AreaChart>
                     </ResponsiveContainer>
-                ) : (
-                    <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', fontSize: '0.8rem' }}>
-                        Log your weight to see the trend.
-                    </div>
-                )}
+                ) : <div className="text-muted">No weight data.</div>}
             </div>
         </div>
 
         <div className="card">
             <h3 className="text-muted" style={{ fontSize: '0.8rem', textTransform: 'uppercase' }}>Daily Calories</h3>
             <div className="chart-container" style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', height: '120px', gap: '4px' }}>
-            {history.map((h: any, i: number) => {
-                const maxKcal = Math.max(...history.map((x: any) => x.total_kcal), profile.target_kcal, 1);
-                const barHeight = (h.total_kcal / maxKcal) * 100;
-                const isToday = i === history.length - 1;
-                
-                return (
+            {history.map((h: any, i: number) => (
                 <div key={i} style={{ flex: 1, height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', alignItems: 'center', gap: '8px' }}>
-                    <div 
-                        title={`${h.total_kcal} kcal`}
-                        style={{ 
-                            width: '100%',
-                            height: `${Math.max(barHeight, 5)}%`, 
-                            background: isToday ? 'var(--primary)' : 'rgba(251, 197, 49, 0.15)',
-                            border: '1px solid rgba(251, 197, 49, 0.1)'
-                        }} 
-                    ></div>
+                    <div style={{ width: '100%', height: `${Math.max((h.total_kcal / (profile?.target_kcal || 2000)) * 100, 5)}%`, background: i === history.length - 1 ? 'var(--primary)' : 'rgba(251, 197, 49, 0.15)', border: '1px solid rgba(251, 197, 49, 0.1)' }}></div>
                     <span style={{ fontSize: '0.6rem', fontWeight: 900, color: 'var(--text-muted)' }}>{new Date(h.date).toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase()}</span>
                 </div>
-                );
-            })}
+            ))}
             </div>
         </div>
 
         <div className="card">
             <h3 className="text-muted" style={{ fontSize: '0.8rem', textTransform: 'uppercase' }}>Steps</h3>
             <div className="chart-container" style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', height: '120px', gap: '4px' }}>
-            {history.map((h: any, i: number) => {
-                const barHeight = (h.steps / 12000) * 100;
-                const isToday = i === history.length - 1;
-                
-                return (
+            {history.map((h: any, i: number) => (
                 <div key={i} style={{ flex: 1, height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', alignItems: 'center', gap: '8px' }}>
-                    <div 
-                        title={`${h.steps} steps`}
-                        style={{ 
-                            width: '100%',
-                            height: `${Math.max(barHeight, 5)}%`,
-                            background: isToday ? 'var(--primary)' : 'rgba(251, 197, 49, 0.15)',
-                            border: '1px solid rgba(251, 197, 49, 0.1)'
-                        }} 
-                    ></div>
+                    <div style={{ width: '100%', height: `${Math.max((h.steps / 10000) * 100, 5)}%`, background: i === history.length - 1 ? 'var(--primary)' : 'rgba(251, 197, 49, 0.15)', border: '1px solid rgba(251, 197, 49, 0.1)' }}></div>
                     <span style={{ fontSize: '0.6rem', fontWeight: 900, color: 'var(--text-muted)' }}>{new Date(h.date).toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase()}</span>
                 </div>
-                );
-            })}
-            </div>
-        </div>
-      </div>
-
-      <div className="card">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
-            <h2 style={{ margin: 0 }}>Recent Meals</h2>
-            <button className="btn btn-secondary" style={{ padding: '0.5rem 1rem', fontSize: '0.8rem' }} onClick={() => window.location.href='/meal'}>+ Add Meal</button>
-        </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1rem' }}>
-            {today.food_items.map((item: any, idx: number) => (
-            <div key={idx} className="meal-item" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: '0.5rem' }}>
-                <div style={{ display: 'flex', width: '100%', justifyContent: 'space-between' }}>
-                    <div className="meal-info">
-                        <span className="meal-label">{item.label}</span>
-                        <span className="meal-meta">{item.type || 'Meal'} • {item.grams}g</span>
-                    </div>
-                    <div className="meal-kcal">+{item.kcal} kcal</div>
-                </div>
-                <div style={{ display: 'flex', gap: '1rem', fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 700 }}>
-                    <span>P: {Math.round(item.protein || 0)}g</span>
-                    <span>C: {Math.round(item.carbs || 0)}g</span>
-                    <span>F: {Math.round(item.fat || 0)}g</span>
-                </div>
-            </div>
             ))}
-        </div>
-        {today.food_items.length === 0 && (
-            <div style={{ textAlign: 'center', padding: '2rem', background: 'rgba(255,255,255,0.02)', borderRadius: '1rem' }}>
-                <p className="text-muted">No meals tracked today.</p>
             </div>
-        )}
+        </div>
       </div>
     </div>
   );
