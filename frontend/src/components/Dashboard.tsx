@@ -187,7 +187,7 @@ export const Dashboard = () => {
 
   return (
     <div className="container">
-      <div className="card" style={{ textAlign: 'left', marginBottom: '2rem', background: '#000' }}>
+      <div className="card" style={{ textAlign: 'left', marginBottom: '2rem', background: '#121212', border: '1px solid var(--card-border)' }}>
         <h1 style={{ marginBottom: '0.5rem' }}>Welcome Back, <span style={{ color: 'var(--primary)' }}>{displayName}</span></h1>
         <p className="text-muted" style={{ fontSize: '1.1rem' }}>Personalized plan: <strong>{String(profile.objective || 'N/A').replace('_', ' ').toUpperCase()}</strong></p>
       </div>
