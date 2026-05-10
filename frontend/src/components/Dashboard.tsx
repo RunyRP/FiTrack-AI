@@ -11,7 +11,6 @@ export const Dashboard = () => {
       const cached = localStorage.getItem('dashboard_cache');
       return cached ? JSON.parse(cached) : null;
   });
-  const [lastSync, setLastSync] = useState<Date | null>(null);
   const [stepsInput, setStepsInput] = useState<number>(0);
   const [waterInput, setWaterInput] = useState<number>(0); 
   const [weightInput, setWeightInput] = useState<string>('');
