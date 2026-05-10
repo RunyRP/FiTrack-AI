@@ -194,11 +194,14 @@ export const Dashboard = () => {
 
       {feedback && (
         <div className="card animate-fade-in" style={{ 
-            background: '#121212',
+            background: 'rgba(251, 197, 49, 0.03)',
             borderLeft: '6px solid var(--primary)',
             textAlign: 'left',
             padding: '2rem',
-            marginBottom: '2rem'
+            marginBottom: '2rem',
+            borderTop: '1px solid rgba(251, 197, 49, 0.1)',
+            borderRight: '1px solid rgba(251, 197, 49, 0.1)',
+            borderBottom: '1px solid rgba(251, 197, 49, 0.1)'
         }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1rem' }}>
                 <span style={{ fontSize: '1.5rem' }}>🤖</span>
