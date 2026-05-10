@@ -398,7 +398,22 @@ export const Dashboard = () => {
                         <span>{dashboardUser.has_google_sync ? '✅' : '🔄'}</span> {dashboardUser.has_google_sync ? 'Connected' : 'Sync'}
                     </button>
                     {!dashboardUser.has_google_sync && (
-                        <input type="number" className="btn btn-secondary" value={stepsInput} onChange={e => setStepsInput(parseInt(e.target.value)||0)} style={{ width: '80px' }}/>
+                        <div style={{ display: 'flex', gap: '0.25rem' }}>
+                            <input 
+                                type="number" 
+                                className="btn btn-secondary" 
+                                value={stepsInput} 
+                                onChange={e => setStepsInput(parseInt(e.target.value)||0)} 
+                                style={{ width: '80px', cursor: 'text' }}
+                            />
+                            <button 
+                                className="btn btn-primary" 
+                                onClick={updateSteps}
+                                style={{ padding: '0.4rem 0.8rem', fontSize: '0.7rem' }}
+                            >
+                                SET
+                            </button>
+                        </div>
                     )}
                 </div>
             </div>
