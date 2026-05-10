@@ -12,7 +12,7 @@ export const Dashboard = () => {
       return cached ? JSON.parse(cached) : null;
   });
   const [stepsInput, setStepsInput] = useState<number>(0);
-  const [waterInput, setWaterInput] = useState<number>(0); 
+  const [waterInput, setWaterInput] = useState<string>('0'); 
   const [weightInput, setWeightInput] = useState<string>('');
   const [loadingAI, setLoadingAI] = useState(false);
   const [savingWater, setSavingWater] = useState(false);
@@ -42,7 +42,7 @@ export const Dashboard = () => {
       localStorage.setItem('dashboard_cache', JSON.stringify(cleanData));
       
       setStepsInput(res.data.today.steps);
-      setWaterInput(res.data.today.water_ml / 1000); 
+      setWaterInput(String(res.data.today.water_ml / 1000)); 
     } catch (err) {
       console.error("Fetch data error:", err);
     }
@@ -100,7 +100,7 @@ export const Dashboard = () => {
   const updateWater = async (litersOverride?: number) => {
     try {
       setSavingWater(true);
-      const valueToSave = litersOverride !== undefined ? litersOverride : waterInput;
+      const valueToSave = litersOverride !== undefined ? litersOverride : parseFloat(waterInput);
       const ml = Math.round(valueToSave * 1000);
       await api.put(`/log/water?water_ml=${ml}`);
       await fetchData();
@@ -120,6 +120,27 @@ export const Dashboard = () => {
     } catch (err) {
       setSavingWater(false);
     }
+  };
+
+  const handleWaterInputChange = (val: string) => {
+      // 1. Remove initial 0 if a digit is pressed
+      let cleaned = val;
+      if (waterInput === '0' && val.length > 1) {
+          cleaned = val.replace(/^0+/, '');
+      }
+      
+      // 2. Allow only numbers and one dot
+      cleaned = cleaned.replace(/[^0-9.]/g, '');
+      
+      const parts = cleaned.split('.');
+      if (parts.length > 2) return; // Ignore multiple dots
+      
+      // 3. Enforce digit limits: X.XX format
+      let integerPart = parts[0].slice(0, 1); // Only 1 digit for Liters
+      let decimalPart = parts[1] !== undefined ? parts[1].slice(0, 2) : '';
+      
+      const finalVal = parts.length === 2 ? `${integerPart}.${decimalPart}` : integerPart;
+      setWaterInput(finalVal || '0');
   };
 
   const updateWeight = async () => {
@@ -282,15 +303,10 @@ export const Dashboard = () => {
             <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'center', width: '100%' }}>
                 <input 
                     id="main-water-input"
-                    type="number" 
-                    step="0.01"
-                    min="0"
-                    max="9.99"
+                    type="text" 
+                    inputMode="decimal"
                     value={waterInput} 
-                    onInput={(e: any) => {
-                        if (e.target.value.length > 4) e.target.value = e.target.value.slice(0, 4);
-                    }}
-                    onChange={(e) => setWaterInput(parseFloat(e.target.value) || 0)}
+                    onChange={(e) => handleWaterInputChange(e.target.value)}
                     className="stat-value"
                     style={{ background: 'linear-gradient(135deg, #fff 0%, #fbc531 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'initial', color: '#fff', fontSize: '4.5rem', border: 'none', outline: 'none', textAlign: 'center', width: 'auto', minWidth: '150px' }}
                 />
@@ -299,7 +315,7 @@ export const Dashboard = () => {
             <p className="text-muted" style={{ marginBottom: '1.5rem' }}>Goal: 3.00 L</p>
             <div style={{ display: 'flex', gap: '0.75rem' }}>
                 <button className="btn btn-primary" onClick={() => updateWater()}>{savingWater ? 'Saved' : 'Update'}</button>
-                <button className="btn btn-secondary" onClick={() => { setWaterInput(0); updateWater(0); }}>🧹</button>
+                <button className="btn btn-secondary" onClick={() => { setWaterInput('0'); updateWater(0); }}>🧹</button>
             </div>
           </div>
           <div style={{ marginTop: '3rem', display: 'flex', justifyContent: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
