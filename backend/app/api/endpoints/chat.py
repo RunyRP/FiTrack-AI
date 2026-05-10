@@ -31,6 +31,7 @@ def get_chat_history(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
+    print(f"DEBUG: Fetching chat history for user {current_user.email}, thread {thread_id}")
     messages = db.query(ChatMessage).filter(
         ChatMessage.user_id == current_user.id,
         ChatMessage.thread_id == thread_id
@@ -43,9 +44,15 @@ def send_chat_message(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    from app.services.ai_chat import get_chat_service
+    print(f"DEBUG: Message from {current_user.email} in thread {request.thread_id}")
+    
     # 1. Save user message
-    user_msg = ChatMessage(user_id=current_user.id, role="user", content=request.message, thread_id=request.thread_id)
+    user_msg = ChatMessage(
+        user_id=current_user.id, 
+        role="user", 
+        content=request.message, 
+        thread_id=request.thread_id
+    )
     db.add(user_msg)
     
     # 2. Get AI response
@@ -64,19 +71,23 @@ def send_chat_message(
     history_msgs = db.query(ChatMessage).filter(
         ChatMessage.user_id == current_user.id,
         ChatMessage.thread_id == request.thread_id
-    ).order_by(ChatMessage.created_at.desc()).limit(11).all() # 11 to include the one we just added
+    ).order_by(ChatMessage.created_at.desc()).limit(11).all()
     history_msgs.reverse()
     
     context = ""
-    for msg in history_msgs[:-1]: # All but the current one
+    for msg in history_msgs[:-1]: # All but the one we just added
         context += f"{msg.role}: {msg.content}\n"
 
-    # Pass context to generator
     full_prompt = f"Previous context:\n{context}\nUser: {request.message}" if context else request.message
     ai_reply = chat_service.generate_response(full_prompt, profile_data)
     
     # 3. Save AI message
-    assistant_msg = ChatMessage(user_id=current_user.id, role="assistant", content=ai_reply, thread_id=request.thread_id)
+    assistant_msg = ChatMessage(
+        user_id=current_user.id, 
+        role="assistant", 
+        content=ai_reply, 
+        thread_id=request.thread_id
+    )
     db.add(assistant_msg)
     
     db.commit()
@@ -90,6 +101,7 @@ def delete_chat_thread(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
+    print(f"DEBUG: Deleting thread {thread_id} for user {current_user.email}")
     db.query(ChatMessage).filter(
         ChatMessage.user_id == current_user.id,
         ChatMessage.thread_id == thread_id

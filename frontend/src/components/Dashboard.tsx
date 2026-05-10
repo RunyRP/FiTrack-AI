@@ -13,7 +13,7 @@ export const Dashboard = () => {
   });
   const [lastSync, setLastSync] = useState<Date | null>(null);
   const [stepsInput, setStepsInput] = useState<number>(0);
-  const [waterInput, setWaterInput] = useState<number>(0); // Store as Liters in UI
+  const [waterInput, setWaterInput] = useState<number>(0); 
   const [weightInput, setWeightInput] = useState<string>('');
   const [loadingAI, setLoadingAI] = useState(false);
   const [savingWater, setSavingWater] = useState(false);
@@ -23,10 +23,21 @@ export const Dashboard = () => {
     try {
       const res = await api.get('/log/dashboard-data');
       // Ensure history dates are valid and data is clean
-      const sanitizedHistory = res.data.history.map((h: any) => ({
-          ...h,
-          date: typeof h.date === 'string' ? h.date : new Date(h.date).toISOString()
-      }));
+      const sanitizedHistory = (res.data.history || []).map((h: any) => {
+          let dateStr = '---';
+          try {
+              const d = new Date(h.date);
+              if (!isNaN(d.getTime())) {
+                  dateStr = d.toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase();
+              }
+          } catch(e) {}
+          return {
+              ...h,
+              displayDate: dateStr,
+              total_kcal: Number(h.total_kcal) || 0,
+              steps: Number(h.steps) || 0
+          };
+      });
       const cleanData = { ...res.data, history: sanitizedHistory };
       setData(cleanData);
       localStorage.setItem('dashboard_cache', JSON.stringify(cleanData));
@@ -34,21 +45,19 @@ export const Dashboard = () => {
       setStepsInput(res.data.today.steps);
       setWaterInput(res.data.today.water_ml / 1000); 
     } catch (err) {
-      console.error(err);
+      console.error("Fetch data error:", err);
     }
   };
 
 
   const syncGoogleFit = async () => {
     try {
-        console.log("DEBUG: Running Google Fit sync...");
         await api.post('/log/sync-google-fit', {});
         await fetchData();
         setLastSync(new Date());
     } catch (err: any) {
-        console.error("Scheduled sync failed:", err);
         if (err.response?.status === 403) {
-            console.warn("Google Fit disconnected or token expired.");
+            console.warn("Google Fit disconnected.");
         }
     }
   };
@@ -56,7 +65,7 @@ export const Dashboard = () => {
   useEffect(() => {
     fetchData();
     syncGoogleFit();
-    const syncInterval = setInterval(syncGoogleFit, 300000); // 5 minutes
+    const syncInterval = setInterval(syncGoogleFit, 300000); 
     return () => clearInterval(syncInterval);
   }, []);
 
@@ -99,7 +108,6 @@ export const Dashboard = () => {
       await fetchData();
       setTimeout(() => setSavingWater(false), 1200);
     } catch (err) {
-      console.error(err);
       setSavingWater(false);
     }
   };
@@ -112,7 +120,6 @@ export const Dashboard = () => {
       await fetchData();
       setTimeout(() => setSavingWater(false), 1200);
     } catch (err) {
-      console.error(err);
       setSavingWater(false);
     }
   };
@@ -137,31 +144,30 @@ export const Dashboard = () => {
         await api.post('/log/google-store-code', { code: codeResponse.code });
         await api.post('/log/sync-google-fit', {}); 
         await fetchData();
-        alert('Steps synced successfully! Permanent background sync is now active.');
+        alert('Steps synced successfully!');
       } catch (err) {
-        alert('Failed to sync with Google Fit.');
+        alert('Failed to sync.');
       } finally {
         setLoadingAI(false);
       }
     },
     scope: 'https://www.googleapis.com/auth/fitness.activity.read https://www.googleapis.com/auth/fitness.body.read',
-    // @ts-expect-error - missing in library types
+    // @ts-expect-error
     access_type: 'offline',
     prompt: 'consent',
-    onError: () => alert('Google Login Failed.')
   });
 
   if (!data) return (
     <div className="container" style={{ display: 'flex', height: '50vh', alignItems: 'center', justifyContent: 'center' }}>
-      <div className="stat-value" style={{ fontSize: '1.5rem' }}>Preparing your dashboard...</div>
+      <div className="stat-value" style={{ fontSize: '1.5rem' }}>Preparing...</div>
     </div>
   );
 
-  const { today, user: dashboardUser, history, feedback, weightHistory = [] } = data;
-  const profile = dashboardUser.profile;
-  const displayName = profile?.name || authUser?.profile?.name || 'Athlete';
+  const { today, user: dashboardUser, history = [], feedback, weightHistory = [] } = data;
+  const profile = dashboardUser?.profile || authUser?.profile || {};
+  const displayName = profile.name || authUser?.email?.split('@')[0] || 'Athlete';
   
-  const kcalPercent = profile?.target_kcal ? (today.total_kcal / profile.target_kcal) * 100 : 0;
+  const kcalPercent = profile.target_kcal ? (today.total_kcal / profile.target_kcal) * 100 : 0;
   const radius = 70;
   const circumference = 2 * Math.PI * radius;
   const offset = circumference - (Math.min(kcalPercent, 100) / 100) * circumference;
@@ -173,65 +179,55 @@ export const Dashboard = () => {
   }), { p: 0, c: 0, f: 0 });
 
   const targets = {
-      p: Math.round(((profile?.target_kcal || 2000) * 0.3) / 4),
-      c: Math.round(((profile?.target_kcal || 2000) * 0.4) / 4),
-      f: Math.round(((profile?.target_kcal || 2000) * 0.3) / 9)
+      p: Math.round(((profile.target_kcal || 2000) * 0.3) / 4),
+      c: Math.round(((profile.target_kcal || 2000) * 0.4) / 4),
+      f: Math.round(((profile.target_kcal || 2000) * 0.3) / 9)
   };
 
-  const lastKnownWeight = today.weight || (weightHistory.length > 0 ? weightHistory[weightHistory.length - 1].weight : profile?.weight);
-  const weightLabel = today.weight ? "Today" : (weightHistory.length > 0 ? "Last Recorded" : "Profile Target");
+  const lastKnownWeight = today.weight || (weightHistory.length > 0 ? weightHistory[weightHistory.length - 1].weight : profile.weight);
+  const weightLabel = today.weight ? "Today" : "Last Recorded";
 
   return (
     <div className="container">
-      <div className="card" style={{ textAlign: 'left', marginBottom: '2rem' }}>
-        <h1 style={{ marginBottom: '0.5rem' }}>Welcome Back, {displayName}</h1>
-        <p className="text-muted" style={{ fontSize: '1.1rem' }}>Personalized plan: <strong>{profile?.objective?.replace('_', ' ')}</strong></p>
+      <div className="card" style={{ textAlign: 'left', marginBottom: '2rem', background: '#000' }}>
+        <h1 style={{ marginBottom: '0.5rem' }}>Welcome Back, <span style={{ color: 'var(--primary)' }}>{displayName}</span></h1>
+        <p className="text-muted" style={{ fontSize: '1.1rem' }}>Personalized plan: <strong>{String(profile.objective || 'N/A').replace('_', ' ').toUpperCase()}</strong></p>
       </div>
 
       {feedback && (
         <div className="card animate-fade-in" style={{ 
             background: '#121212',
-            borderLeft: '4px solid var(--primary)',
+            borderLeft: '6px solid var(--primary)',
             textAlign: 'left',
-            padding: '1.5rem 2.5rem',
+            padding: '2rem',
             marginBottom: '2rem'
         }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1rem' }}>
                 <span style={{ fontSize: '1.5rem' }}>🤖</span>
-                <h3 style={{ margin: 0, fontSize: '1.1rem', textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--primary)' }}>Daily AI Coach</h3>
+                <h3 style={{ margin: 0, fontSize: '1.1rem', textTransform: 'uppercase', color: 'var(--primary)' }}>Daily AI Coach</h3>
                 <div style={{ 
                     marginLeft: 'auto', 
                     padding: '0.2rem 0.6rem', 
-                    borderRadius: '0.5rem', 
                     fontSize: '0.7rem', 
                     fontWeight: 800, 
-                    background: feedback.status === 'on_track' ? 'rgba(0, 255, 175, 0.1)' : 'rgba(251, 197, 49, 0.1)',
+                    background: feedback.status === 'on_track' ? 'rgba(46, 204, 113, 0.1)' : 'rgba(251, 197, 49, 0.1)',
                     color: feedback.status === 'on_track' ? 'var(--success)' : 'var(--warning)'
                 }}>
                     {feedback.status === 'on_track' ? 'ON TRACK' : 'NEEDS ATTENTION'}
                 </div>
             </div>
             
-            <p style={{ fontSize: '1.1rem', fontWeight: 500, marginBottom: '1rem', color: '#fff', lineHeight: 1.4 }}>
+            <p style={{ fontSize: '1.1rem', fontWeight: 500, marginBottom: '1rem', color: '#fff' }}>
                 {feedback.summary === "Your AI Coach is analyzing your progress..." ? (
-                    <button className="btn btn-secondary" onClick={refreshAI} disabled={loadingAI} style={{ padding: '0.5rem 1rem', fontSize: '0.8rem' }}>
+                    <button className="btn btn-secondary" onClick={refreshAI} disabled={loadingAI}>
                         {loadingAI ? 'Analyzing...' : 'Generate Daily Summary ✨'}
                     </button>
-                ) : (
-                    `"${feedback.summary}"`
-                )}
+                ) : `"${feedback.summary}"`}
             </p>
 
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem' }}>
                 {feedback.insights.map((insight: string, i: number) => (
-                    <div key={i} style={{ 
-                        fontSize: '0.8rem', 
-                        padding: '0.4rem 0.8rem', 
-                        background: 'rgba(255,255,255,0.03)', 
-                        borderRadius: '0.5rem', 
-                        border: '1px solid rgba(255,255,255,0.05)',
-                        color: 'var(--text-muted)'
-                    }}>
+                    <div key={i} style={{ fontSize: '0.8rem', padding: '0.4rem 0.8rem', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)', color: 'var(--text-muted)' }}>
                         • {insight}
                     </div>
                 ))}
@@ -239,9 +235,9 @@ export const Dashboard = () => {
         </div>
       )}
 
-      {/* Main Trackers Row */}
+      {/* Trackers */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '2rem', marginBottom: '2rem' }}>
-        <div className="card stat-card" style={{ marginBottom: 0 }}>
+        <div className="card stat-card">
           <h3>Daily Calories</h3>
           <div className="progress-ring-container">
             <svg className="progress-ring-svg" width="160" height="160">
@@ -258,7 +254,7 @@ export const Dashboard = () => {
               <div className="text-muted" style={{ fontSize: '0.8rem', fontWeight: 800 }}>KCAL</div>
             </div>
           </div>
-          <p className="text-muted">Goal: {profile?.target_kcal || 2000} kcal</p>
+          <p className="text-muted">Goal: {profile.target_kcal || 2000} kcal</p>
           
           <div style={{ marginTop: '2rem', display: 'grid', gap: '1rem', textAlign: 'left' }}>
               {[
@@ -271,31 +267,18 @@ export const Dashboard = () => {
                           <span>{m.label}</span>
                           <span>{Math.round(m.current)}g / {m.target}g</span>
                       </div>
-                      <div style={{ height: '6px', background: 'rgba(255,255,255,0.05)', borderRadius: '3px', overflow: 'hidden' }}>
-                          <div style={{ 
-                              height: '100%', 
-                              width: `${Math.min((m.current/(m.target || 1))*100, 100)}%`, 
-                              background: m.color,
-                              transition: 'width 0.5s ease'
-                          }}></div>
+                      <div style={{ height: '6px', background: 'rgba(255,255,255,0.05)', overflow: 'hidden' }}>
+                          <div style={{ height: '100%', width: `${Math.min((m.current/(m.target || 1))*100, 100)}%`, background: m.color }}></div>
                       </div>
                   </div>
               ))}
           </div>
         </div>
 
-        <div className="card stat-card" style={{ marginBottom: 0, position: 'relative' }}>
-          <button 
-            onClick={() => document.getElementById('main-water-input')?.focus()}
-            style={{ position: 'absolute', top: '1.5rem', right: '1.5rem', background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.2rem', opacity: 0.6 }}
-            title="Edit Total"
-          >
-            ✏️
-          </button>
+        <div className="card stat-card">
           <h3>Hydration</h3>
-          
           <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-            <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'center', width: '100%', overflow: 'hidden' }}>
+            <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'center', width: '100%' }}>
                 <input 
                     id="main-water-input"
                     type="number" 
@@ -303,132 +286,60 @@ export const Dashboard = () => {
                     min="0"
                     max="9.99"
                     value={waterInput} 
-                    onChange={(e) => {
-                        const val = e.target.value;
-                        if (val.length > 4) return;
-                        setWaterInput(parseFloat(val) || 0);
+                    onInput={(e: any) => {
+                        if (e.target.value.length > 4) e.target.value = e.target.value.slice(0, 4);
                     }}
+                    onChange={(e) => setWaterInput(parseFloat(e.target.value) || 0)}
                     className="stat-value"
-                    style={{ 
-                        background: 'linear-gradient(135deg, #fff 0%, #fbc531 100%)', 
-                        WebkitBackgroundClip: 'text', 
-                        WebkitTextFillColor: 'initial', 
-                        color: '#fff',
-                        fontSize: '4.5rem',
-                        border: 'none',
-                        outline: 'none',
-                        textAlign: 'center',
-                        width: 'auto',
-                        minWidth: '150px',
-                        padding: 0,
-                        margin: 0,
-                        cursor: 'text',
-                        overflow: 'hidden'
-                    }}
+                    style={{ background: 'linear-gradient(135deg, #fff 0%, #fbc531 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'initial', color: '#fff', fontSize: '4.5rem', border: 'none', outline: 'none', textAlign: 'center', width: 'auto', minWidth: '150px' }}
                 />
                 <span style={{ fontSize: '1.2rem', color: 'var(--text-muted)', fontWeight: 800, marginLeft: '0.5rem' }}>LITERS</span>
             </div>
             <p className="text-muted" style={{ marginBottom: '1.5rem' }}>Goal: 3.00 L</p>
-            
-            <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center' }}>
-                <button 
-                  className="btn btn-primary" 
-                  onClick={() => updateWater()} 
-                  style={{ 
-                    padding: '0.6rem 2rem', 
-                    transition: 'all 0.2s ease',
-                    background: savingWater ? 'var(--success)' : 'var(--primary)',
-                    borderColor: savingWater ? 'var(--success)' : 'var(--primary)',
-                    transform: savingWater ? 'scale(0.95)' : 'scale(1)',
-                    boxShadow: savingWater ? 'none' : '0 4px 6px rgba(0,0,0,0.1)'
-                  }}
-                >
-                  {savingWater ? 'Saved' : 'Update'}
-                </button>
-                <button 
-                    className="btn btn-secondary" 
-                    onClick={() => { setWaterInput(0); updateWater(0); }}
-                    style={{ padding: '0.6rem 1rem', background: 'rgba(255,255,255,0.05)' }}
-                >
-                    🧹
-                </button>
+            <div style={{ display: 'flex', gap: '0.75rem' }}>
+                <button className="btn btn-primary" onClick={() => updateWater()}>{savingWater ? 'Saved' : 'Update'}</button>
+                <button className="btn btn-secondary" onClick={() => { setWaterInput(0); updateWater(0); }}>🧹</button>
             </div>
           </div>
-
           <div style={{ marginTop: '3rem', display: 'flex', justifyContent: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
-              {[
-                  { label: '💧 Sip', amt: 0.015 },
-                  { label: '🥛 Glass', amt: 0.25 },
-                  { label: '🍼 Bottle', amt: 0.5 }
-              ].map(item => (
-                  <button 
-                    key={item.label} 
-                    className="btn btn-secondary" 
-                    style={{ padding: '0.5rem 0.8rem', fontSize: '0.75rem', fontWeight: 600 }} 
-                    onClick={() => addWater(item.amt)}
-                  >
-                    {item.label}
-                  </button>
+              {[{ label: '💧 Sip', amt: 0.015 }, { label: '🥛 Glass', amt: 0.25 }, { label: '🍼 Bottle', amt: 0.5 }].map(item => (
+                  <button key={item.label} className="btn btn-secondary" style={{ padding: '0.5rem 0.8rem', fontSize: '0.75rem' }} onClick={() => addWater(item.amt)}>{item.label}</button>
               ))}
           </div>
         </div>
       </div>
 
+      {/* Activity & Weight */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '2rem', marginBottom: '2rem' }}>
-        <div className="card stat-card" style={{ marginBottom: 0, textAlign: 'left', padding: '2rem' }}>
+        <div className="card stat-card" style={{ textAlign: 'left', padding: '2rem' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div>
                     <h3 style={{ margin: 0 }}>Daily Steps</h3>
                     <div className="stat-value" style={{ margin: '0.5rem 0', fontSize: '3rem' }}>{today.steps.toLocaleString()}</div>
-                    <p className="text-muted" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                        Goal: 10,000 
-                        {lastSync && <span style={{ fontSize: '0.7rem', color: 'var(--success)' }}>• Sync: {lastSync.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>}
-                    </p>
+                    <p className="text-muted">Goal: 10,000</p>
                 </div>
-                <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                    <button 
-                        className="btn btn-secondary" 
-                        onClick={() => googleSync()} 
-                        style={{ 
-                            padding: '0.4rem 0.8rem', fontSize: '0.7rem', display: 'flex', alignItems: 'center', gap: '0.4rem',
-                            borderColor: dashboardUser.has_google_sync ? 'var(--success)' : 'rgba(255,255,255,0.1)',
-                            background: dashboardUser.has_google_sync ? 'rgba(0, 255, 175, 0.05)' : 'rgba(255,255,255,0.05)'
-                        }}
-                    >
-                        <span>{dashboardUser.has_google_sync ? '✅' : '🔄'}</span> {dashboardUser.has_google_sync ? 'Connected' : 'Sync'}
+                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                    <button className="btn btn-secondary" onClick={() => googleSync()} style={{ fontSize: '0.7rem' }}>
+                        {dashboardUser.has_google_sync ? '✅ Connected' : '🔄 Sync Fit'}
                     </button>
                     {!dashboardUser.has_google_sync && (
                         <div style={{ display: 'flex', gap: '0.25rem' }}>
-                            <input 
-                                type="number" 
-                                className="btn btn-secondary" 
-                                value={stepsInput} 
-                                onChange={e => setStepsInput(parseInt(e.target.value)||0)} 
-                                style={{ width: '80px', cursor: 'text' }}
-                            />
-                            <button 
-                                className="btn btn-primary" 
-                                onClick={updateSteps}
-                                style={{ padding: '0.4rem 0.8rem', fontSize: '0.7rem' }}
-                            >
-                                SET
-                            </button>
+                            <input type="number" className="btn btn-secondary" value={stepsInput} onChange={e => setStepsInput(parseInt(e.target.value)||0)} style={{ width: '80px' }}/>
+                            <button className="btn btn-primary" onClick={updateSteps} style={{ fontSize: '0.7rem' }}>SET</button>
                         </div>
                     )}
                 </div>
             </div>
         </div>
 
-        <div className="card stat-card" style={{ marginBottom: 0, textAlign: 'left', padding: '2rem' }}>
+        <div className="card stat-card" style={{ textAlign: 'left', padding: '2rem' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div>
                     <h3 style={{ margin: 0 }}>Current Weight</h3>
-                    <div className="stat-value" style={{ margin: '0.5rem 0', fontSize: '3rem', color: 'var(--primary)' }}>
-                        {lastKnownWeight || '--'} <span style={{ fontSize: '1.2rem' }}>KG</span>
-                    </div>
+                    <div className="stat-value" style={{ margin: '0.5rem 0', fontSize: '3rem' }}>{lastKnownWeight || '--'} <span style={{ fontSize: '1.2rem' }}>KG</span></div>
                     <p className="text-muted">{weightLabel}</p>
                 </div>
-                <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                <div style={{ display: 'flex', gap: '0.5rem' }}>
                     <input type="number" step="0.1" className="btn btn-secondary" value={weightInput} onChange={e => setWeightInput(e.target.value)} style={{ width: '100px' }}/>
                     <button className="btn btn-primary" onClick={updateWeight}>Log</button>
                 </div>
@@ -438,50 +349,45 @@ export const Dashboard = () => {
 
       <h2 style={{ margin: '3rem 0 1.5rem' }}>History & Progress</h2>
       <div className="dashboard-grid" style={{ marginBottom: '3rem' }}>
-        <div className="card" style={{ minWidth: 0 }}>
-            <h3 className="text-muted" style={{ fontSize: '0.8rem', textTransform: 'uppercase', marginBottom: '1.5rem' }}>Weight Tracking (30D)</h3>
+        <div className="card">
+            <h3 className="text-muted" style={{ fontSize: '0.8rem', textTransform: 'uppercase' }}>Weight Tracking (30D)</h3>
             <div style={{ width: '100%', height: 220 }}>
                 {weightHistory && weightHistory.length > 0 ? (
                     <ResponsiveContainer width="100%" height="100%">
-                        <AreaChart data={weightHistory} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                            <defs>
-                                <linearGradient id="colorWeight" x1="0" y1="0" x2="0" y2="1">
-                                    <stop offset="5%" stopColor="var(--primary)" stopOpacity={0.3}/>
-                                    <stop offset="95%" stopColor="var(--primary)" stopOpacity={0}/>
-                                </linearGradient>
-                            </defs>
+                        <AreaChart data={weightHistory}>
+                            <defs><linearGradient id="colorWeight" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="var(--primary)" stopOpacity={0.3}/><stop offset="95%" stopColor="var(--primary)" stopOpacity={0}/></linearGradient></defs>
                             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.05)" />
-                            <XAxis dataKey="date" tick={{fontSize: 10, fill: 'var(--text-muted)'}} tickFormatter={(str) => new Date(str).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} stroke="rgba(255,255,255,0.1)"/>
+                            <XAxis dataKey="date" tick={{fontSize: 10, fill: 'var(--text-muted)'}} tickFormatter={(str) => new Date(str).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} />
                             <YAxis domain={['dataMin - 1', 'dataMax + 1']} hide />
                             <Tooltip contentStyle={{ background: '#000', border: '1px solid var(--primary)', borderRadius: '0' }}/>
                             <Area type="monotone" dataKey="weight" stroke="var(--primary)" fillOpacity={1} fill="url(#colorWeight)" strokeWidth={4} isAnimationActive={false}/>
                         </AreaChart>
                     </ResponsiveContainer>
-                ) : <div className="text-muted">No weight data.</div>}
+                ) : <div className="text-muted">No data.</div>}
             </div>
         </div>
 
         <div className="card">
             <h3 className="text-muted" style={{ fontSize: '0.8rem', textTransform: 'uppercase' }}>Daily Calories</h3>
-            <div className="chart-container" style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', height: '120px', gap: '4px' }}>
-            {history.map((h: any, i: number) => (
-                <div key={i} style={{ flex: 1, height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', alignItems: 'center', gap: '8px' }}>
-                    <div style={{ width: '100%', height: `${Math.max((h.total_kcal / (profile?.target_kcal || 2000)) * 100, 5)}%`, background: i === history.length - 1 ? 'var(--primary)' : 'rgba(251, 197, 49, 0.15)', border: '1px solid rgba(251, 197, 49, 0.1)' }}></div>
-                    <span style={{ fontSize: '0.6rem', fontWeight: 900, color: 'var(--text-muted)' }}>{new Date(h.date).toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase()}</span>
-                </div>
-            ))}
+            <div className="chart-container" style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', height: '120px', gap: '6px' }}>
+                {(history || []).map((h: any, i: number) => (
+                    <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', alignItems: 'center', gap: '8px', height: '100%' }}>
+                        <div style={{ width: '100%', height: `${Math.max((Number(h.total_kcal || 0) / (profile?.target_kcal || 2000)) * 100, 4)}%`, background: i === history.length - 1 ? 'var(--primary)' : 'rgba(251, 197, 49, 0.1)', border: `1px solid ${i === history.length - 1 ? 'var(--primary)' : 'rgba(251, 197, 49, 0.2)'}`, minHeight: '2px' }}></div>
+                        <span style={{ fontSize: '0.5rem', fontWeight: 900, color: 'var(--text-muted)' }}>{h.displayDate || '---'}</span>
+                    </div>
+                ))}
             </div>
         </div>
 
         <div className="card">
             <h3 className="text-muted" style={{ fontSize: '0.8rem', textTransform: 'uppercase' }}>Steps</h3>
-            <div className="chart-container" style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', height: '120px', gap: '4px' }}>
-            {history.map((h: any, i: number) => (
-                <div key={i} style={{ flex: 1, height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', alignItems: 'center', gap: '8px' }}>
-                    <div style={{ width: '100%', height: `${Math.max((h.steps / 10000) * 100, 5)}%`, background: i === history.length - 1 ? 'var(--primary)' : 'rgba(251, 197, 49, 0.15)', border: '1px solid rgba(251, 197, 49, 0.1)' }}></div>
-                    <span style={{ fontSize: '0.6rem', fontWeight: 900, color: 'var(--text-muted)' }}>{new Date(h.date).toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase()}</span>
-                </div>
-            ))}
+            <div className="chart-container" style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', height: '120px', gap: '6px' }}>
+                {(history || []).map((h: any, i: number) => (
+                    <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', alignItems: 'center', gap: '8px', height: '100%' }}>
+                        <div style={{ width: '100%', height: `${Math.max((Number(h.steps || 0) / 10000) * 100, 4)}%`, background: i === history.length - 1 ? 'var(--primary)' : 'rgba(251, 197, 49, 0.1)', border: `1px solid ${i === history.length - 1 ? 'var(--primary)' : 'rgba(251, 197, 49, 0.2)'}`, minHeight: '2px' }}></div>
+                        <span style={{ fontSize: '0.5rem', fontWeight: 900, color: 'var(--text-muted)' }}>{h.displayDate || '---'}</span>
+                    </div>
+                ))}
             </div>
         </div>
       </div>
