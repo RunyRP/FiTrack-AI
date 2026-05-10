@@ -53,7 +53,6 @@ export const Dashboard = () => {
     try {
         await api.post('/log/sync-google-fit', {});
         await fetchData();
-        setLastSync(new Date());
     } catch (err: any) {
         if (err.response?.status === 403) {
             console.warn("Google Fit disconnected.");
