@@ -87,46 +87,71 @@ def get_dashboard_data(
     
     weight_map_30 = {l.date.isoformat(): l.weight for l in logs_30 if l.weight is not None}
     
-    # Baseline weight for chart
-    last_weight = 70.0
-    if current_user.profile and current_user.profile.weight:
-        last_weight = current_user.profile.weight
-    
-    # Check for weight before window
+    # Baseline weight: check for weight before window
     prev_log = db.query(DailyLog).filter(
         DailyLog.user_id == current_user.id,
         DailyLog.date < start_date_30,
         DailyLog.weight != None
     ).order_by(DailyLog.date.desc()).first()
-    if prev_log:
-        last_weight = prev_log.weight
+    
+    chart_val = prev_log.weight if prev_log else None
+    first_weight_found = (chart_val is not None)
 
     weight_history = []
-    chart_val = last_weight
     for i in range(30):
         curr_date = start_date_30 + timedelta(days=i)
         curr_iso = curr_date.isoformat()
         actual = weight_map_30.get(curr_iso)
+        
         if actual is not None:
             chart_val = actual
+            first_weight_found = True
+        
         weight_history.append({
             "date": curr_iso,
-            "weight": float(chart_val),
+            "weight": float(chart_val) if first_weight_found else None,
             "is_actual": actual is not None
         })
 
     # 4. Feedback & Insights
     profile = current_user.profile
+
+    # Robust summary fallback
+    raw_summary = log.ai_summary
+    if not raw_summary or raw_summary in ["null", "None", "No feedback yet.", "Click 'Generate' for your daily AI coaching!"]:
+        display_summary = "Your AI Coach is analyzing your progress..."
+    else:
+        display_summary = raw_summary
+
     feedback = {
-        "summary": getattr(log, 'ai_summary', "Your AI Coach is analyzing your progress..."),
+        "summary": display_summary,
         "insights": [],
         "status": "on_track"
     }
-    
+
+    # Generate hints (insights)
     target_kcal = (profile.target_kcal if profile else 2000) or 2000
     if log.total_kcal < target_kcal * 0.8:
-        feedback["insights"].append(f"Calories are low.")
-    
+        feedback["insights"].append("Your body needs fuel to keep crushing those goals! Make sure you're getting enough energy today.")
+    elif log.total_kcal > target_kcal * 1.1:
+        feedback["insights"].append("Let's stay mindful of our choices—every small decision brings you closer to your target.")
+        feedback["status"] = "needs_attention"
+    else:
+        feedback["insights"].append("Your nutrition is spot on! Keep fueling your success with balanced choices.")
+
+    if log.steps < 3000:
+        feedback["insights"].append("Every step counts! How about a quick 5-minute walk to get that energy flowing?")
+        feedback["status"] = "needs_attention"
+    elif log.steps > 10000:
+        feedback["insights"].append("Incredible activity level today! Keep that momentum—you're absolutely crushing it!")
+    else:
+        feedback["insights"].append("Good steady movement today. Keep those steps coming to maintain your energy levels.")
+
+    if log.water_ml < 1500:
+        feedback["insights"].append("Don't forget to hydrate! A glass of water is a simple win for your body right now.")
+    else:
+        feedback["insights"].append("Excellent hydration! You're keeping your body primed for peak performance.")
+
     # 5. Build Final Response
     return {
         "user": {
@@ -136,7 +161,7 @@ def get_dashboard_data(
             "profile": {
                 "name": profile.name if profile else None,
                 "weight": profile.weight if profile else None,
-                "target_kcal": profile.target_kcal if profile else 2000,
+                "target_kcal": target_kcal,
                 "objective": profile.objective if profile else "maintain"
             }
         },
@@ -163,10 +188,36 @@ def get_daily_feedback(
     today = date.today()
     log = db.query(DailyLog).filter(DailyLog.user_id == current_user.id, DailyLog.date == today).first()
     profile = current_user.profile
-    
+
     if not log or not profile:
         return {"summary": "Start logging your day!"}
-    
+
+    # Generate insights for the response
+    target_kcal = (profile.target_kcal if profile else 2000) or 2000
+    insights = []
+    status = "on_track"
+
+    if log.total_kcal < target_kcal * 0.8:
+        insights.append("Your body needs fuel to keep crushing those goals! Make sure you're getting enough energy today.")
+    elif log.total_kcal > target_kcal * 1.1:
+        insights.append("Let's stay mindful of our choices—every small decision brings you closer to your target.")
+        status = "needs_attention"
+    else:
+        insights.append("Your nutrition is spot on! Keep fueling your success with balanced choices.")
+
+    if log.steps < 3000:
+        insights.append("Every step counts! How about a quick 5-minute walk to get that energy flowing?")
+        status = "needs_attention"
+    elif log.steps > 10000:
+        insights.append("Incredible activity level today! Keep that momentum—you're absolutely crushing it!")
+    else:
+        insights.append("Good steady movement today. Keep those steps coming to maintain your energy levels.")
+
+    if log.water_ml < 1500:
+        insights.append("Don't forget to hydrate! A glass of water is a simple win for your body right now.")
+    else:
+        insights.append("Excellent hydration! You're keeping your body primed for peak performance.")
+
     time_context = "today"
     if hour is not None:
         if 5 <= hour < 12: time_context = "this morning"
@@ -174,19 +225,18 @@ def get_daily_feedback(
         elif 17 <= hour < 21: time_context = "this evening"
         else: time_context = "tonight"
 
-    target_kcal = profile.target_kcal or 2000
     user_name = profile.name or "Athlete"
     raw_data = f"Calories: {log.total_kcal}/{target_kcal}, Steps: {log.steps}. Goal: {profile.objective}."
-    
+
     from app.services.ai_chat import get_chat_service
     chat_service = get_chat_service()
-    
+
     prompt = f"It is {time_context}. Give a short, high-energy coaching tip to {user_name}. Data: {raw_data}. Max 2 sentences."
     ai_feedback = chat_service.generate_response(prompt, {"name": user_name, "objective": profile.objective})
-    
+
     log.ai_summary = ai_feedback
     db.commit()
-    return {"summary": ai_feedback, "insights": [], "status": "on_track"}
+    return {"summary": ai_feedback, "insights": insights, "status": status}
 
 @router.put("/steps")
 def update_steps(steps: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):

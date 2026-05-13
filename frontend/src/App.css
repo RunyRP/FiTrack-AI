@@ -102,6 +102,12 @@ h1, h2, h3 {
   transform: translateY(-2px);
 }
 
+.btn-success {
+  background: var(--success);
+  color: #000;
+  font-weight: 900;
+}
+
 .btn-secondary {
   background: transparent;
   border: 1px solid var(--card-border);
@@ -330,6 +336,37 @@ input:not([type="checkbox"]):not([type="radio"]) {
 
 .animate-fade-in {
   animation: fadeIn 0.5s ease forwards;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+.animate-pulse {
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+.insight-chip {
+  font-size: 0.8rem;
+  padding: 0.4rem 0.8rem;
+  background: rgba(251, 197, 49, 0.05);
+  border: 1px solid rgba(251, 197, 49, 0.1);
+  color: var(--text-muted);
+  transition: all 0.3s ease;
+  cursor: default;
+}
+
+.insight-chip:hover {
+  border-color: var(--primary);
+  color: var(--text);
+  box-shadow: 0 0 15px rgba(251, 197, 49, 0.25);
+  background: rgba(251, 197, 49, 0.08);
+  transform: translateY(-1px);
+}
+
+.insight-chip:hover .insight-bullet {
+  filter: drop-shadow(0 0 6px rgba(251, 197, 49, 0.9));
 }
 
 /* Custom scrollbar */

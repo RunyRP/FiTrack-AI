@@ -40,11 +40,16 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "http://localhost:5173",
-        "https://fitrack-ai-omega.vercel.app",
-        "https://fitrack-ai-omega.vercel.app/",
+        "http://localhost:5174",
+        "http://127.0.0.1:5173",
+        "https://fittrack-ai-omega.vercel.app",
+        "https://fittrack-ai-omega.vercel.app/",
         "https://fit-track-ai.vercel.app",
+        "https://fit-track-ai.vercel.app/",
         "https://fittrack-ai.vercel.app",
+        "https://fittrack-ai.vercel.app/",
         "https://unconservative-nonadjudicatively-kathlyn.ngrok-free.dev",
+        "https://unconservative-nonadjudicatively-kathlyn.ngrok-free.dev/",
     ],  
     allow_origin_regex="https://.*\.vercel\.app", # Allow any Vercel subdomain
     allow_credentials=True,

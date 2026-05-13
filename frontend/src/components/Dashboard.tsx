@@ -3,7 +3,7 @@ import { useGoogleLogin } from '@react-oauth/google';
 import api from '../api';
 import { useAuth } from '../App';
 import { 
-  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
+  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Cell
 } from 'recharts';
 
 export const Dashboard = () => {
@@ -16,6 +16,7 @@ export const Dashboard = () => {
   const [weightInput, setWeightInput] = useState<string>('');
   const [loadingAI, setLoadingAI] = useState(false);
   const [savingWater, setSavingWater] = useState(false);
+  const [lastStepsUpdate, setLastStepsUpdate] = useState<string>('');
   const { user: authUser, refreshUser } = useAuth();
 
   const fetchData = async () => {
@@ -43,6 +44,7 @@ export const Dashboard = () => {
       
       setStepsInput(res.data.today.steps);
       setWaterInput(String(res.data.today.water_ml / 1000)); 
+      setLastStepsUpdate(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
     } catch (err) {
       console.error("Fetch data error:", err);
     }
@@ -104,7 +106,7 @@ export const Dashboard = () => {
       const ml = Math.round(valueToSave * 1000);
       await api.put(`/log/water?water_ml=${ml}`);
       await fetchData();
-      setTimeout(() => setSavingWater(false), 1200);
+      setTimeout(() => setSavingWater(false), 600);
     } catch (err) {
       setSavingWater(false);
     }
@@ -116,7 +118,7 @@ export const Dashboard = () => {
       const ml = Math.round(liters * 1000);
       await api.put(`/log/add-water?water_ml=${ml}`);
       await fetchData();
-      setTimeout(() => setSavingWater(false), 1200);
+      setTimeout(() => setSavingWater(false), 600);
     } catch (err) {
       setSavingWater(false);
     }
@@ -240,23 +242,54 @@ export const Dashboard = () => {
             </div>
             
             <p style={{ fontSize: '1.1rem', fontWeight: 500, marginBottom: '1rem', color: '#fff' }}>
-                {feedback.summary === "Your AI Coach is analyzing your progress..." ? (
-                    <button className="btn btn-secondary" onClick={refreshAI} disabled={loadingAI}>
-                        {loadingAI ? 'Analyzing...' : 'Generate Daily Summary ✨'}
-                    </button>
-                ) : `"${feedback.summary}"`}
+                {(() => {
+                    const placeholders = [
+                        "Your AI Coach is analyzing your progress...",
+                        "Your AI Coach is preparing your feedback...",
+                        "Analyzing data...",
+                        "No feedback yet.",
+                        "Click 'Generate' for your daily AI coaching!"
+                    ];
+                    const isPlaceholder = placeholders.includes(feedback.summary);
+
+                    if (isPlaceholder && feedback.insights && feedback.insights.length > 0) {
+                        return <span>{feedback.insights.join(' ')}</span>;
+                    }
+
+                    if (isPlaceholder) {
+                        if (feedback.summary === "No feedback yet." || feedback.summary === "Click 'Generate' for your daily AI coaching!") {
+                            return feedback.summary;
+                        }
+                        return <span className="text-muted animate-pulse">🤖 Analyzing your data... please wait.</span>;
+                    }
+
+                    return feedback.summary || "No feedback yet.";
+                })()}
             </p>
 
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem' }}>
                 {feedback.insights.map((insight: string, i: number) => (
-                    <div key={i} style={{ fontSize: '0.8rem', padding: '0.4rem 0.8rem', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)', color: 'var(--text-muted)' }}>
-                        • {insight}
+                    <div 
+                        key={i} 
+                        className="insight-chip"
+                        style={{ 
+                            fontSize: '0.8rem', 
+                            padding: '0.4rem 0.8rem', 
+                            background: 'rgba(251, 197, 49, 0.05)', 
+                            border: '1px solid rgba(251, 197, 49, 0.1)', 
+                            color: 'var(--text-muted)',
+                            transition: 'all 0.3s ease',
+                            cursor: 'default',
+                            display: 'flex',
+                            alignItems: 'center'
+                        }}
+                    >
+                        <span className="insight-bullet" style={{ color: 'var(--primary)', marginRight: '0.4rem' }}>•</span> {insight}
                     </div>
                 ))}
             </div>
         </div>
       )}
-
       {/* Trackers */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '2rem', marginBottom: '2rem' }}>
         <div className="card stat-card">
@@ -308,13 +341,13 @@ export const Dashboard = () => {
                     value={waterInput} 
                     onChange={(e) => handleWaterInputChange(e.target.value)}
                     className="stat-value"
-                    style={{ background: 'linear-gradient(135deg, #fff 0%, #fbc531 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'initial', color: '#fff', fontSize: '4.5rem', border: 'none', outline: 'none', textAlign: 'center', width: 'auto', minWidth: '150px' }}
+                    style={{ background: 'linear-gradient(135deg, #fff 0%, #fbc531 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'initial', color: '#fff', fontSize: '4.5rem', border: 'none', outline: 'none', textAlign: 'center', width: 'auto', minWidth: '150px', caretColor: 'transparent' }}
                 />
                 <span style={{ fontSize: '1.2rem', color: 'var(--text-muted)', fontWeight: 800, marginLeft: '0.5rem' }}>LITERS</span>
             </div>
             <p className="text-muted" style={{ marginBottom: '1.5rem' }}>Goal: 3.00 L</p>
             <div style={{ display: 'flex', gap: '0.75rem' }}>
-                <button className="btn btn-primary" onClick={() => updateWater()}>{savingWater ? 'Saved' : 'Update'}</button>
+                <button className={`btn ${savingWater ? 'btn-success' : 'btn-primary'}`} onClick={() => updateWater()}>{savingWater ? '✅ Saved' : 'Update'}</button>
                 <button className="btn btn-secondary" onClick={() => { setWaterInput('0'); updateWater(0); }}>🧹</button>
             </div>
           </div>
@@ -333,11 +366,18 @@ export const Dashboard = () => {
                 <div>
                     <h3 style={{ margin: 0 }}>Daily Steps</h3>
                     <div className="stat-value" style={{ margin: '0.5rem 0', fontSize: '3rem' }}>{today.steps.toLocaleString()}</div>
-                    <p className="text-muted">Goal: 10,000</p>
+                    <p className="text-muted" style={{ margin: 0 }}>Goal: 10,000</p>
                 </div>
                 <div style={{ display: 'flex', gap: '0.5rem' }}>
-                    <button className="btn btn-secondary" onClick={() => googleSync()} style={{ fontSize: '0.7rem' }}>
-                        {dashboardUser.has_google_sync ? '✅ Connected' : '🔄 Sync Fit'}
+                    <button 
+                        className="btn btn-secondary" 
+                        onClick={() => googleSync()} 
+                        style={{ fontSize: '0.7rem', flexDirection: 'column', padding: '0.5rem 1rem', minWidth: '110px' }}
+                    >
+                        <span>{dashboardUser.has_google_sync ? '✅ Connected' : '🔄 Sync Fit'}</span>
+                        {lastStepsUpdate && (
+                            <span style={{ fontSize: '0.55rem', opacity: 0.7, marginTop: '2px', fontWeight: 700 }}>Last updated at: {lastStepsUpdate}</span>
+                        )}
                     </button>
                     {!dashboardUser.has_google_sync && (
                         <div style={{ display: 'flex', gap: '0.25rem' }}>
@@ -357,7 +397,7 @@ export const Dashboard = () => {
                     <p className="text-muted">{weightLabel}</p>
                 </div>
                 <div style={{ display: 'flex', gap: '0.5rem' }}>
-                    <input type="number" step="0.1" className="btn btn-secondary" value={weightInput} onChange={e => setWeightInput(e.target.value)} style={{ width: '100px' }}/>
+                    <input type="number" step="0.1" className="btn btn-secondary" value={weightInput} onChange={e => setWeightInput(e.target.value)} style={{ width: '100px', caretColor: 'transparent' }}/>
                     <button className="btn btn-primary" onClick={updateWeight}>Log</button>
                 </div>
             </div>
@@ -386,25 +426,47 @@ export const Dashboard = () => {
 
         <div className="card">
             <h3 className="text-muted" style={{ fontSize: '0.8rem', textTransform: 'uppercase' }}>Daily Calories</h3>
-            <div className="chart-container" style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', height: '120px', gap: '6px' }}>
-                {(history || []).map((h: any, i: number) => (
-                    <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', alignItems: 'center', gap: '8px', height: '100%' }}>
-                        <div style={{ width: '100%', height: `${Math.max((Number(h.total_kcal || 0) / (profile?.target_kcal || 2000)) * 100, 4)}%`, background: i === history.length - 1 ? 'var(--primary)' : 'rgba(251, 197, 49, 0.1)', border: `1px solid ${i === history.length - 1 ? 'var(--primary)' : 'rgba(251, 197, 49, 0.2)'}`, minHeight: '2px' }}></div>
-                        <span style={{ fontSize: '0.5rem', fontWeight: 900, color: 'var(--text-muted)' }}>{h.displayDate || '---'}</span>
-                    </div>
-                ))}
+            <div style={{ width: '100%', height: 220 }}>
+                <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={history}>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.05)" />
+                        <XAxis dataKey="displayDate" tick={{fontSize: 10, fill: 'var(--text-muted)'}} axisLine={false} tickLine={false} />
+                        <YAxis hide />
+                        <Tooltip 
+                            contentStyle={{ background: '#000', border: '1px solid var(--primary)', borderRadius: '0' }}
+                            itemStyle={{ color: 'var(--primary)', fontSize: '0.8rem' }}
+                            cursor={{ fill: 'rgba(255,255,255,0.05)' }}
+                        />
+                        <Bar dataKey="total_kcal" fill="var(--primary)" fillOpacity={0.6}>
+                            {history.map((_: any, index: number) => (
+                                <Cell key={`cell-${index}`} fillOpacity={index === history.length - 1 ? 1 : 0.6} />
+                            ))}
+                        </Bar>
+                    </BarChart>
+                </ResponsiveContainer>
             </div>
         </div>
 
         <div className="card">
             <h3 className="text-muted" style={{ fontSize: '0.8rem', textTransform: 'uppercase' }}>Steps</h3>
-            <div className="chart-container" style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', height: '120px', gap: '6px' }}>
-                {(history || []).map((h: any, i: number) => (
-                    <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', alignItems: 'center', gap: '8px', height: '100%' }}>
-                        <div style={{ width: '100%', height: `${Math.max((Number(h.steps || 0) / 10000) * 100, 4)}%`, background: i === history.length - 1 ? 'var(--primary)' : 'rgba(251, 197, 49, 0.1)', border: `1px solid ${i === history.length - 1 ? 'var(--primary)' : 'rgba(251, 197, 49, 0.2)'}`, minHeight: '2px' }}></div>
-                        <span style={{ fontSize: '0.5rem', fontWeight: 900, color: 'var(--text-muted)' }}>{h.displayDate || '---'}</span>
-                    </div>
-                ))}
+            <div style={{ width: '100%', height: 220 }}>
+                <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={history}>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.05)" />
+                        <XAxis dataKey="displayDate" tick={{fontSize: 10, fill: 'var(--text-muted)'}} axisLine={false} tickLine={false} />
+                        <YAxis hide />
+                        <Tooltip 
+                            contentStyle={{ background: '#000', border: '1px solid var(--primary)', borderRadius: '0' }}
+                            itemStyle={{ color: 'var(--primary)', fontSize: '0.8rem' }}
+                            cursor={{ fill: 'rgba(255,255,255,0.05)' }}
+                        />
+                        <Bar dataKey="steps" fill="var(--primary)" fillOpacity={0.6}>
+                            {history.map((_: any, index: number) => (
+                                <Cell key={`cell-${index}`} fillOpacity={index === history.length - 1 ? 1 : 0.6} />
+                            ))}
+                        </Bar>
+                    </BarChart>
+                </ResponsiveContainer>
             </div>
         </div>
       </div>
