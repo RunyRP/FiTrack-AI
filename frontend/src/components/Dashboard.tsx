@@ -14,7 +14,6 @@ export const Dashboard = () => {
   const [stepsInput, setStepsInput] = useState<number>(0);
   const [waterInput, setWaterInput] = useState<string>('0'); 
   const [weightInput, setWeightInput] = useState<string>('');
-  const [loadingAI, setLoadingAI] = useState(false);
   const [savingWater, setSavingWater] = useState(false);
   const [lastStepsUpdate, setLastStepsUpdate] = useState<string>('');
   const { user: authUser, refreshUser } = useAuth();
@@ -76,7 +75,6 @@ export const Dashboard = () => {
   }, [data]);
 
   const refreshAI = async () => {
-      setLoadingAI(true);
       try {
           const hour = new Date().getHours();
           const res = await api.get(`/log/feedback?hour=${hour}`);
@@ -85,8 +83,6 @@ export const Dashboard = () => {
           localStorage.setItem('dashboard_cache', JSON.stringify(newData));
       } catch (err) {
           console.error(err);
-      } finally {
-          setLoadingAI(false);
       }
   };
 
@@ -160,7 +156,6 @@ export const Dashboard = () => {
   const googleSync = useGoogleLogin({
     flow: 'auth-code',
     onSuccess: async (codeResponse) => {
-      setLoadingAI(true); 
       try {
         await api.post('/log/google-store-code', { code: codeResponse.code });
         await api.post('/log/sync-google-fit', {}); 
@@ -168,8 +163,6 @@ export const Dashboard = () => {
         alert('Steps synced successfully!');
       } catch (err) {
         alert('Failed to sync.');
-      } finally {
-        setLoadingAI(false);
       }
     },
     scope: 'https://www.googleapis.com/auth/fitness.activity.read https://www.googleapis.com/auth/fitness.body.read',
