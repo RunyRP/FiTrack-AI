@@ -43,6 +43,33 @@ export const Setup = () => {
     }
   };
 
+  const categorizeMachine = (m: any) => {
+    const primaryMuscle = m.exercises?.[0]?.muscles?.[0] || 'Other';
+    const muscle = primaryMuscle.toLowerCase();
+    
+    if (muscle.includes('quad') || muscle.includes('leg') || muscle.includes('glute') || muscle.includes('hamstring') || muscle.includes('calf')) return 'Legs';
+    if (muscle.includes('chest') || muscle.includes('pectoral')) return 'Chest';
+    if (muscle.includes('back') || muscle.includes('lat') || muscle.includes('row')) return 'Back';
+    if (muscle.includes('shoulder') || muscle.includes('delt')) return 'Shoulders';
+    if (muscle.includes('bicep') || muscle.includes('tricep') || muscle.includes('arm')) return 'Arms';
+    if (muscle.includes('core') || muscle.includes('ab') || muscle.includes('stomach')) return 'Core';
+    return 'Other';
+  };
+
+  const groupMachinery = () => {
+    const groups: Record<string, any[]> = {
+        'Chest': [], 'Back': [], 'Shoulders': [], 'Legs': [], 'Arms': [], 'Core': [], 'Other': []
+    };
+    
+    machinery.forEach(m => {
+        const cat = categorizeMachine(m);
+        if (groups[cat]) groups[cat].push(m);
+        else groups['Other'].push(m);
+    });
+    
+    return groups;
+  };
+
   const toggleMachine = (id: number) => {
     setSelectedIds(prev => 
       prev.includes(id) ? prev.filter(mid => mid !== id) : [...prev, id]
@@ -64,7 +91,7 @@ export const Setup = () => {
       });
       
       await refreshUser();
-      navigate('/');
+      navigate('/workout');
     } catch (err) {
       console.error(err);
     } finally {
@@ -204,36 +231,53 @@ export const Setup = () => {
                 </div>
                 
                 <div style={{ 
-                    display: 'grid', 
-                    gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', 
-                    gap: '1rem', 
                     marginTop: '2rem', 
                     marginBottom: '2rem',
                     maxHeight: '450px',
                     overflowY: 'auto',
                     paddingRight: '0.5rem'
                 }}>
-                    {machinery.map(m => (
-                        <div 
-                            key={m.id} 
-                            onClick={() => toggleMachine(m.id)}
-                            style={{ 
-                                cursor: 'pointer', borderRadius: '0', overflow: 'hidden',
-                                border: selectedIds.includes(m.id) ? '2px solid var(--primary)' : '1px solid var(--card-border)',
-                                background: selectedIds.includes(m.id) ? 'rgba(251, 197, 49, 0.05)' : 'rgba(255,255,255,0.02)',
-                                transition: 'all 0.2s ease'
-                            }}
-                        >
-                            <img src={m.image_url} alt={m.name} style={{ width: '100%', height: '120px', objectFit: 'cover' }} />
-                            <div style={{ padding: '1rem' }}>
-                                <strong style={{ fontSize: '0.9rem', color: selectedIds.includes(m.id) ? 'var(--primary)' : 'white' }}>{m.name}</strong>
+                    {Object.entries(groupMachinery()).map(([groupName, machines]) => (
+                        machines.length > 0 && (
+                            <div key={groupName} style={{ marginBottom: '2rem' }}>
+                                <h3 style={{ 
+                                    fontSize: '0.8rem', 
+                                    textTransform: 'uppercase', 
+                                    letterSpacing: '0.1em', 
+                                    color: 'var(--primary)',
+                                    marginBottom: '1rem',
+                                    paddingBottom: '0.5rem',
+                                    borderBottom: '1px solid rgba(251, 197, 49, 0.2)'
+                                }}>{groupName}</h3>
+                                <div style={{ 
+                                    display: 'grid', 
+                                    gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', 
+                                    gap: '1rem' 
+                                }}>
+                                    {machines.map(m => (
+                                        <div 
+                                            key={m.id} 
+                                            onClick={() => toggleMachine(m.id)}
+                                            className={`equipment-card ${selectedIds.includes(m.id) ? 'selected' : ''}`}
+                                        >
+                                            <img src={m.image_url} alt={m.name} style={{ width: '100%', height: '200px', objectFit: 'cover' }} />
+                                            <div style={{ padding: '0.75rem', textAlign: 'center' }}>
+                                                <strong style={{ fontSize: '0.85rem', color: selectedIds.includes(m.id) ? 'var(--primary)' : 'white' }}>{m.name}</strong>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
                             </div>
-                        </div>
+                        )
                     ))}
                 </div>
 
                 <div style={{ display: 'flex', gap: '1rem' }}>
-                    <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => setStep(2)}>Back</button>
+                    {isEquipmentOnly ? (
+                        <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => navigate(-1)}>Cancel</button>
+                    ) : (
+                        <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => setStep(2)}>Back</button>
+                    )}
                     <button 
                         className="btn btn-primary" 
                         style={{ flex: 2 }} 

@@ -68,6 +68,28 @@ body {
     opacity: 1;
 }
 
+.equipment-card {
+  cursor: pointer;
+  border-radius: 0;
+  overflow: hidden;
+  border: 1px solid var(--card-border);
+  background: rgba(255,255,255,0.02);
+  transition: all 0.2s ease;
+  position: relative;
+}
+
+.equipment-card:hover {
+  border-color: var(--primary);
+  box-shadow: 0 0 15px rgba(251, 197, 49, 0.2);
+  transform: translateY(-2px);
+  z-index: 2;
+}
+
+.equipment-card.selected {
+  border: 2px solid var(--primary);
+  background: rgba(251, 197, 49, 0.05);
+}
+
 h1, h2, h3 {
   color: var(--text);
   margin-bottom: 1.5rem;

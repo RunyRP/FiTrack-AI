@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import api from '../api';
 import { useAuth } from '../App';
 import { Link } from 'react-router-dom';
+import { WorkoutSplits } from './WorkoutSplits';
 
 interface Set {
     reps: number;
@@ -17,21 +18,20 @@ interface LoggedExercise {
 export const WorkoutSuggestions = () => {
   const { user } = useAuth();
   const [suggestionData, setSuggestionData] = useState<any>(null);
+  const [nextWorkout, setNextWorkout] = useState<any>(null);
   const [loading, setLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<'routine' | 'history'>('routine');
+  const [activeTab, setActiveTab] = useState<'routine' | 'history' | 'splits'>('routine');
   
   // Logging state
   const [workoutName, setWorkoutName] = useState('My Workout');
   const [loggedExercises, setLoggedExercises] = useState<Record<string, Set[]>>({});
   const [saving, setLogging] = useState(false);
   const [workoutHistory, setHistory] = useState<any[]>([]);
+  const [selectedSplitId, setSelectedSplitId] = useState<number | null>(null);
 
   useEffect(() => {
     fetchHistory();
-    // Automatically generate suggestion if profile has machinery
-    if (user?.profile?.selected_machinery?.length > 0) {
-        handleSuggest();
-    }
+    fetchNextWorkout();
   }, [user]);
 
   const fetchHistory = async () => {
@@ -43,10 +43,51 @@ export const WorkoutSuggestions = () => {
     }
   };
 
-  const handleSuggest = async () => {
+  const fetchNextWorkout = async () => {
     setLoading(true);
     try {
-      // Backend now automatically uses profile machinery if none provided
+        const res = await api.get('/workout/next');
+        setNextWorkout(res.data);
+        if (res.data.split_id) {
+            applyNextWorkout(res.data);
+            setLoading(false);
+        } else {
+            await handleSuggest();
+        }
+    } catch (err) {
+        console.error(err);
+        await handleSuggest();
+    }
+  };
+
+  const applyNextWorkout = (data: any) => {
+    setWorkoutName(data.split_name);
+    setSelectedSplitId(data.split_id);
+    
+    const initialLogs: Record<string, Set[]> = {};
+    data.exercises.forEach((ex: any) => {
+        initialLogs[ex.exercise_name] = ex.last_sets.map((s: any) => ({
+            reps: s.reps,
+            weight: s.weight
+        }));
+    });
+    setLoggedExercises(initialLogs);
+    
+    // Format suggestion data structure for the UI
+    setSuggestionData({
+        objective: user?.profile?.objective || 'maintain',
+        suggestions: data.exercises.map((ex: any) => ({
+            exercise_name: ex.exercise_name,
+            machine_id: ex.machine_id,
+            muscles: [], 
+            reps: ex.target_reps,
+            sets: ex.target_sets
+        }))
+    });
+  };
+
+  const handleSuggest = async () => {
+    try {
       const res = await api.get('/workout/suggest');
       setSuggestionData(res.data);
       
@@ -55,6 +96,8 @@ export const WorkoutSuggestions = () => {
           initialLogs[s.exercise_name] = [{ reps: 10, weight: 0 }];
       });
       setLoggedExercises(initialLogs);
+      setWorkoutName('My Workout');
+      setSelectedSplitId(null);
     } catch (err) {
       console.error(err);
     } finally {
@@ -67,6 +110,14 @@ export const WorkoutSuggestions = () => {
           ...prev,
           [exName]: [...prev[exName], { reps: 10, weight: prev[exName][prev[exName].length-1].weight }]
       }));
+  };
+
+  const removeSet = (exName: string, setIdx: number) => {
+    setLoggedExercises(prev => {
+        if (prev[exName].length <= 1) return prev; // Keep at least one set
+        const newSets = prev[exName].filter((_, i) => i !== setIdx);
+        return { ...prev, [exName]: newSets };
+    });
   };
 
   const updateSet = (exName: string, setIdx: number, field: keyof Set, value: number) => {
@@ -88,11 +139,13 @@ export const WorkoutSuggestions = () => {
 
           await api.post('/workout/session', {
               name: workoutName,
+              split_id: selectedSplitId,
               exercises: exercises
           });
           
           alert('Workout saved successfully!');
           fetchHistory();
+          fetchNextWorkout();
           setActiveTab('history');
       } catch (err) {
           console.error(err);
@@ -102,21 +155,43 @@ export const WorkoutSuggestions = () => {
       }
   };
 
+  const handleCancelWorkout = () => {
+    if (confirm('Are you sure you want to cancel this live workout? All progress will be lost.')) {
+        setLoggedExercises({});
+        setWorkoutName('My Workout');
+        setSelectedSplitId(null);
+        setNextWorkout(null);
+        handleSuggest();
+    }
+  };
+
+  const handleDeleteSession = async (sessionId: number) => {
+    if (confirm('Are you sure you want to delete this workout session?')) {
+        try {
+            await api.delete(`/workout/session/${sessionId}`);
+            fetchHistory();
+        } catch (err) {
+            console.error(err);
+            alert('Error deleting workout.');
+        }
+    }
+  };
+
   const formatObjective = (obj: string) => {
     return obj.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
   };
 
   // If no machinery selected, show a prompt
   if (!user?.profile?.selected_machinery || user.profile.selected_machinery.length === 0) {
-      return (
-          <div className="container animate-fade-in">
-              <div className="card" style={{ textAlign: 'center', padding: '4rem' }}>
-                  <h2 style={{ marginBottom: '1rem' }}>No Equipment Selected</h2>
-                  <p className="text-muted" style={{ marginBottom: '2rem' }}>Please select the equipment available at your gym to get custom workouts.</p>
-                  <Link to="/setup" state={{ equipmentOnly: true }} className="btn btn-primary">Configure My Gym</Link>
-              </div>
-          </div>
-      );
+    return (
+        <div className="container animate-fade-in">
+            <div className="card" style={{ textAlign: 'center', padding: '4rem' }}>
+                <h2 style={{ marginBottom: '1rem' }}>No Equipment Selected</h2>
+                <p className="text-muted" style={{ marginBottom: '2rem' }}>Please select the equipment available at your gym to get custom workouts.</p>
+                <Link to="/setup" state={{ equipmentOnly: true }} className="btn btn-primary">Configure My Gym</Link>
+            </div>
+        </div>
+    );
   }
 
   return (
@@ -131,6 +206,13 @@ export const WorkoutSuggestions = () => {
                 Live Workout
             </button>
             <button 
+                onClick={() => setActiveTab('splits')}
+                className={`btn ${activeTab === 'splits' ? 'btn-primary' : 'btn-secondary'}`}
+                style={{ flex: 1, borderRadius: '0.75rem' }}
+            >
+                Workout Splits
+            </button>
+            <button 
                 onClick={() => setActiveTab('history')}
                 className={`btn ${activeTab === 'history' ? 'btn-primary' : 'btn-secondary'}`}
                 style={{ flex: 1, borderRadius: '0.75rem' }}
@@ -142,6 +224,17 @@ export const WorkoutSuggestions = () => {
 
       {activeTab === 'routine' && (
         <div className="animate-fade-in">
+          {nextWorkout && !nextWorkout.split_id && (
+            <div className="card" style={{ background: 'rgba(255,255,255,0.02)', border: '1px dashed rgba(255,255,255,0.1)', marginBottom: '2rem', textAlign: 'center' }}>
+                <p className="text-muted" style={{ margin: 0 }}>
+                    {nextWorkout.is_gym_day 
+                        ? "It's a gym day! Set up your splits to get started." 
+                        : "Today is a rest day. Enjoy your recovery!"}
+                </p>
+                <button onClick={() => setActiveTab('splits')} className="btn btn-secondary" style={{ marginTop: '1rem', fontSize: '0.8rem' }}>Configure Splits</button>
+            </div>
+          )}
+
           {loading ? (
               <div className="card" style={{ textAlign: 'center', padding: '4rem' }}>
                   <div className="stat-value" style={{ fontSize: '1.5rem' }}>Analyzing Profile & Generating Routine...</div>
@@ -158,12 +251,17 @@ export const WorkoutSuggestions = () => {
                         />
                         <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', marginTop: '0.5rem' }}>
                             <p className="text-muted" style={{ margin: 0 }}>{formatObjective(suggestionData.objective)} Focus</p>
-                            <Link to="/setup" state={{ equipmentOnly: true }} style={{ fontSize: '0.8rem', color: 'var(--primary)', textDecoration: 'none' }}>Change Equipment</Link>
+                            {selectedSplitId && <span style={{ color: 'var(--primary)', fontWeight: 700, fontSize: '0.8rem' }}>SCHEDULED SPLIT</span>}
                         </div>
                     </div>
-                    <button className="btn btn-primary" onClick={handleSaveWorkout} disabled={saving}>
-                        {saving ? 'Saving...' : 'Finish & Save'}
-                    </button>
+                    <div style={{ display: 'flex', gap: '1rem' }}>
+                        <button className="btn btn-secondary" onClick={handleCancelWorkout}>
+                            Cancel
+                        </button>
+                        <button className="btn btn-primary" onClick={handleSaveWorkout} disabled={saving}>
+                            {saving ? 'Saving...' : 'Finish & Save'}
+                        </button>
+                    </div>
                 </div>
 
             {suggestionData.suggestions.map((s: any, idx: number) => (
@@ -178,10 +276,7 @@ export const WorkoutSuggestions = () => {
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.5rem' }}>
                             <div>
                                 <h3 style={{ margin: 0 }}>{s.exercise_name}</h3>
-                                <span className="text-muted" style={{ fontSize: '0.8rem' }}>Target: {s.muscles.join(', ')}</span>
-                            </div>
-                            <div style={{ textAlign: 'right', fontSize: '0.8rem', color: 'var(--primary)', fontWeight: 700 }}>
-                                {s.sets} SETS × {s.reps} REPS
+                                {s.muscles && <span className="text-muted" style={{ fontSize: '0.8rem' }}>Target: {s.muscles.join(', ')}</span>}
                             </div>
                         </div>
 
@@ -207,9 +302,28 @@ export const WorkoutSuggestions = () => {
                                             style={{ width: '70px', padding: '0.4rem', borderRadius: '0.4rem', background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.1)', color: 'white' }}
                                         />
                                     </div>
-                                    {sIdx === loggedExercises[s.exercise_name].length - 1 && (
-                                        <button className="btn btn-secondary" style={{ padding: '0.4rem 0.8rem', fontSize: '0.7rem' }} onClick={() => addSet(s.exercise_name)}>+</button>
-                                    )}
+                                    <div style={{ display: 'flex', gap: '0.4rem' }}>
+                                        {sIdx > 0 && (
+                                            <button 
+                                                className="btn btn-secondary" 
+                                                style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem', minWidth: '35px' }} 
+                                                onClick={() => removeSet(s.exercise_name, sIdx)}
+                                                title="Remove Set"
+                                            >
+                                                -
+                                            </button>
+                                        )}
+                                        {sIdx === loggedExercises[s.exercise_name].length - 1 && (
+                                            <button 
+                                                className="btn btn-secondary" 
+                                                style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem', minWidth: '35px', color: 'var(--primary)', borderColor: 'var(--primary)' }} 
+                                                onClick={() => addSet(s.exercise_name)}
+                                                title="Add Set"
+                                            >
+                                                +
+                                            </button>
+                                        )}
+                                    </div>
                                 </div>
                             ))}
                         </div>
@@ -220,6 +334,10 @@ export const WorkoutSuggestions = () => {
             </div>
           ) : null}
         </div>
+      )}
+
+      {activeTab === 'splits' && (
+          <WorkoutSplits />
       )}
 
       {activeTab === 'history' && (
@@ -240,8 +358,22 @@ export const WorkoutSuggestions = () => {
                             <h3 style={{ margin: 0 }}>{session.name}</h3>
                             <p className="text-muted" style={{ fontSize: '0.8rem' }}>{new Date(session.date).toLocaleDateString()} at {new Date(session.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
                         </div>
-                        <div style={{ background: 'rgba(0,242,254,0.1)', color: 'var(--primary)', padding: '0.4rem 0.8rem', borderRadius: '0.5rem', fontSize: '0.8rem', fontWeight: 700 }}>
-                            {session.exercises.length} Exercises
+                        <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+                            {session.split_id && (
+                                <div style={{ border: '1px solid var(--primary)', color: 'var(--primary)', padding: '0.4rem 0.8rem', borderRadius: '0.5rem', fontSize: '0.8rem', fontWeight: 700 }}>
+                                    Split session
+                                </div>
+                            )}
+                            <div style={{ background: 'rgba(0,242,254,0.1)', color: 'var(--primary)', padding: '0.4rem 0.8rem', borderRadius: '0.5rem', fontSize: '0.8rem', fontWeight: 700 }}>
+                                {session.exercises.length} Exercises
+                            </div>
+                            <button 
+                                onClick={() => handleDeleteSession(session.id)}
+                                style={{ background: 'transparent', border: 'none', color: 'rgba(255,0,0,0.5)', cursor: 'pointer', fontSize: '1.2rem', padding: '0.5rem' }}
+                                title="Delete Session"
+                            >
+                                ×
+                            </button>
                         </div>
                     </div>
                     

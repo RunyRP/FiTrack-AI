@@ -6,9 +6,13 @@ from app.core.auth import get_current_user
 from app.models.user import User
 from typing import List
 
-from app.models.workout import WorkoutSession, WorkoutExercise
-from app.schemas.workout import WorkoutSessionCreate, WorkoutSession as WorkoutSessionSchema, ExerciseProgression
-from typing import List
+from app.models.workout import WorkoutSession, WorkoutExercise, WorkoutSplit, WorkoutSchedule
+from app.schemas.workout import (
+    WorkoutSessionCreate, WorkoutSession as WorkoutSessionSchema, 
+    ExerciseProgression, WorkoutSplitCreate, WorkoutSplit as WorkoutSplitSchema,
+    WorkoutScheduleCreate, WorkoutSchedule as WorkoutScheduleSchema
+)
+from typing import List, Dict
 import datetime
 
 router = APIRouter()
@@ -16,6 +20,83 @@ router = APIRouter()
 @router.get("/machinery")
 def get_all_machinery(db: Session = Depends(get_db)):
     return db.query(Machinery).all()
+
+# --- Splits CRUD ---
+
+@router.post("/splits", response_model=WorkoutSplitSchema)
+def create_split(
+    split_data: WorkoutSplitCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    split = WorkoutSplit(
+        user_id=current_user.id,
+        name=split_data.name,
+        exercises=[ex.dict() for ex in split_data.exercises]
+    )
+    db.add(split)
+    db.commit()
+    db.refresh(split)
+    return split
+
+@router.get("/splits", response_model=List[WorkoutSplitSchema])
+def get_splits(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    return db.query(WorkoutSplit).filter(WorkoutSplit.user_id == current_user.id).all()
+
+@router.delete("/splits/{split_id}")
+def delete_split(
+    split_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    split = db.query(WorkoutSplit).filter(
+        WorkoutSplit.id == split_id,
+        WorkoutSplit.user_id == current_user.id
+    ).first()
+    if split:
+        db.delete(split)
+        db.commit()
+    return {"status": "ok"}
+
+# --- Schedule CRUD ---
+
+@router.get("/schedule", response_model=WorkoutScheduleSchema)
+def get_schedule(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    schedule = db.query(WorkoutSchedule).filter(WorkoutSchedule.user_id == current_user.id).first()
+    if not schedule:
+        schedule = WorkoutSchedule(user_id=current_user.id)
+        db.add(schedule)
+        db.commit()
+        db.refresh(schedule)
+    return schedule
+
+@router.post("/schedule", response_model=WorkoutScheduleSchema)
+def update_schedule(
+    schedule_data: WorkoutScheduleCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    schedule = db.query(WorkoutSchedule).filter(WorkoutSchedule.user_id == current_user.id).first()
+    if not schedule:
+        schedule = WorkoutSchedule(user_id=current_user.id)
+        db.add(schedule)
+    
+    schedule.split_mode = schedule_data.split_mode
+    schedule.gym_days = schedule_data.gym_days
+    schedule.fixed_schedule = schedule_data.fixed_schedule
+    schedule.split_sequence = schedule_data.split_sequence
+    
+    db.commit()
+    db.refresh(schedule)
+    return schedule
+
+# --- Session & Next Workout ---
 
 @router.post("/session", response_model=WorkoutSessionSchema)
 def log_workout_session(
@@ -28,6 +109,7 @@ def log_workout_session(
         user_id=current_user.id,
         name=workout_data.name,
         notes=workout_data.notes,
+        split_id=workout_data.split_id,
         date=datetime.datetime.utcnow()
     )
     db.add(session)
@@ -46,6 +128,92 @@ def log_workout_session(
     db.commit()
     db.refresh(session)
     return session
+
+@router.get("/next")
+def get_next_workout(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    schedule = db.query(WorkoutSchedule).filter(WorkoutSchedule.user_id == current_user.id).first()
+    if not schedule:
+        return {"message": "No schedule configured"}
+
+    today = datetime.datetime.utcnow().weekday() # 0-6 (Mon-Sun)
+    
+    # Check if today is a gym day
+    is_gym_day = today in schedule.gym_days
+    
+    suggested_split = None
+    
+    if schedule.split_mode == "fixed":
+        split_id = schedule.fixed_schedule.get(str(today))
+        if split_id:
+            suggested_split = db.query(WorkoutSplit).get(split_id)
+    else: # dynamic
+        if is_gym_day:
+            # Find the last workout session to see what split was done
+            last_session = db.query(WorkoutSession).filter(
+                WorkoutSession.user_id == current_user.id,
+                WorkoutSession.split_id != None
+            ).order_by(WorkoutSession.date.desc()).first()
+            
+            if last_session and schedule.split_sequence:
+                try:
+                    last_idx = schedule.split_sequence.index(last_session.split_id)
+                    next_idx = (last_idx + 1) % len(schedule.split_sequence)
+                    next_split_id = schedule.split_sequence[next_idx]
+                    suggested_split = db.query(WorkoutSplit).get(next_split_id)
+                except ValueError:
+                    # Last split not in sequence, start from first
+                    suggested_split = db.query(WorkoutSplit).get(schedule.split_sequence[0])
+            elif schedule.split_sequence:
+                suggested_split = db.query(WorkoutSplit).get(schedule.split_sequence[0])
+
+    if not suggested_split:
+        return {"is_gym_day": is_gym_day, "message": "No split suggested for today"}
+
+    # Fetch last performance for each exercise in this split
+    exercises_with_history = []
+    for ex in suggested_split.exercises:
+        # Find last time this exercise was performed in a session with this split_id
+        last_ex = db.query(WorkoutExercise).join(WorkoutSession).filter(
+            WorkoutSession.user_id == current_user.id,
+            WorkoutSession.split_id == suggested_split.id,
+            WorkoutExercise.exercise_name == ex["name"]
+        ).order_by(WorkoutSession.date.desc()).first()
+        
+        sets = last_ex.sets if last_ex else [{"reps": ex["target_reps"], "weight": 0}]
+        
+        exercises_with_history.append({
+            "exercise_name": ex["name"],
+            "machine_id": ex["machine_id"],
+            "target_sets": ex["target_sets"],
+            "target_reps": ex["target_reps"],
+            "last_sets": sets
+        })
+
+    return {
+        "is_gym_day": is_gym_day,
+        "split_id": suggested_split.id,
+        "split_name": suggested_split.name,
+        "exercises": exercises_with_history
+    }
+
+@router.delete("/session/{session_id}")
+def delete_workout_session(
+    session_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    session = db.query(WorkoutSession).filter(
+        WorkoutSession.id == session_id,
+        WorkoutSession.user_id == current_user.id
+    ).first()
+    if session:
+        db.delete(session)
+        db.commit()
+        return {"status": "ok"}
+    return {"status": "error", "message": "Session not found"}, 404
 
 @router.get("/history", response_model=List[WorkoutSessionSchema])
 def get_workout_history(
