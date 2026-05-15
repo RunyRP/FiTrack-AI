@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 import api from '../api';
+import { useAuth } from '../App';
+import { PlusIcon, TrashIcon, ArrowRightIcon } from './Icons';
 
 interface SplitExercise {
     machine_id?: number;
@@ -26,6 +28,7 @@ const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'
 const MUSCLE_GROUPS = ['Chest', 'Back', 'Shoulders', 'Legs', 'Arms', 'Core', 'Other'];
 
 export const WorkoutSplits = () => {
+    const { user } = useAuth();
     const [splits, setSplits] = useState<WorkoutSplit[]>([]);
     const [schedule, setSchedule] = useState<WorkoutSchedule>({
         split_mode: 'dynamic',
@@ -38,6 +41,7 @@ export const WorkoutSplits = () => {
     const [isAddingSplit, setIsAddingSplit] = useState(false);
     const [newSplitName, setNewSplitName] = useState('');
     const [newSplitExercises, setNewSplitExercises] = useState<SplitExercise[]>([]);
+    const [showAllMachinery, setShowAllMachinery] = useState(false);
 
     useEffect(() => {
         fetchData();
@@ -142,7 +146,9 @@ export const WorkoutSplits = () => {
                     <p className="text-muted">Define your training blocks and schedule.</p>
                 </div>
                 {!isAddingSplit && (
-                    <button className="btn btn-primary" onClick={() => setIsAddingSplit(true)}>+ Create New Split</button>
+                    <button className="btn btn-primary" onClick={() => setIsAddingSplit(true)} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <PlusIcon size={18} /> Create New Split
+                    </button>
                 )}
             </div>
 
@@ -161,7 +167,33 @@ export const WorkoutSplits = () => {
                     </div>
 
                     <div style={{ marginBottom: '1.5rem' }}>
-                        <label className="text-muted" style={{ display: 'block', marginBottom: '1rem', fontSize: '0.75rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Exercises</label>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                            <label className="text-muted" style={{ margin: 0, fontSize: '0.75rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Exercises</label>
+                            <div 
+                                onClick={() => setShowAllMachinery(!showAllMachinery)}
+                                style={{ 
+                                    fontSize: '0.65rem', 
+                                    display: 'flex', 
+                                    alignItems: 'center', 
+                                    gap: '0.4rem', 
+                                    cursor: 'pointer', 
+                                    color: showAllMachinery ? 'var(--primary)' : 'var(--text-muted)',
+                                    background: showAllMachinery ? 'rgba(251, 197, 49, 0.1)' : 'rgba(255,255,255,0.05)',
+                                    padding: '0.2rem 0.5rem',
+                                    borderRadius: '0.4rem',
+                                    border: `1px solid ${showAllMachinery ? 'var(--primary)' : 'transparent'}`,
+                                    transition: 'all 0.2s ease'
+                                }}
+                            >
+                                <div style={{ 
+                                    width: '8px', 
+                                    height: '8px', 
+                                    borderRadius: '50%', 
+                                    background: showAllMachinery ? 'var(--primary)' : 'rgba(255,255,255,0.2)' 
+                                }} />
+                                SHOW ALL EQUIPMENT
+                            </div>
+                        </div>
                         {newSplitExercises.map((ex, idx) => (
                             <div key={idx} className="card" style={{ background: 'rgba(255,255,255,0.02)', padding: '1.5rem', marginBottom: '1rem', border: '1px solid var(--card-border)' }}>
                                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '1rem' }}>
@@ -183,6 +215,7 @@ export const WorkoutSplits = () => {
                                             <option value="">Select Exercise</option>
                                             {machinery
                                                 .filter(m => categorizeMachine(m) === ex.muscle_group)
+                                                .filter(m => showAllMachinery || !user?.profile?.selected_machinery || user.profile.selected_machinery.includes(m.id))
                                                 .map(m => (
                                                     m.exercises.map((e: any) => (
                                                         <option key={`${m.id}-${e.name}`} value={`${e.name}|${m.id}`}>{e.name} ({m.name})</option>
@@ -191,6 +224,15 @@ export const WorkoutSplits = () => {
                                             }
                                             <option value="Custom">Custom Exercise...</option>
                                         </select>
+                                        {machinery
+                                            .filter(m => categorizeMachine(m) === ex.muscle_group)
+                                            .filter(m => showAllMachinery || !user?.profile?.selected_machinery || user.profile.selected_machinery.includes(m.id))
+                                            .length === 0 && (
+                                                <div style={{ fontSize: '0.65rem', color: 'var(--accent)', marginTop: '0.4rem', textAlign: 'center' }}>
+                                                    No machines found in your gym for this group. 
+                                                </div>
+                                            )
+                                        }
                                     </div>
                                     <div className="input-group" style={{ marginBottom: 0 }}>
                                         <label>Sets</label>
@@ -211,12 +253,16 @@ export const WorkoutSplits = () => {
                                         />
                                     </div>
                                     <div style={{ display: 'flex', alignItems: 'flex-end' }}>
-                                        <button className="btn btn-secondary" style={{ width: '100%', height: 'calc(1rem + 2.4rem)' }} onClick={() => setNewSplitExercises(newSplitExercises.filter((_, i) => i !== idx))}>Remove</button>
+                                        <button className="btn btn-secondary" style={{ width: '100%', height: 'calc(1rem + 2.4rem)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => setNewSplitExercises(newSplitExercises.filter((_, i) => i !== idx))}>
+                                            <TrashIcon size={18} />
+                                        </button>
                                     </div>
                                 </div>
                             </div>
                         ))}
-                        <button className="btn btn-secondary" onClick={addExerciseToNewSplit} style={{ width: '100%', borderStyle: 'dashed' }}>+ Add Exercise</button>
+                        <button className="btn btn-secondary" onClick={addExerciseToNewSplit} style={{ width: '100%', borderStyle: 'dashed', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
+                            <PlusIcon size={18} /> Add Exercise
+                        </button>
                     </div>
 
                     <div style={{ display: 'flex', gap: '1rem' }}>
@@ -231,9 +277,9 @@ export const WorkoutSplits = () => {
                     <div key={split.id} className="card" style={{ position: 'relative' }}>
                         <button 
                             onClick={() => handleDeleteSplit(split.id)}
-                            style={{ position: 'absolute', top: '1rem', right: '1rem', background: 'transparent', border: 'none', color: 'rgba(255,255,255,0.2)', cursor: 'pointer', fontSize: '1.2rem' }}
+                            style={{ position: 'absolute', top: '1rem', right: '1rem', background: 'transparent', border: 'none', color: 'rgba(255,255,255,0.2)', cursor: 'pointer' }}
                         >
-                            ×
+                            <TrashIcon size={18} />
                         </button>
                         <h3 style={{ color: 'var(--primary)', marginBottom: '1rem' }}>{split.name}</h3>
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
@@ -300,20 +346,20 @@ export const WorkoutSplits = () => {
                                 const split = splits.find(s => s.id === splitId);
                                 return (
                                     <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                        <div className="btn btn-primary" style={{ padding: '0.5rem 1rem', cursor: 'default' }}>
+                                        <div className="btn btn-primary" style={{ padding: '0.5rem 1rem', cursor: 'default', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                                             {split?.name || 'Unknown'}
                                             <span 
-                                                style={{ marginLeft: '0.5rem', cursor: 'pointer', opacity: 0.5 }}
+                                                style={{ cursor: 'pointer', opacity: 0.5, display: 'flex', alignItems: 'center' }}
                                                 onClick={() => {
                                                     const seq = [...schedule.split_sequence];
                                                     seq.splice(idx, 1);
                                                     handleUpdateSchedule({ split_sequence: seq });
                                                 }}
                                             >
-                                                ×
+                                                <TrashIcon size={14} />
                                             </span>
                                         </div>
-                                        {idx < schedule.split_sequence.length - 1 && <span style={{ color: 'var(--primary)', fontWeight: 900 }}>→</span>}
+                                        {idx < schedule.split_sequence.length - 1 && <span style={{ color: 'var(--primary)', fontWeight: 900 }}><ArrowRightIcon size={18} /></span>}
                                     </div>
                                 );
                             })}
@@ -332,6 +378,7 @@ export const WorkoutSplits = () => {
                             </div>
                         </div>
                     </div>
+
                 ) : (
                     <div>
                         <label className="text-muted" style={{ display: 'block', marginBottom: '1rem', fontSize: '0.75rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Fixed Calendar Assignment</label>

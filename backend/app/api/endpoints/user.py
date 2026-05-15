@@ -24,9 +24,9 @@ def update_profile(
         profile = UserProfile(user_id=current_user.id)
         db.add(profile)
     
-    for var, value in vars(profile_update).items():
-        if value is not None:
-            setattr(profile, var, value)
+    update_data = profile_update.dict(exclude_unset=True)
+    for var, value in update_data.items():
+        setattr(profile, var, value)
     
     # Ensure setup is marked complete if we are updating it
     profile.setup_complete = True

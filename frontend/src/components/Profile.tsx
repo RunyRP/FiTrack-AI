@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import api from '../api';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../App';
+import { WeightLossIcon, RecompIcon, MuscleGainIcon, MaintenanceIcon, UserIcon, DumbbellIcon, FireIcon } from './Icons';
 
 export const Profile = () => {
   const { user: currentUser, refreshUser, logout } = useAuth();
@@ -14,7 +15,8 @@ export const Profile = () => {
     activity_level: 'sedentary',
     objective: 'maintain',
     cut_intensity: 'medium',
-    manual_target_kcal: ''
+    manual_target_kcal: '',
+    target_steps: '10000'
   });
   const [message, setMessage] = useState('');
   const [updating, setUpdating] = useState(false);
@@ -32,7 +34,8 @@ export const Profile = () => {
         activity_level: p.activity_level || 'sedentary',
         objective: p.objective || 'maintain',
         cut_intensity: p.cut_intensity || 'medium',
-        manual_target_kcal: p.manual_target_kcal ? String(p.manual_target_kcal) : ''
+        manual_target_kcal: p.manual_target_kcal ? String(p.manual_target_kcal) : '',
+        target_steps: p.target_steps ? String(p.target_steps) : '10000'
       });
     }
   }, [currentUser]);
@@ -63,7 +66,10 @@ export const Profile = () => {
           height: parseFloat(String(partialUpdate?.height || profile.height)),
           manual_target_kcal: partialUpdate?.manual_target_kcal !== undefined 
             ? (partialUpdate.manual_target_kcal ? parseInt(partialUpdate.manual_target_kcal) : null)
-            : (profile.manual_target_kcal ? parseInt(profile.manual_target_kcal) : null)
+            : (profile.manual_target_kcal ? parseInt(profile.manual_target_kcal) : null),
+          target_steps: partialUpdate?.target_steps !== undefined 
+            ? (partialUpdate.target_steps ? parseInt(partialUpdate.target_steps) : 10000)
+            : (profile.target_steps ? parseInt(profile.target_steps) : 10000)
       };
       await api.put('/user/profile', dataToSave);
       localStorage.removeItem('dashboard_cache');
@@ -103,26 +109,27 @@ export const Profile = () => {
   return (
     <div className="container animate-fade-in" style={{ maxWidth: '800px' }}>
       <div className="card">
-        <h2 style={{ marginBottom: '2rem' }}>Your Profile & Plan</h2>
+        <h2 style={{ marginBottom: '2rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            <UserIcon size={28} color="var(--primary)" /> Your Profile & Plan
+        </h2>
         
         <div style={{ marginBottom: '3rem' }}>
             <label style={{ fontSize: '0.8rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Current Plan</label>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '1rem', marginTop: '1rem' }}>
                 {[
-                    { id: 'lose_weight', label: 'Weight Loss', icon: '📉' },
-                    { id: 'body_recomposition', label: 'Recomposition', icon: '🔄' },
-                    { id: 'gain_muscle', label: 'Muscle Gain', icon: '💪' },
-                    { id: 'maintain', label: 'Maintenance', icon: '⚖️' }
+                    { id: 'lose_weight', label: 'Weight Loss', icon: <WeightLossIcon size={24} /> },
+                    { id: 'maintenance', label: 'Maintenance', icon: <MaintenanceIcon size={24} /> },
+                    { id: 'bulk', label: 'Bulk', icon: <MuscleGainIcon size={24} /> }
                 ].map(opt => (
                     <button 
                         key={opt.id}
                         onClick={() => changeObjective(opt.id)}
                         className={`btn ${profile.objective === opt.id ? 'btn-primary' : 'btn-secondary'}`}
-                        style={{ padding: '1rem', fontSize: '0.9rem', flexDirection: 'column', gap: '0.25rem' }}
+                        style={{ padding: '1.25rem 1rem', fontSize: '0.85rem', flexDirection: 'column', gap: '0.5rem', height: 'auto', minHeight: '100px' }}
                         disabled={updating}
                     >
-                        <span style={{ fontSize: '1.2rem' }}>{opt.icon}</span>
-                        {opt.label}
+                        <span style={{ color: profile.objective === opt.id ? '#000' : 'var(--primary)' }}>{opt.icon}</span>
+                        <span style={{ fontWeight: 700 }}>{opt.label}</span>
                     </button>
                 ))}
             </div>
@@ -132,9 +139,9 @@ export const Profile = () => {
                     <label style={{ fontSize: '0.7rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '0.5rem', display: 'block' }}>Cut Intensity</label>
                     <div style={{ display: 'flex', gap: '0.5rem' }}>
                         {[
-                            { id: 'light', label: 'Light (-250)', color: 'var(--success)' },
-                            { id: 'medium', label: 'Medium (-500)', color: 'var(--primary)' },
-                            { id: 'aggressive', label: 'Aggressive (-750)', color: 'var(--accent)' }
+                            { id: 'light', label: 'Weight Loss (-500 kcal)', color: '#ffa502' },
+                            { id: 'medium', label: 'Aggressive (-750 kcal)', color: '#ff4757' },
+                            { id: 'aggressive', label: 'Extreme (-1000 kcal)', color: '#eb4d4b' }
                         ].map(int => (
                             <button 
                                 key={int.id}
@@ -146,7 +153,35 @@ export const Profile = () => {
                                     padding: '0.5rem',
                                     borderColor: profile.cut_intensity === int.id ? int.color : 'rgba(255,255,255,0.1)',
                                     color: profile.cut_intensity === int.id ? int.color : '#fff',
-                                    background: profile.cut_intensity === int.id ? `${int.color}10` : 'rgba(255,255,255,0.05)'
+                                    background: profile.cut_intensity === int.id ? `${int.color}33` : 'rgba(255,255,255,0.05)'
+                                }}
+                            >
+                                {int.label}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            )}
+
+            {profile.objective === 'bulk' && (
+                <div className="animate-fade-in" style={{ marginTop: '1.5rem', padding: '1rem', background: 'rgba(255,255,255,0.02)', borderRadius: '1rem', border: '1px solid rgba(255,255,255,0.05)' }}>
+                    <label style={{ fontSize: '0.7rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '0.5rem', display: 'block' }}>Bulk Intensity</label>
+                    <div style={{ display: 'flex', gap: '0.5rem' }}>
+                        {[
+                            { id: 'light', label: 'Lean Bulk (+300 kcal)', color: '#2ecc71' },
+                            { id: 'medium', label: 'Bulk (+500 kcal)', color: '#1e90ff' }
+                        ].map(int => (
+                            <button 
+                                key={int.id}
+                                onClick={() => changeIntensity(int.id)}
+                                className="btn btn-secondary"
+                                style={{ 
+                                    flex: 1, 
+                                    fontSize: '0.75rem', 
+                                    padding: '0.5rem',
+                                    borderColor: profile.cut_intensity === int.id ? int.color : 'rgba(255,255,255,0.1)',
+                                    color: profile.cut_intensity === int.id ? int.color : '#fff',
+                                    background: profile.cut_intensity === int.id ? `${int.color}33` : 'rgba(255,255,255,0.05)'
                                 }}
                             >
                                 {int.label}
@@ -156,6 +191,21 @@ export const Profile = () => {
                 </div>
             )}
         </div>
+
+        <div style={{ marginBottom: '3rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                <label style={{ fontSize: '0.8rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Gym Setup</label>
+                <button 
+                    className="btn btn-primary" 
+                    style={{ fontSize: '0.7rem', padding: '0.4rem 0.8rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+                    onClick={() => navigate('/setup', { state: { equipmentOnly: true } })}
+                >
+                    <DumbbellIcon size={16} /> YOUR GYM EQUIPMENT
+                </button>
+            </div>
+            <p className="text-muted" style={{ fontSize: '0.85rem' }}>Update the machines available at your gym to get more accurate workout suggestions.</p>
+        </div>
+
 
         <form onSubmit={handleSubmit} style={{ borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '2.5rem' }}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
@@ -225,18 +275,29 @@ export const Profile = () => {
             </div>
           </div>
 
-          <div className="input-group">
-            <label>Daily Activity Level</label>
-            <select 
-              value={profile.activity_level} 
-              onChange={(e) => setProfile({...profile, activity_level: e.target.value})}
-            >
-              <option value="sedentary">Sedentary (Little to no exercise)</option>
-              <option value="lightly_active">Lightly Active (1-3 days/week)</option>
-              <option value="moderately_active">Moderately Active (3-5 days/week)</option>
-              <option value="very_active">Very Active (6-7 days/week)</option>
-              <option value="extra_active">Extra Active (Athlete/Physical job)</option>
-            </select>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
+            <div className="input-group">
+                <label>Daily Activity Level</label>
+                <select 
+                    value={profile.activity_level} 
+                    onChange={(e) => setProfile({...profile, activity_level: e.target.value})}
+                >
+                    <option value="sedentary">Sedentary: little or no exercise</option>
+                    <option value="lightly_active">Light: exercise 1-3 times/week</option>
+                    <option value="moderately_active">Moderate: exercise 4-5 times/week</option>
+                    <option value="active">Active: daily exercise or intense exercise 3-4 times/week</option>
+                    <option value="very_active">Very Active: intense exercise 6-7 times/week</option>
+                    <option value="extra_active">Extra Active: very intense exercise daily, or physical job</option>
+                </select>
+            </div>
+            <div className="input-group">
+                <label>Daily Steps Goal</label>
+                <input 
+                    type="number" 
+                    value={profile.target_steps} 
+                    onChange={(e) => setProfile({...profile, target_steps: e.target.value})} 
+                />
+            </div>
           </div>
 
           <button type="submit" className="btn btn-primary" style={{ width: '100%', marginTop: '1rem' }} disabled={updating}>

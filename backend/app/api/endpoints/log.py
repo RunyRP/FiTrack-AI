@@ -139,10 +139,11 @@ def get_dashboard_data(
     else:
         feedback["insights"].append("Your nutrition is spot on! Keep fueling your success with balanced choices.")
 
-    if log.steps < 3000:
+    target_steps = (profile.target_steps if profile else 10000) or 10000
+    if log.steps < target_steps * 0.3:
         feedback["insights"].append("Every step counts! How about a quick 5-minute walk to get that energy flowing?")
         feedback["status"] = "needs_attention"
-    elif log.steps > 10000:
+    elif log.steps > target_steps:
         feedback["insights"].append("Incredible activity level today! Keep that momentum—you're absolutely crushing it!")
     else:
         feedback["insights"].append("Good steady movement today. Keep those steps coming to maintain your energy levels.")
@@ -162,6 +163,7 @@ def get_dashboard_data(
                 "name": profile.name if profile else None,
                 "weight": profile.weight if profile else None,
                 "target_kcal": target_kcal,
+                "target_steps": profile.target_steps if profile else 10000,
                 "objective": profile.objective if profile else "maintain"
             }
         },
@@ -205,10 +207,11 @@ def get_daily_feedback(
     else:
         insights.append("Your nutrition is spot on! Keep fueling your success with balanced choices.")
 
-    if log.steps < 3000:
+    target_steps = (profile.target_steps if profile else 10000) or 10000
+    if log.steps < target_steps * 0.3:
         insights.append("Every step counts! How about a quick 5-minute walk to get that energy flowing?")
         status = "needs_attention"
-    elif log.steps > 10000:
+    elif log.steps > target_steps:
         insights.append("Incredible activity level today! Keep that momentum—you're absolutely crushing it!")
     else:
         insights.append("Good steady movement today. Keep those steps coming to maintain your energy levels.")

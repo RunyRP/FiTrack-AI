@@ -1,5 +1,8 @@
+import os
 from transformers import pipeline
 import torch
+from google import genai
+from google.genai import types
 
 # TinyLlama is much better at following instructions than base GPT-2
 MODEL_ID = "TinyLlama/TinyLlama-1.1B-Chat-v1.0"
@@ -7,8 +10,21 @@ MODEL_ID = "TinyLlama/TinyLlama-1.1B-Chat-v1.0"
 class FitnessChatService:
     def __init__(self):
         self.device = 0 if torch.cuda.is_available() else -1
+        self.use_gemini = False
+        
+        # Configure Gemini using new google-genai SDK
+        gemini_key = os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY")
+        if gemini_key:
+            try:
+                self.client = genai.Client(api_key=gemini_key)
+                self.gemini_model_id = "gemini-3-flash-preview"
+                self.use_gemini = True
+                print(f"DEBUG: Gemini AI ({self.gemini_model_id}) initialized successfully with new SDK.")
+            except Exception as e:
+                print(f"Error initializing Gemini: {e}")
+
+        # Local fallback model
         try:
-            # Using TinyLlama Chat which is optimized for conversation
             self.generator = pipeline(
                 "text-generation", 
                 model=MODEL_ID, 
@@ -20,31 +36,138 @@ class FitnessChatService:
             print(f"Error loading TinyLlama: {e}. Falling back to GPT-2.")
             self.generator = pipeline('text-generation', model='gpt2', device=self.device)
 
-    def generate_response(self, user_message: str, user_profile: dict = None) -> str:
-        # Construct a context-aware prompt using TinyLlama's chat format
-        profile_info = ""
-        user_name = "User"
-        if user_profile:
-            user_name = user_profile.get('name', 'User')
-            obj = user_profile.get('objective', 'maintain').replace('_', ' ')
-            profile_info = f"User: {user_name}, Age {user_profile.get('age')}, Weight {user_profile.get('weight')}kg, Goal: {obj}."
+    def generate_thread_title(self, user_message: str) -> str:
+        """Generates a short, descriptive title for the chat thread based on the first message."""
+        if not self.use_gemini:
+            return "New Fitness Chat"
+        
+        try:
+            prompt = f"Generate a very short (2-4 words) descriptive title for a fitness chat starting with this message: \"{user_message}\". Return ONLY the title, no quotes or extra text."
+            
+            response = self.client.models.generate_content(
+                model=self.gemini_model_id,
+                contents=[types.Content(role="user", parts=[types.Part.from_text(text=prompt)])],
+                config=types.GenerateContentConfig(
+                    temperature=0.7,
+                    max_output_tokens=20
+                )
+            )
+            return response.text.strip().strip('"').strip("'")
+        except Exception as e:
+            print(f"Error generating thread title: {e}")
+            return "Fitness Chat"
 
-        # Strict, concise system prompt with no-nonsense instructions
-        prompt = (
-            f"<|system|>\nYou are a professional AI Fitness Coach. "
-            f"Address the user as {user_name}. "
-            f"NEVER use the placeholder '[user]' or '[User]'. "
-            f"NEVER use formal greetings like 'Dear' or 'Hi Athlete'. "
-            f"Never introduce yourself. Just give the coaching advice directly. "
-            f"Respond in exactly 2 short sentences. {profile_info}</s>\n"
-            f"<|user|>\n{user_message}</s>\n"
-            f"<|assistant|>\n"
+    def generate_response(self, user_message: str, user_profile: dict = None, history: list = None) -> str:
+        import datetime
+        user_name = user_profile.get('name', 'User') if user_profile else "User"
+        if not user_name or user_name.lower() == "you":
+            user_name = "User"
+            
+        # Determine today's context
+        now = datetime.datetime.now()
+        today_name = now.strftime("%a") # e.g. "Mon"
+        training_days = user_profile.get('training_days', []) if user_profile else []
+        is_training_day = today_name in training_days
+        
+        stats_summary = ""
+        if user_profile:
+            weights = user_profile.get('weight_history', [])
+            if weights:
+                stats_summary += f"Recent weight: {', '.join([f'{w['weight']}kg' for w in weights[:2]])}. "
+            kcals = user_profile.get('kcal_history', [])
+            if kcals:
+                avg_kcal = sum([k['kcal'] for k in kcals if k.get('kcal')]) / len(kcals) if kcals else 0
+                stats_summary += f"Avg intake: {int(avg_kcal)}kcal. "
+            workouts = user_profile.get('workout_summary', [])
+            if workouts:
+                stats_summary += f"Last workouts: {', '.join([w['name'] for w in workouts[:2]])}. "
+            
+            diet = user_profile.get('diet_type', 'Fitness Balanced')
+            stats_summary += f"Active Diet: {diet}. "
+
+        # Elite Coach System Prompt
+        target_steps = user_profile.get('target_steps', 10000) if user_profile else 10000
+        system_instruction_text = (
+            "You are an elite, highly motivating AI fitness and nutrition coach embedded directly within a smart fitness application. "
+            "Your primary goal is to guide, motivate, and educate the user to achieve their physical goals while strictly adhering to the parameters set in the app.\n\n"
+            "CORE KNOWLEDGE: Expert in strength training (including heavy weightlifting), hypertrophy, body recomposition, macronutrient tracking, and recovery protocols.\n\n"
+            "DYNAMIC CONTEXT (App Parameters):\n"
+            f"- Training Schedule: {'Workout Day' if is_training_day else 'Rest Day'}\n"
+            f"- Diet Plan: {user_profile.get('diet_type', 'Fitness Balanced') if user_profile else 'Fitness Balanced'}\n"
+            f"- Daily Status: {stats_summary}\n"
+            f"- Activity Goal: {target_steps} steps\n\n"
+            "TONE & PERSONA:\n"
+            "- Enthusiastic, supportive, and disciplined. Act like a professional personal trainer.\n"
+            "- Hold the user accountable but remain empathetic to their struggles.\n"
+            "- Keep responses concise, punchy, and highly actionable (MAX 25 WORDS). ALWAYS end your sentences completely.\n"
+            "- Ground your advice in sports science. Never use names like 'Ronnie' or the user's name.\n\n"
+            "INSTRUCTIONS FOR RESPONDING:\n"
+            "1. WORKOUT DAYS: If it is a training day, hype the user up. Focus advice on performance, form, and pre/post-workout nutrition matching their diet plan.\n"
+            "2. REST DAYS: If it is a rest day, actively discourage overtraining. Emphasize recovery, mobility, sleep, and dietary macros.\n"
+            "3. DIET ALIGNMENT: Never suggest foods or eating habits that contradict the active diet plan.\n"
+            "4. NO HALLUCINATIONS: Do not invent workouts or diet plans unless explicitly asked. Focus on coaching through what is in the app."
         )
 
-        # Focus parameters
+        if self.use_gemini:
+            try:
+                # Format history for the new SDK
+                contents = []
+                for msg in (history or []):
+                    contents.append(types.Content(
+                        role="user" if msg['role'] == "user" else "model",
+                        parts=[types.Part.from_text(text=msg['content'])]
+                    ))
+                
+                # Add current user message
+                contents.append(types.Content(
+                    role="user",
+                    parts=[types.Part.from_text(text=user_message)]
+                ))
+
+                generate_content_config = types.GenerateContentConfig(
+                    temperature=0.5,
+                    max_output_tokens=800,
+                    thinking_config=types.ThinkingConfig(
+                        thinking_level="HIGH",
+                    ),
+                    tools=[types.Tool(google_search=types.GoogleSearch())],
+                    system_instruction=[types.Part.from_text(text=system_instruction_text)],
+                )
+
+                response = self.client.models.generate_content(
+                    model=self.gemini_model_id,
+                    contents=contents,
+                    config=generate_content_config,
+                )
+                
+                reply = response.text.strip()
+                
+                # Cleanup logic
+                for label in ["AI COACH:", "Ronnie:", "CLIENT:", "USER:", "AI Coach:"]:
+                    if label in reply:
+                        parts = reply.split(label)
+                        reply = parts[1].strip() if len(parts) > 1 else parts[0]
+                
+                for stop in ["\nCLIENT:", "\nUSER:", "\nUser:", "\nClient:"]:
+                    if stop in reply:
+                        reply = reply.split(stop)[0].strip()
+
+                return reply.strip('"').strip("'").strip()
+            except Exception as e:
+                print(f"Gemini generation failed: {e}. Falling back to local model.")
+
+        # Local Model Logic (TinyLlama) fallback logic
+        system_content = system_instruction_text # Re-use for fallback
+        prompt = f"<|system|>\n{system_content}</s>"
+        if history:
+            for msg in history:
+                role = "user" if msg['role'] == "user" else "assistant"
+                prompt += f"<|{role}|>\n{msg['content']}</s>"
+        prompt += f"<|user|>\n{user_message}</s><|assistant|>\n"
+
         response = self.generator(
             prompt, 
-            max_new_tokens=100, 
+            max_new_tokens=100,
             do_sample=True, 
             temperature=0.4, 
             top_k=40, 
@@ -53,42 +176,32 @@ class FitnessChatService:
             pad_token_id=self.generator.tokenizer.eos_token_id
         )
 
-        # Clean up the response
         full_text = response[0]['generated_text']
         assistant_reply = full_text.split("<|assistant|>\n")[-1].strip()
         assistant_reply = assistant_reply.split("</s>")[0].strip()
-
-        # Handle placeholders that the model might hallucinate
-        assistant_reply = assistant_reply.replace("[user]", user_name).replace("[User]", user_name)
-
-        # Aggressive cleanup of hallucinated roles and salutations
-        bad_starts = [
-            f"{user_name}:", "Assistant:", "Coach:", "AI:", "Athlete:", "System:", 
-            "Dear", "Greetings", "Hello", "Hi", "Hi Athlete", "@"
-        ]
         
-        # If user_name is Athlete, don't strip it if it's just the name
-        if user_name.lower() == "athlete":
-             # remove "Athlete:" but keep "Athlete, " if it's part of the sentence (though prompt says don't greet)
-             bad_starts = [b for b in bad_starts if b != "Athlete:"]
-             bad_starts.append("Athlete:") 
+        # Cleanup
+        meta_markers = ["Coach:", "Assistant:", "Assuming that", "Assumed", "Scenario:", "Response:", "Coach Ronnie:"]
+        for marker in meta_markers:
+            if marker in assistant_reply:
+                parts = assistant_reply.split(marker)
+                if len(parts) > 1 and len(parts[-1].strip()) > 10:
+                    assistant_reply = parts[-1].strip()
 
-        # Run multiple passes to clean up nested prefixes
+        assistant_reply = assistant_reply.replace("[user]", user_name).replace("[User]", user_name).replace("[Client]", user_name)
+        bad_starts = ["Dear", "Greetings", "Hello", "Hi", "Hi Athlete", "@"]
         for _ in range(3):
             assistant_reply = assistant_reply.strip()
-            # Remove leading/trailing quotes if the model hallucinated them
             if assistant_reply.startswith('"'): assistant_reply = assistant_reply[1:].strip()
             if assistant_reply.endswith('"'): assistant_reply = assistant_reply[:-1].strip()
-            
             for p in bad_starts:
                 if assistant_reply.lower().startswith(p.lower()):
-                    # Remove the prefix and the following character if it's a colon or comma
                     assistant_reply = assistant_reply[len(p):].strip()
                     if assistant_reply.startswith(':') or assistant_reply.startswith(','):
                         assistant_reply = assistant_reply[1:].strip()
 
-        if not assistant_reply:
-            return f"{user_name}, keep pushing towards your fitness goals today!"
+        if not assistant_reply or len(assistant_reply) < 5:
+            return f"Keep pushing towards your goals, {user_name}! Consistency is the key to success."
 
         return assistant_reply
 

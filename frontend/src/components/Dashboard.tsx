@@ -5,6 +5,7 @@ import { useAuth } from '../App';
 import { 
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Cell
 } from 'recharts';
+import { CoachIcon, SavedIcon, SyncIcon, SaveIcon, ResetIcon, DropIcon, GlassIcon, BottleIcon, FireIcon, FootprintsIcon, ScaleIcon, SweepIcon, ConnectedIcon } from './Icons';
 
 export const Dashboard = () => {
   const [data, setData] = useState<any>(() => {
@@ -14,6 +15,7 @@ export const Dashboard = () => {
   const [stepsInput, setStepsInput] = useState<number>(0);
   const [waterInput, setWaterInput] = useState<string>('0'); 
   const [weightInput, setWeightInput] = useState<string>('');
+  const [weightPeriod, setWeightPeriod] = useState<number>(4); // Default to 4 weeks
   const [savingWater, setSavingWater] = useState(false);
   const [lastStepsUpdate, setLastStepsUpdate] = useState<string>('');
   const { user: authUser, refreshUser } = useAuth();
@@ -201,6 +203,16 @@ export const Dashboard = () => {
   const lastKnownWeight = today.weight || (weightHistory.length > 0 ? weightHistory[weightHistory.length - 1].weight : profile.weight);
   const weightLabel = today.weight ? "Today" : "Last Recorded";
 
+  const weightChange = (() => {
+      const daysToLookBack = weightPeriod * 7;
+      const filteredHistory = (weightHistory || []).slice(-daysToLookBack);
+      const validWeights = filteredHistory.filter((h: any) => h.weight !== null);
+      if (validWeights.length < 2) return null;
+      const initial = validWeights[0].weight;
+      const current = validWeights[validWeights.length - 1].weight;
+      return current - initial;
+  })();
+
   return (
     <div className="container">
       <div className="card" style={{ textAlign: 'left', marginBottom: '2rem', background: '#121212', border: '1px solid var(--card-border)' }}>
@@ -220,7 +232,7 @@ export const Dashboard = () => {
             borderBottom: '1px solid rgba(251, 197, 49, 0.1)'
         }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1rem' }}>
-                <span style={{ fontSize: '1.5rem' }}>🤖</span>
+                <span style={{ color: 'var(--primary)' }}><CoachIcon size={24} /></span>
                 <h3 style={{ margin: 0, fontSize: '1.1rem', textTransform: 'uppercase', color: 'var(--primary)' }}>Daily AI Coach</h3>
                 <div style={{ 
                     marginLeft: 'auto', 
@@ -235,30 +247,11 @@ export const Dashboard = () => {
             </div>
             
             <p style={{ fontSize: '1.1rem', fontWeight: 500, marginBottom: '1rem', color: '#fff' }}>
-                {(() => {
-                    const placeholders = [
-                        "Your AI Coach is analyzing your progress...",
-                        "Your AI Coach is preparing your feedback...",
-                        "Analyzing data...",
-                        "No feedback yet.",
-                        "Click 'Generate' for your daily AI coaching!"
-                    ];
-                    const isPlaceholder = placeholders.includes(feedback.summary);
-
-                    if (isPlaceholder && feedback.insights && feedback.insights.length > 0) {
-                        return <span>{feedback.insights.join(' ')}</span>;
-                    }
-
-                    if (isPlaceholder) {
-                        if (feedback.summary === "No feedback yet." || feedback.summary === "Click 'Generate' for your daily AI coaching!") {
-                            return feedback.summary;
-                        }
-                        return <span className="text-muted animate-pulse">🤖 Analyzing your data... please wait.</span>;
-                    }
-
-                    return feedback.summary || "No feedback yet.";
-                })()}
+                {feedback.insights && feedback.insights.length > 0 
+                    ? feedback.insights.join(' ') 
+                    : (feedback.summary || "No feedback yet.")}
             </p>
+
 
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem' }}>
                 {feedback.insights.map((insight: string, i: number) => (
@@ -272,12 +265,10 @@ export const Dashboard = () => {
                             border: '1px solid rgba(251, 197, 49, 0.1)', 
                             color: 'var(--text-muted)',
                             transition: 'all 0.3s ease',
-                            cursor: 'default',
-                            display: 'flex',
-                            alignItems: 'center'
+                            cursor: 'default'
                         }}
                     >
-                        <span className="insight-bullet" style={{ color: 'var(--primary)', marginRight: '0.4rem' }}>•</span> {insight}
+                        {insight}
                     </div>
                 ))}
             </div>
@@ -286,7 +277,9 @@ export const Dashboard = () => {
       {/* Trackers */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '2rem', marginBottom: '2rem' }}>
         <div className="card stat-card">
-          <h3>Daily Calories</h3>
+          <h3 style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
+            <FireIcon size={20} color="var(--primary)" /> Daily Calories
+          </h3>
           <div className="progress-ring-container">
             <svg className="progress-ring-svg" width="160" height="160">
               <circle className="progress-ring-circle-bg" cx="80" cy="80" r={radius} />
@@ -324,7 +317,9 @@ export const Dashboard = () => {
         </div>
 
         <div className="card stat-card">
-          <h3>Hydration</h3>
+          <h3 style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
+            <DropIcon size={20} color="var(--primary)" /> Hydration
+          </h3>
           <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
             <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'center', width: '100%' }}>
                 <input 
@@ -340,15 +335,22 @@ export const Dashboard = () => {
             </div>
             <p className="text-muted" style={{ marginBottom: '1.5rem' }}>Goal: 3.00 L</p>
             <div style={{ display: 'flex', gap: '0.75rem' }}>
-                <button className={`btn ${savingWater ? 'btn-success' : 'btn-primary'}`} onClick={() => updateWater()}>{savingWater ? '✅ Saved' : 'Update'}</button>
-                <button className="btn btn-secondary" onClick={() => { setWaterInput('0'); updateWater(0); }}>🧹</button>
+                <button className={`btn ${savingWater ? 'btn-success' : 'btn-primary'}`} onClick={() => updateWater()}>{savingWater ? <><SavedIcon size={18} /> Saved</> : 'Update'}</button>
+                <button className="btn btn-secondary" onClick={() => { setWaterInput('0'); updateWater(0); }}><ResetIcon size={18} /></button>
             </div>
           </div>
           <div style={{ marginTop: '3rem', display: 'flex', justifyContent: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
-              {[{ label: '💧 Sip', amt: 0.015 }, { label: '🥛 Glass', amt: 0.25 }, { label: '🍼 Bottle', amt: 0.5 }].map(item => (
-                  <button key={item.label} className="btn btn-secondary" style={{ padding: '0.5rem 0.8rem', fontSize: '0.75rem' }} onClick={() => addWater(item.amt)}>{item.label}</button>
+              {[
+                { label: 'Sip', amt: 0.015, icon: <DropIcon size={14} /> }, 
+                { label: 'Glass', amt: 0.25, icon: <GlassIcon size={14} /> }, 
+                { label: 'Bottle', amt: 0.5, icon: <BottleIcon size={14} /> }
+              ].map(item => (
+                  <button key={item.label} className="btn btn-secondary" style={{ padding: '0.5rem 0.8rem', fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }} onClick={() => addWater(item.amt)}>
+                    {item.icon} {item.label}
+                  </button>
               ))}
           </div>
+
         </div>
       </div>
 
@@ -357,9 +359,11 @@ export const Dashboard = () => {
         <div className="card stat-card" style={{ textAlign: 'left', padding: '2rem' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div>
-                    <h3 style={{ margin: 0 }}>Daily Steps</h3>
+                    <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <FootprintsIcon size={20} color="var(--primary)" /> Daily Steps
+                    </h3>
                     <div className="stat-value" style={{ margin: '0.5rem 0', fontSize: '3rem' }}>{today.steps.toLocaleString()}</div>
-                    <p className="text-muted" style={{ margin: 0 }}>Goal: 10,000</p>
+                    <p className="text-muted" style={{ margin: 0 }}>Goal: {profile.target_steps?.toLocaleString() || '10,000'}</p>
                 </div>
                 <div style={{ display: 'flex', gap: '0.5rem' }}>
                     <button 
@@ -367,9 +371,11 @@ export const Dashboard = () => {
                         onClick={() => googleSync()} 
                         style={{ fontSize: '0.7rem', flexDirection: 'column', padding: '0.5rem 1rem', minWidth: '110px' }}
                     >
-                        <span>{dashboardUser.has_google_sync ? '✅ Connected' : '🔄 Sync Fit'}</span>
+                        <span style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                            {dashboardUser.has_google_sync ? <><ConnectedIcon size={14} color="currentColor" /> Connected</> : <><SyncIcon size={14} /> Sync Fit</>}
+                        </span>
                         {lastStepsUpdate && (
-                            <span style={{ fontSize: '0.55rem', opacity: 0.7, marginTop: '2px', fontWeight: 700 }}>Last updated at: {lastStepsUpdate}</span>
+                            <span style={{ fontSize: '0.55rem', opacity: 0.9, marginTop: '2px', fontWeight: 700, color: 'var(--success)' }}>Last updated at: {lastStepsUpdate}</span>
                         )}
                     </button>
                     {!dashboardUser.has_google_sync && (
@@ -385,7 +391,9 @@ export const Dashboard = () => {
         <div className="card stat-card" style={{ textAlign: 'left', padding: '2rem' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div>
-                    <h3 style={{ margin: 0 }}>Current Weight</h3>
+                    <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <ScaleIcon size={20} color="var(--primary)" /> Current Weight
+                    </h3>
                     <div className="stat-value" style={{ margin: '0.5rem 0', fontSize: '3rem' }}>{lastKnownWeight || '--'} <span style={{ fontSize: '1.2rem' }}>KG</span></div>
                     <p className="text-muted">{weightLabel}</p>
                 </div>
@@ -396,6 +404,7 @@ export const Dashboard = () => {
             </div>
         </div>
       </div>
+
 
       <h2 style={{ margin: '3rem 0 1.5rem' }}>History & Progress</h2>
       <div className="dashboard-grid" style={{ marginBottom: '3rem' }}>
@@ -415,6 +424,43 @@ export const Dashboard = () => {
                     </ResponsiveContainer>
                 ) : <div className="text-muted">No data.</div>}
             </div>
+            {weightChange !== null && (
+                <div style={{ marginTop: '1.5rem', paddingTop: '1.5rem', borderTop: '1px solid rgba(255,255,255,0.05)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <select 
+                            value={weightPeriod} 
+                            onChange={(e) => setWeightPeriod(parseInt(e.target.value))}
+                            style={{ 
+                                background: 'transparent', 
+                                border: 'none', 
+                                color: 'var(--text-muted)', 
+                                fontSize: '0.7rem', 
+                                fontWeight: 800, 
+                                textTransform: 'uppercase',
+                                cursor: 'pointer',
+                                outline: 'none',
+                                padding: '0.2rem'
+                            }}
+                        >
+                            <option value={1} style={{ background: '#000' }}>1 WEEK</option>
+                            <option value={2} style={{ background: '#000' }}>2 WEEKS</option>
+                            <option value={3} style={{ background: '#000' }}>3 WEEKS</option>
+                            <option value={4} style={{ background: '#000' }}>4 WEEKS</option>
+                        </select>
+                        <span className="text-muted" style={{ fontSize: '0.7rem', fontWeight: 800 }}>PROGRESS</span>
+                    </div>
+                    <span style={{ 
+                        fontSize: '1.2rem', 
+                        fontWeight: 900, 
+                        color: weightChange <= 0 ? 'var(--success)' : 'var(--primary)' 
+                    }}>
+                        {weightChange > 0 ? '+' : ''}{weightChange.toFixed(1)} KG
+                        <span style={{ fontSize: '0.7rem', marginLeft: '0.5rem', opacity: 0.7 }}>
+                            {weightChange > 0 ? 'GAINED' : 'LOST'}
+                        </span>
+                    </span>
+                </div>
+            )}
         </div>
 
         <div className="card">

@@ -25,9 +25,32 @@ with engine.connect() as conn:
         pass
 
     try:
+        conn.execute(text("ALTER TABLE users ADD COLUMN is_verified BOOLEAN DEFAULT 0"))
+        conn.commit()
+        print("DEBUG: Added is_verified column to users table")
+    except Exception:
+        pass
+
+    try:
         conn.execute(text("ALTER TABLE workout_sessions ADD COLUMN split_id INTEGER REFERENCES workout_splits(id)"))
         conn.commit()
         print("DEBUG: Added split_id column to workout_sessions table")
+    except Exception:
+        # Column likely already exists
+        pass
+
+    try:
+        conn.execute(text("ALTER TABLE user_profiles ADD COLUMN target_steps INTEGER DEFAULT 10000"))
+        conn.commit()
+        print("DEBUG: Added target_steps column to user_profiles table")
+    except Exception:
+        # Column likely already exists
+        pass
+
+    try:
+        conn.execute(text("ALTER TABLE chat_messages ADD COLUMN thread_title VARCHAR"))
+        conn.commit()
+        print("DEBUG: Added thread_title column to chat_messages table")
     except Exception:
         # Column likely already exists
         pass

@@ -7,10 +7,13 @@ import { Profile } from './components/Profile';
 import { Setup } from './components/Setup';
 import { Login } from './components/Login';
 import { Register } from './components/Register';
+import { VerifyEmail } from './components/VerifyEmail';
 import { MealAnalysis } from './components/MealAnalysis';
 import { MealHistory } from './components/MealHistory';
 import { WorkoutSuggestions } from './components/WorkoutSuggestions';
+import { Calculators } from './components/Calculators';
 import { Chat } from './components/Chat';
+import { LayoutIcon, AppleIcon, DumbbellIcon, CoachIcon, UserIcon, CalculatorIcon } from './components/Icons';
 import './App.css';
 
 interface AuthContextType {
@@ -126,11 +129,24 @@ const Navbar = () => {
         <div className="nav-links">
           {user ? (
             <>
-              <Link to="/" className={isActive('/')}>DASHBOARD</Link>
-              <Link to="/meal" className={isActive('/meal')}>MEALS</Link>
-              <Link to="/workout" className={isActive('/workout')}>TRAINING</Link>
-              <Link to="/chat" className={isActive('/chat')}>COACH</Link>
-              <Link to="/profile" className={isActive('/profile')}>PROFILE</Link>
+              <Link to="/" className={isActive('/')} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                <LayoutIcon size={16} /> DASHBOARD
+              </Link>
+              <Link to="/meal" className={isActive('/meal')} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                <AppleIcon size={16} /> MEALS
+              </Link>
+              <Link to="/workout" className={isActive('/workout')} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                <DumbbellIcon size={16} /> TRAINING
+              </Link>
+              <Link to="/chat" className={isActive('/chat')} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                <CoachIcon size={16} /> COACH
+              </Link>
+              <Link to="/calculators" className={isActive('/calculators')} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                <CalculatorIcon size={16} /> TOOLS
+              </Link>
+              <Link to="/profile" className={isActive('/profile')} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                <UserIcon size={16} /> PROFILE
+              </Link>
               <a href="#" onClick={handleLogoutClick} style={{ color: 'var(--accent)', opacity: 0.5 }}>LOGOUT</a>
             </>
           ) : (
@@ -140,6 +156,7 @@ const Navbar = () => {
             </>
           )}
         </div>
+
       </div>
     </nav>
   );
@@ -162,6 +179,7 @@ function App() {
               <Routes>
                 <Route path="/login" element={<Login />} />
                 <Route path="/register" element={<Register />} />
+                <Route path="/verify-email" element={<VerifyEmail />} />
                 <Route 
                   path="/" 
                   element={
@@ -215,6 +233,14 @@ function App() {
                   element={
                     <ProtectedRoute>
                       <Chat />
+                    </ProtectedRoute>
+                  } 
+                />
+                <Route 
+                  path="/calculators" 
+                  element={
+                    <ProtectedRoute>
+                      <Calculators />
                     </ProtectedRoute>
                   } 
                 />

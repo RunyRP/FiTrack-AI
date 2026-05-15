@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import api from '../api';
 import { useNavigate } from 'react-router-dom';
+import { CameraIcon, SearchIcon, SuccessIcon, ErrorIcon } from './Icons';
 
 export const MealAnalysis = () => {
   const [activeTab, setActiveTab] = useState<'photo' | 'search'>('photo');
@@ -112,16 +113,16 @@ export const MealAnalysis = () => {
             <button 
                 onClick={() => { setActiveTab('photo'); setResults([]); setEditItem(null); }}
                 className={`btn ${activeTab === 'photo' ? 'btn-primary' : 'btn-secondary'}`}
-                style={{ flex: 1, borderRadius: '0.75rem' }}
+                style={{ flex: 1, borderRadius: '0.75rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}
             >
-                AI Photo Analysis
+                <CameraIcon size={18} /> AI Photo Analysis
             </button>
             <button 
                 onClick={() => { setActiveTab('search'); setResults([]); setEditItem(null); }}
                 className={`btn ${activeTab === 'search' ? 'btn-primary' : 'btn-secondary'}`}
-                style={{ flex: 1, borderRadius: '0.75rem' }}
+                style={{ flex: 1, borderRadius: '0.75rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}
             >
-                Manual Search
+                <SearchIcon size={18} /> Manual Search
             </button>
         </div>
 
@@ -140,8 +141,8 @@ export const MealAnalysis = () => {
                             position: 'relative'
                         }}>
                             {file ? (
-                                <div style={{ color: 'var(--primary)', fontWeight: 600 }}>
-                                    ✓ {file.name} selected
+                                <div style={{ color: 'var(--primary)', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
+                                    <SuccessIcon size={18} /> {file.name} selected
                                 </div>
                             ) : (
                                 <div className="text-muted">Click to upload or drag and drop a meal photo</div>
@@ -184,13 +185,19 @@ export const MealAnalysis = () => {
                     background: message.includes('success') ? 'rgba(0,255,175,0.1)' : 'rgba(255,0,127,0.1)',
                     color: message.includes('success') ? 'var(--success)' : 'var(--accent)',
                     textAlign: 'center',
-                    fontWeight: 600
+                    fontWeight: 600,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '0.5rem'
                 }}>
+                    {message.includes('success') ? <SuccessIcon size={20} /> : <ErrorIcon size={20} />}
                     {message}
                 </div>
             )}
         </div>
       </div>
+
 
       {(results.length > 0 || editItem) && (
         <div style={{ display: 'grid', gridTemplateColumns: results.length > 0 ? '1fr 1fr' : '1fr', gap: '2rem', marginTop: '2rem' }}>

@@ -22,8 +22,10 @@ export const Login = () => {
       login(res.data.access_token);
       navigate('/');
     } catch (err: any) {
-      if (err.response && err.response.status === 401) {
+      if (err.response?.status === 401) {
         setError('Invalid email or password');
+      } else if (err.response?.status === 403) {
+        setError(err.response.data.detail || 'Please verify your email before logging in.');
       } else {
         setError('Connection error. Please make sure the backend is running.');
       }

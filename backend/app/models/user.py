@@ -12,6 +12,7 @@ class ActivityLevel(str, enum.Enum):
     sedentary = "sedentary"
     lightly_active = "lightly_active"
     moderately_active = "moderately_active"
+    active = "active"
     very_active = "very_active"
     extra_active = "extra_active"
 
@@ -22,6 +23,7 @@ class User(Base):
     email = Column(String, unique=True, index=True, nullable=False)
     hashed_password = Column(String, nullable=False)
     is_active = Column(Boolean, default=True)
+    is_verified = Column(Boolean, default=False)
     google_refresh_token = Column(String, nullable=True)
 
     @property
@@ -56,5 +58,6 @@ class UserProfile(Base):
     
     # Calculated goals
     target_kcal = Column(Integer)
+    target_steps = Column(Integer, default=10000)
     
     user = relationship("User", back_populates="profile")

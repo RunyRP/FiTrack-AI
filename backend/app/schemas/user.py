@@ -18,6 +18,7 @@ class UserProfileBase(BaseModel):
     objective: Optional[str] = None
     cut_intensity: Optional[str] = None
     manual_target_kcal: Optional[int] = None
+    target_steps: Optional[int] = 10000
     selected_machinery: Optional[list] = []
     setup_complete: Optional[bool] = False
 
@@ -28,6 +29,7 @@ class UserProfile(UserProfileBase):
     id: int
     user_id: int
     target_kcal: Optional[int] = None
+    target_steps: Optional[int] = 10000
 
     class Config:
         from_attributes = True
@@ -35,6 +37,7 @@ class UserProfile(UserProfileBase):
 class User(UserBase):
     id: int
     is_active: bool
+    is_verified: bool = False
     profile: Optional[UserProfile] = None
     has_google_sync: bool = False
 

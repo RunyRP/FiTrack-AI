@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import api from '../api';
 import { useAuth } from '../App';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { WorkoutSplits } from './WorkoutSplits';
+import { CoffeeIcon } from './Icons';
 
 interface Set {
     reps: number;
@@ -17,6 +18,7 @@ interface LoggedExercise {
 
 export const WorkoutSuggestions = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [suggestionData, setSuggestionData] = useState<any>(null);
   const [nextWorkout, setNextWorkout] = useState<any>(null);
   const [loading, setLoading] = useState(false);
@@ -28,11 +30,38 @@ export const WorkoutSuggestions = () => {
   const [saving, setLogging] = useState(false);
   const [workoutHistory, setHistory] = useState<any[]>([]);
   const [selectedSplitId, setSelectedSplitId] = useState<number | null>(null);
+  const [machinery, setMachinery] = useState<any[]>([]);
+  const [isAddingExercise, setIsAddingExercise] = useState(false);
+  const [showAllMachinery, setShowAllMachinery] = useState(false);
+  
+  // New workout flow
+  const [isStartingNew, setIsStartingNew] = useState(false);
+  const [availableSplits, setAvailableSplits] = useState<any[]>([]);
 
   useEffect(() => {
     fetchHistory();
     fetchNextWorkout();
+    fetchMachinery();
+    fetchSplits();
   }, [user]);
+
+  const fetchSplits = async () => {
+    try {
+        const res = await api.get('/workout/splits');
+        setAvailableSplits(res.data);
+    } catch (err) {
+        console.error(err);
+    }
+  };
+
+  const fetchMachinery = async () => {
+    try {
+      const res = await api.get('/workout/machinery');
+      setMachinery(res.data);
+    } catch (err) {
+      console.error(err);
+    }
+  };
 
   const fetchHistory = async () => {
     try {
@@ -51,13 +80,50 @@ export const WorkoutSuggestions = () => {
         if (res.data.split_id) {
             applyNextWorkout(res.data);
             setLoading(false);
-        } else {
+        } else if (res.data.is_gym_day) {
             await handleSuggest();
+        } else {
+            setLoading(false);
         }
     } catch (err) {
         console.error(err);
-        await handleSuggest();
+        setLoading(false);
     }
+  };
+
+  const handleStartSplitWorkout = (split: any) => {
+    setWorkoutName(split.name);
+    setSelectedSplitId(split.id);
+    
+    const initialLogs: Record<string, Set[]> = {};
+    split.exercises.forEach((ex: any) => {
+        initialLogs[ex.name] = [{ reps: ex.target_reps, weight: 0 }];
+    });
+    setLoggedExercises(initialLogs);
+    
+    setSuggestionData({
+        objective: user?.profile?.objective || 'maintain',
+        suggestions: split.exercises.map((ex: any) => ({
+            exercise_name: ex.name,
+            machine_id: ex.machine_id,
+            muscles: [ex.muscle_group], 
+            reps: ex.target_reps,
+            sets: ex.target_sets
+        }))
+    });
+    setIsStartingNew(false);
+  };
+
+  const handleStartCustomWorkout = (name: string) => {
+    setWorkoutName(name || 'Custom Workout');
+    setSelectedSplitId(null);
+    setLoggedExercises({});
+    setSuggestionData({
+        objective: 'custom',
+        suggestions: []
+    });
+    setIsStartingNew(false);
+    setIsAddingExercise(true); // Automatically open the add exercise view for custom workouts
   };
 
   const applyNextWorkout = (data: any) => {
@@ -155,13 +221,59 @@ export const WorkoutSuggestions = () => {
       }
   };
 
+  const handleRemoveExercise = (exName: string) => {
+    setSuggestionData((prev: any) => ({
+        ...prev,
+        suggestions: prev.suggestions.filter((s: any) => s.exercise_name !== exName)
+    }));
+    setLoggedExercises(prev => {
+        const next = { ...prev };
+        delete next[exName];
+        return next;
+    });
+  };
+
+  const handleAddCustomExercise = (machineData: string) => {
+    let name = '';
+    let machine_id: number | undefined = undefined;
+
+    if (machineData.includes('|')) {
+        const parts = machineData.split('|');
+        name = parts[0];
+        machine_id = parseInt(parts[1]);
+    } else {
+        name = machineData;
+    }
+
+    if (!name) return;
+
+    setSuggestionData((prev: any) => ({
+        ...prev,
+        suggestions: [...prev.suggestions, {
+            exercise_name: name,
+            machine_id: machine_id,
+            muscles: [],
+            reps: 12,
+            sets: 3
+        }]
+    }));
+
+    setLoggedExercises(prev => ({
+        ...prev,
+        [name]: [{ reps: 10, weight: 0 }]
+    }));
+    
+    setIsAddingExercise(false);
+  };
+
   const handleCancelWorkout = () => {
     if (confirm('Are you sure you want to cancel this live workout? All progress will be lost.')) {
         setLoggedExercises({});
         setWorkoutName('My Workout');
         setSelectedSplitId(null);
-        setNextWorkout(null);
-        handleSuggest();
+        setSuggestionData(null); // Clear active workout data
+        setIsStartingNew(false);
+        setIsAddingExercise(false);
     }
   };
 
@@ -181,21 +293,35 @@ export const WorkoutSuggestions = () => {
     return obj.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
   };
 
-  // If no machinery selected, show a prompt
-  if (!user?.profile?.selected_machinery || user.profile.selected_machinery.length === 0) {
-    return (
-        <div className="container animate-fade-in">
-            <div className="card" style={{ textAlign: 'center', padding: '4rem' }}>
-                <h2 style={{ marginBottom: '1rem' }}>No Equipment Selected</h2>
-                <p className="text-muted" style={{ marginBottom: '2rem' }}>Please select the equipment available at your gym to get custom workouts.</p>
-                <Link to="/setup" state={{ equipmentOnly: true }} className="btn btn-primary">Configure My Gym</Link>
-            </div>
-        </div>
-    );
-  }
+  const categorizeMachine = (m: any) => {
+    const primaryMuscle = m.exercises?.[0]?.muscles?.[0] || 'Other';
+    const muscle = primaryMuscle.toLowerCase();
+    
+    if (muscle.includes('quad') || muscle.includes('leg') || muscle.includes('glute') || muscle.includes('hamstring') || muscle.includes('calf')) return 'Legs';
+    if (muscle.includes('chest') || muscle.includes('pectoral')) return 'Chest';
+    if (muscle.includes('back') || muscle.includes('lat') || muscle.includes('row')) return 'Back';
+    if (muscle.includes('shoulder') || muscle.includes('delt')) return 'Shoulders';
+    if (muscle.includes('bicep') || muscle.includes('tricep') || muscle.includes('arm')) return 'Arms';
+    if (muscle.includes('core') || muscle.includes('ab') || muscle.includes('stomach')) return 'Core';
+    return 'Other';
+  };
+
+  const [selectedMuscleGroup, setSelectedMuscleGroup] = useState<string>('Chest');
+  const MUSCLE_GROUPS = ['Chest', 'Back', 'Shoulders', 'Legs', 'Arms', 'Core', 'Other'];
 
   return (
     <div className="container animate-fade-in">
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
+          <h1 style={{ margin: 0 }}>Training</h1>
+          <button 
+              className="btn btn-primary" 
+              style={{ fontSize: '0.75rem', padding: '0.5rem 1rem' }}
+              onClick={() => navigate('/setup', { state: { equipmentOnly: true } })}
+          >
+              YOUR GYM EQUIPMENT
+          </button>
+      </div>
+
       <div className="card" style={{ padding: 0, overflow: 'hidden', marginBottom: '2rem' }}>
         <div className="nav-links" style={{ display: 'flex', borderRadius: 0, border: 'none', background: 'rgba(255,255,255,0.03)', padding: '0.5rem' }}>
             <button 
@@ -224,14 +350,66 @@ export const WorkoutSuggestions = () => {
 
       {activeTab === 'routine' && (
         <div className="animate-fade-in">
-          {nextWorkout && !nextWorkout.split_id && (
-            <div className="card" style={{ background: 'rgba(255,255,255,0.02)', border: '1px dashed rgba(255,255,255,0.1)', marginBottom: '2rem', textAlign: 'center' }}>
-                <p className="text-muted" style={{ margin: 0 }}>
-                    {nextWorkout.is_gym_day 
-                        ? "It's a gym day! Set up your splits to get started." 
-                        : "Today is a rest day. Enjoy your recovery!"}
-                </p>
-                <button onClick={() => setActiveTab('splits')} className="btn btn-secondary" style={{ marginTop: '1rem', fontSize: '0.8rem' }}>Configure Splits</button>
+          {isStartingNew ? (
+              <div className="card animate-fade-in" style={{ border: '1px solid var(--primary)', background: 'rgba(251, 197, 49, 0.05)', marginBottom: '2rem' }}>
+                  <h2 style={{ marginBottom: '1.5rem' }}>Start New Workout</h2>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem' }}>
+                      <div>
+                          <label className="text-muted" style={{ display: 'block', marginBottom: '1rem', fontSize: '0.75rem', fontWeight: 800, textTransform: 'uppercase' }}>Custom Workout</label>
+                          <div className="input-group">
+                              <input 
+                                  type="text" 
+                                  placeholder="e.g. Morning Pump" 
+                                  onKeyDown={(e) => {
+                                      if (e.key === 'Enter') handleStartCustomWorkout((e.target as HTMLInputElement).value);
+                                  }}
+                                  style={{ marginBottom: '1rem' }}
+                              />
+                              <button className="btn btn-primary" onClick={(e) => {
+                                  const input = e.currentTarget.previousElementSibling as HTMLInputElement;
+                                  handleStartCustomWorkout(input.value);
+                              }} style={{ width: '100%' }}>Start Custom session</button>
+                          </div>
+                      </div>
+                      <div>
+                          <label className="text-muted" style={{ display: 'block', marginBottom: '1rem', fontSize: '0.75rem', fontWeight: 800, textTransform: 'uppercase' }}>From Split</label>
+                          <div className="input-group">
+                              <select 
+                                  onChange={(e) => {
+                                      const split = availableSplits.find(s => s.id === parseInt(e.target.value));
+                                      if (split) handleStartSplitWorkout(split);
+                                  }}
+                                  defaultValue=""
+                              >
+                                  <option value="" disabled>Choose a split...</option>
+                                  {availableSplits.map(split => (
+                                      <option key={split.id} value={split.id}>
+                                          {split.name} ({split.exercises.length} Exercises)
+                                      </option>
+                                  ))}
+                              </select>
+                              {availableSplits.length === 0 && <p className="text-muted" style={{ fontSize: '0.8rem', marginTop: '0.5rem' }}>No splits configured.</p>}
+                          </div>
+                      </div>
+                  </div>
+                  <button className="btn btn-secondary" onClick={() => setIsStartingNew(false)} style={{ width: '100%', marginTop: '2rem' }}>Cancel</button>
+              </div>
+          ) : !suggestionData && (
+            <div className="card" style={{ background: 'rgba(255,255,255,0.02)', border: '1px dashed rgba(255,255,255,0.1)', marginBottom: '2rem', textAlign: 'center', padding: '4rem' }}>
+                {nextWorkout && !nextWorkout.is_gym_day && (
+                    <div style={{ marginBottom: '2rem' }}>
+                        <div style={{ marginBottom: '1rem', color: 'var(--primary)' }}>
+                            <CoffeeIcon size={64} />
+                        </div>                        <h2 style={{ margin: 0 }}>Rest Day</h2>
+                        <p className="text-muted">Enjoy your recovery! But if you're feeling energetic...</p>
+                    </div>
+                )}
+                <button onClick={() => setIsStartingNew(true)} className="btn btn-primary" style={{ padding: '1rem 3rem', fontSize: '1rem' }}>+ Add New Workout</button>
+                {nextWorkout && nextWorkout.is_gym_day && !nextWorkout.split_id && (
+                    <p className="text-muted" style={{ marginTop: '1.5rem', fontSize: '0.8rem' }}>
+                        Tip: Configure your <span style={{ color: 'var(--primary)', cursor: 'pointer', textDecoration: 'underline' }} onClick={() => setActiveTab('splits')}>Workout Splits</span> for automated routines.
+                    </p>
+                )}
             </div>
           )}
 
@@ -278,6 +456,13 @@ export const WorkoutSuggestions = () => {
                                 <h3 style={{ margin: 0 }}>{s.exercise_name}</h3>
                                 {s.muscles && <span className="text-muted" style={{ fontSize: '0.8rem' }}>Target: {s.muscles.join(', ')}</span>}
                             </div>
+                            <button 
+                                onClick={() => handleRemoveExercise(s.exercise_name)}
+                                style={{ background: 'transparent', border: 'none', color: 'rgba(255,255,255,0.2)', cursor: 'pointer', fontSize: '1.2rem', padding: '0.5rem' }}
+                                title="Remove Exercise"
+                            >
+                                ×
+                            </button>
                         </div>
 
                         <div style={{ display: 'grid', gap: '0.75rem' }}>
@@ -331,6 +516,86 @@ export const WorkoutSuggestions = () => {
                 </div>
               </div>
             ))}
+
+            {isAddingExercise ? (
+                <div className="card animate-fade-in" style={{ border: '1px solid var(--primary)', background: 'rgba(251, 197, 49, 0.05)' }}>
+                    <h3 style={{ marginBottom: '1.5rem' }}>Add Extra Exercise</h3>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', alignItems: 'end' }}>
+                        <div className="input-group" style={{ marginBottom: 0 }}>
+                            <label>Muscle Group</label>
+                            <select 
+                                value={selectedMuscleGroup}
+                                onChange={(e) => setSelectedMuscleGroup(e.target.value)}
+                            >
+                                {MUSCLE_GROUPS.map(mg => <option key={mg} value={mg}>{mg}</option>)}
+                            </select>
+                        </div>
+                        <div className="input-group" style={{ marginBottom: 0 }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                                <label style={{ margin: 0 }}>Select Exercise</label>
+                                <div 
+                                    onClick={() => setShowAllMachinery(!showAllMachinery)}
+                                    style={{ 
+                                        fontSize: '0.65rem', 
+                                        display: 'flex', 
+                                        alignItems: 'center', 
+                                        gap: '0.4rem', 
+                                        cursor: 'pointer', 
+                                        color: showAllMachinery ? 'var(--primary)' : 'var(--text-muted)',
+                                        background: showAllMachinery ? 'rgba(251, 197, 49, 0.1)' : 'rgba(255,255,255,0.05)',
+                                        padding: '0.2rem 0.5rem',
+                                        borderRadius: '0.4rem',
+                                        border: `1px solid ${showAllMachinery ? 'var(--primary)' : 'transparent'}`,
+                                        transition: 'all 0.2s ease'
+                                    }}
+                                >
+                                    <div style={{ 
+                                        width: '8px', 
+                                        height: '8px', 
+                                        borderRadius: '50%', 
+                                        background: showAllMachinery ? 'var(--primary)' : 'rgba(255,255,255,0.2)' 
+                                    }} />
+                                    SHOW ALL
+                                </div>
+                            </div>
+                            <select 
+                                onChange={(e) => handleAddCustomExercise(e.target.value)}
+                                defaultValue=""
+                            >
+                                <option value="" disabled>Choose...</option>
+                                {machinery
+                                    .filter(m => categorizeMachine(m) === selectedMuscleGroup)
+                                    .filter(m => showAllMachinery || !user?.profile?.selected_machinery || user.profile.selected_machinery.includes(m.id))
+                                    .map(m => (
+                                        m.exercises.map((e: any) => (
+                                            <option key={`${m.id}-${e.name}`} value={`${e.name}|${m.id}`}>{e.name} ({m.name})</option>
+                                        ))
+                                    ))}
+                                <option value="Custom">Custom Exercise...</option>
+                            </select>
+                        </div>
+                    </div>
+                    {machinery
+                        .filter(m => categorizeMachine(m) === selectedMuscleGroup)
+                        .filter(m => showAllMachinery || !user?.profile?.selected_machinery || user.profile.selected_machinery.includes(m.id))
+                        .length === 0 && (
+                            <div style={{ fontSize: '0.75rem', color: 'var(--accent)', marginTop: '1rem', textAlign: 'center' }}>
+                                No machines found in your gym for this group. 
+                                <span style={{ cursor: 'pointer', textDecoration: 'underline', marginLeft: '0.3rem' }} onClick={() => setShowAllMachinery(true)}>Show all equipment?</span>
+                            </div>
+                        )
+                    }
+                    <button className="btn btn-secondary" onClick={() => setIsAddingExercise(false)} style={{ width: '100%', marginTop: '1.5rem' }}>Cancel</button>
+                </div>
+            ) : (
+                <button 
+                    className="btn btn-secondary" 
+                    onClick={() => setIsAddingExercise(true)}
+                    style={{ width: '100%', borderStyle: 'dashed', marginTop: '1rem', color: 'var(--primary)', borderColor: 'var(--primary)' }}
+                >
+                    + Add Extra Exercise
+                </button>
+            )}
             </div>
           ) : null}
         </div>
