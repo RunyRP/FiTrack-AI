@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../App';
-import { CalculatorIcon } from './Icons';
 
 const ACTIVITY_LEVELS = [
     { label: 'Sedentary: little or no exercise', value: 1.2 },
