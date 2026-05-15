@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useLocation, useNavigate, Link } from 'react-router-dom';
 import api from '../api';
 import { CoachIcon, SuccessIcon, ErrorIcon } from './Icons';

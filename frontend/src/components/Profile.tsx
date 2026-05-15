@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import api from '../api';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../App';
-import { WeightLossIcon, RecompIcon, MuscleGainIcon, MaintenanceIcon, UserIcon, DumbbellIcon, FireIcon } from './Icons';
+import { WeightLossIcon, MuscleGainIcon, MaintenanceIcon, UserIcon, DumbbellIcon } from './Icons';
 
 export const Profile = () => {
   const { user: currentUser, refreshUser, logout } = useAuth();

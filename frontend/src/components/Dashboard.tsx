@@ -5,7 +5,7 @@ import { useAuth } from '../App';
 import { 
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Cell
 } from 'recharts';
-import { CoachIcon, SavedIcon, SyncIcon, SaveIcon, ResetIcon, DropIcon, GlassIcon, BottleIcon, FireIcon, FootprintsIcon, ScaleIcon, SweepIcon, ConnectedIcon } from './Icons';
+import { CoachIcon, SavedIcon, SyncIcon, ResetIcon, DropIcon, GlassIcon, BottleIcon, FireIcon, FootprintsIcon, ScaleIcon, ConnectedIcon } from './Icons';
 
 export const Dashboard = () => {
   const [data, setData] = useState<any>(() => {
