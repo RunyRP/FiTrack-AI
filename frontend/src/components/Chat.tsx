@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import ReactMarkdown from 'react-markdown';
 import api from '../api';
 import { TrashIcon } from './Icons';
 
@@ -199,6 +200,7 @@ export const Chat = () => {
                   {m.role === 'user' ? 'U' : 'AI'}
               </div>
               <div 
+                className="chat-message-content"
                 style={{ 
                   maxWidth: '70%', 
                   padding: '1.25rem 1.5rem', 
@@ -210,7 +212,7 @@ export const Chat = () => {
                   fontSize: '1.05rem'
                 }}
               >
-                {m.content}
+                <ReactMarkdown>{m.content}</ReactMarkdown>
                 <div style={{ 
                     position: 'absolute', 
                     top: '0.5rem', 

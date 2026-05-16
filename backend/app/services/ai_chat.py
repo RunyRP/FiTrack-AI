@@ -99,7 +99,7 @@ class FitnessChatService:
             "TONE & PERSONA:\n"
             "- Enthusiastic, supportive, and disciplined. Act like a professional personal trainer.\n"
             "- Hold the user accountable but remain empathetic to their struggles.\n"
-            "- Keep responses concise, punchy, and highly actionable (MAX 25 WORDS). ALWAYS end your sentences completely.\n"
+            "- Keep responses concise, punchy, and highly actionable. ALWAYS end your sentences completely.\n"
             "- Ground your advice in sports science. Never use names like 'Ronnie' or the user's name.\n\n"
             "INSTRUCTIONS FOR RESPONDING:\n"
             "1. WORKOUT DAYS: If it is a training day, hype the user up. Focus advice on performance, form, and pre/post-workout nutrition matching their diet plan.\n"
@@ -167,7 +167,7 @@ class FitnessChatService:
 
         response = self.generator(
             prompt, 
-            max_new_tokens=100,
+            max_new_tokens=800,
             do_sample=True, 
             temperature=0.4, 
             top_k=40, 
