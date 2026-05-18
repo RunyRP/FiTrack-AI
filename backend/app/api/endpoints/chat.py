@@ -97,7 +97,7 @@ def send_chat_message(
         thread_title=thread_title
     )
     db.add(user_msg)
-    db.flush() # Ensure the message is in the DB before querying history
+    db.commit() # Commit immediately so it's visible to history fetches
     
     # 2. Get AI response
     chat_service = get_chat_service()
@@ -142,6 +142,10 @@ def send_chat_message(
             training_days = [day_names[d-1] for d in gym_days]
             rest_days = [day_names[d-1] for d in range(1, 8) if d not in gym_days]
 
+        from app.core.calculations import calculate_macros
+        target_kcal = current_user.profile.target_kcal or 2000
+        macros = calculate_macros(target_kcal, current_user.profile.macro_distribution or "balanced")
+
         profile_data = {
             "age": current_user.profile.age,
             "weight": current_user.profile.weight,
@@ -151,6 +155,10 @@ def send_chat_message(
             "training_days": training_days,
             "rest_days": rest_days,
             "target_steps": current_user.profile.target_steps,
+            "target_kcal": target_kcal,
+            "target_protein": macros["protein"],
+            "target_carbs": macros["carbs"],
+            "target_fat": macros["fat"],
             "weight_history": weight_history,
             "kcal_history": kcal_history,
             "workout_summary": workout_summary

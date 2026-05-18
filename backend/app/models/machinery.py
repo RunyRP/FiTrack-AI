@@ -1,11 +1,12 @@
-from sqlalchemy import Column, Integer, String, JSON
+from sqlalchemy import Column, Integer, String, JSON, ForeignKey
 from app.db.session import Base
 
 class Machinery(Base):
     __tablename__ = "machinery"
 
     id = Column(Integer, primary_key=True, index=True)
-    name = Column(String, unique=True, index=True, nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    name = Column(String, index=True, nullable=False)
     description = Column(String)
     image_url = Column(String, nullable=True)
     

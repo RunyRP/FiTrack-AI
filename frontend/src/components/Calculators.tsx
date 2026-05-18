@@ -12,27 +12,31 @@ const ACTIVITY_LEVELS = [
 
 const MACRO_PRESETS = [
     { 
+        id: 'balanced',
         name: 'Balanced', 
-        p: 0.30, f: 0.25, c: 0.45, 
-        desc: '30/25/45 - Standard athlete split',
+        p: 0.30, f: 0.30, c: 0.40, 
+        desc: '30/30/40 - Standard athlete split',
         why: 'Ideal for sustainable performance and recovery. Provides enough carbs for high-intensity training while keeping protein high for muscle maintenance.'
     },
     { 
+        id: 'low_carb',
         name: 'Low Carb', 
         p: 0.40, f: 0.40, c: 0.20, 
         desc: '40/40/20 - Focused on fat loss',
         why: 'Best for improving insulin sensitivity and steady energy levels. Reducing carbs can help reduce water retention and is often preferred for fat loss.'
     },
     { 
+        id: 'high_protein',
         name: 'High Protein', 
-        p: 0.45, f: 0.25, c: 0.30, 
-        desc: '45/25/30 - Maximum muscle preservation',
+        p: 0.50, f: 0.25, c: 0.25, 
+        desc: '50/25/25 - Maximum muscle preservation',
         why: 'Essential for aggressive cutting phases to prevent muscle breakdown. Protein is the most satiating macro, helping control hunger during a deficit.'
     },
     { 
-        name: 'Keto-ish', 
-        p: 0.30, f: 0.60, c: 0.10, 
-        desc: '30/60/10 - High fat, minimal carbs',
+        id: 'keto',
+        name: 'Keto-Style', 
+        p: 0.25, f: 0.70, c: 0.05, 
+        desc: '25/70/5 - High fat, minimal carbs',
         why: 'Focuses on using fat as the primary fuel source. Excellent for appetite control and those who prefer high-fat meals over high-carb options.'
     },
 ];
@@ -46,7 +50,7 @@ export const Calculators = () => {
     const [weight, setWeight] = useState<number>(70);
     const [activity, setActivity] = useState<number>(1.55);
     const [selectedGoalIdx, setSelectedGoalIdx] = useState<number>(3); // Default to Maintenance
-    const [macroPresetIdx, setMacroPresetIdx] = useState<number>(0); // Default to Balanced
+    const [macroPresetId, setMacroPresetId] = useState<string>('balanced'); 
 
     useEffect(() => {
         if (user?.profile) {
@@ -54,7 +58,34 @@ export const Calculators = () => {
             if (user.profile.gender) setGender(user.profile.gender.toLowerCase() === 'female' ? 'female' : 'male');
             if (user.profile.height) setHeight(user.profile.height);
             if (user.profile.weight) setWeight(user.profile.weight);
-            setActivity(1.55);
+            
+            // Sync with profile activity level
+            const activityMap: Record<string, number> = {
+                'sedentary': 1.2,
+                'lightly_active': 1.375,
+                'moderately_active': 1.465,
+                'active': 1.55,
+                'very_active': 1.725,
+                'extra_active': 1.9
+            };
+            if (user.profile.activity_level) setActivity(activityMap[user.profile.activity_level] || 1.2);
+            
+            // Sync with objective
+            const objectiveMap: Record<string, number> = {
+                'lose_weight': 2,
+                'maintenance': 3,
+                'bulk': 4,
+                'maintain': 3
+            };
+            if (user.profile.objective) {
+                let idx = objectiveMap[user.profile.objective] || 3;
+                if (user.profile.objective === 'lose_weight' && user.profile.cut_intensity === 'medium') idx = 1;
+                if (user.profile.objective === 'lose_weight' && user.profile.cut_intensity === 'aggressive') idx = 0;
+                if (user.profile.objective === 'bulk' && user.profile.cut_intensity === 'medium') idx = 5;
+                setSelectedGoalIdx(idx);
+            }
+
+            if (user.profile.macro_distribution) setMacroPresetId(user.profile.macro_distribution);
         }
     }, [user]);
 
@@ -82,7 +113,7 @@ export const Calculators = () => {
     const currentCals = Math.round(tdee + goals[selectedGoalIdx].adjustment);
 
     // Macro splits based on selected preset
-    const preset = MACRO_PRESETS[macroPresetIdx];
+    const preset = MACRO_PRESETS.find(p => p.id === macroPresetId) || MACRO_PRESETS[0];
     const macros = {
         protein: Math.round((currentCals * preset.p) / 4),
         fat: Math.round((currentCals * preset.f) / 9),
@@ -166,140 +197,122 @@ export const Calculators = () => {
                     </div>
                 </div>
 
-                {/* Row 2: Metabolic Summary */}
+                {/* Metabolic Results */}
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem' }}>
-                    <div className="card" style={{ borderLeft: '4px solid var(--primary)', marginBottom: 0 }}>
-                        <div className="text-muted" style={{ fontSize: '0.75rem', fontWeight: 800, textTransform: 'uppercase', marginBottom: '0.5rem' }}>Basal Metabolic Rate (BMR)</div>
-                        <div className="stat-value">{Math.round(bmr)} <span style={{ fontSize: '1rem', color: 'var(--text-muted)' }}>kcal</span></div>
-                        <p className="text-muted" style={{ fontSize: '0.8rem', marginTop: '1rem', marginBottom: 0 }}>Calories burned at absolute rest.</p>
+                    <div className="card" style={{ textAlign: 'center', border: '1px solid rgba(255,255,255,0.05)', background: 'linear-gradient(180deg, rgba(255,255,255,0.02) 0%, rgba(255,255,255,0) 100%)' }}>
+                        <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '1rem' }}>Basal Metabolic Rate</div>
+                        <div style={{ fontSize: '3.5rem', fontWeight: 900, lineHeight: 1 }}>{Math.round(bmr)}</div>
+                        <div style={{ fontSize: '0.8rem', color: 'var(--primary)', fontWeight: 700, marginTop: '0.5rem' }}>KCAL / DAY (AT REST)</div>
                     </div>
-                    <div className="card" style={{ borderLeft: '4px solid var(--primary)', marginBottom: 0 }}>
-                        <div className="text-muted" style={{ fontSize: '0.75rem', fontWeight: 800, textTransform: 'uppercase', marginBottom: '0.5rem' }}>Total Daily Energy Expenditure (TDEE)</div>
-                        <div className="stat-value">{Math.round(tdee)} <span style={{ fontSize: '1rem', color: 'var(--text-muted)' }}>kcal</span></div>
-                        <p className="text-muted" style={{ fontSize: '0.8rem', marginTop: '1rem', marginBottom: 0 }}>Calories burned including daily activity.</p>
+                    <div className="card" style={{ textAlign: 'center', border: '2px solid var(--primary)', background: 'rgba(251, 197, 49, 0.03)' }}>
+                        <div style={{ fontSize: '0.7rem', color: 'var(--primary)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '1rem' }}>Total Daily Energy Expenditure</div>
+                        <div style={{ fontSize: '3.5rem', fontWeight: 900, lineHeight: 1 }}>{Math.round(tdee)}</div>
+                        <div style={{ fontSize: '0.8rem', color: '#fff', fontWeight: 700, marginTop: '0.5rem' }}>KCAL / DAY (MAINTENANCE)</div>
                     </div>
                 </div>
             </div>
 
-            {/* SECTION 2: GOAL STRATEGY */}
+            {/* SECTION 2: GOAL & MACROS */}
             <div style={{ marginBottom: '4rem' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '2rem' }}>
                     <div style={{ width: '4px', height: '2rem', background: 'var(--primary)', borderRadius: '2px' }} />
-                    <h2 style={{ margin: 0, fontSize: '1.25rem', textTransform: 'uppercase', letterSpacing: '0.15em', fontWeight: 800 }}>2. Goal Strategy</h2>
+                    <h2 style={{ margin: 0, fontSize: '1.25rem', textTransform: 'uppercase', letterSpacing: '0.15em', fontWeight: 800 }}>2. Target Optimization</h2>
                 </div>
 
-                {/* Row 3: Goals and Macros */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 400px', gap: '2rem' }}>
-                    <div style={{ display: 'grid', gap: '2rem' }}>
-                        <div className="card" style={{ marginBottom: 0 }}>
-                            <h3 style={{ marginBottom: '1.5rem', fontSize: '1rem', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Training Goal</h3>
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem' }}>
-                                {goals.map((goal, idx) => (
-                                    <div 
-                                        key={goal.name}
-                                        onClick={() => setSelectedGoalIdx(idx)}
-                                        style={{ 
-                                            display: 'flex', 
-                                            flexDirection: 'column',
-                                            justifyContent: 'space-between', 
-                                            padding: '1.25rem',
-                                            background: selectedGoalIdx === idx ? 'rgba(251, 197, 49, 0.05)' : 'rgba(255,255,255,0.02)',
-                                            border: `1px solid ${selectedGoalIdx === idx ? 'var(--primary)' : 'var(--card-border)'}`,
-                                            cursor: 'pointer',
-                                            transition: 'all 0.2s ease',
-                                            textAlign: 'center',
-                                            position: 'relative',
-                                            overflow: 'hidden'
-                                        }}
-                                    >
-                                        {selectedGoalIdx === idx && (
-                                            <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '2px', background: 'var(--primary)' }} />
-                                        )}
-                                        <div style={{ marginBottom: '1rem' }}>
-                                            <div style={{ fontWeight: 900, fontSize: '0.85rem', color: selectedGoalIdx === idx ? 'var(--primary)' : 'white', textTransform: 'uppercase', marginBottom: '0.25rem' }}>{goal.name}</div>
-                                            <div style={{ fontSize: '0.6rem', opacity: 0.5, lineHeight: 1.2 }}>{goal.desc}</div>
-                                        </div>
-                                        <div>
-                                            <div style={{ fontSize: '1.5rem', fontWeight: 900, lineHeight: 1 }}>{Math.round(tdee + goal.adjustment)}</div>
-                                            <div style={{ fontSize: '0.65rem', color: goal.color, fontWeight: 800, marginTop: '0.25rem' }}>
-                                                {goal.adjustment > 0 ? '+' : ''}{goal.adjustment} kcal
-                                            </div>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: '2rem' }}>
+                    {/* Goal Selection */}
+                    <div style={{ display: 'grid', gap: '1rem' }}>
+                        <label style={{ fontSize: '0.8rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Select Your Primary Goal</label>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem' }}>
+                            {goals.map((goal, idx) => (
+                                <button 
+                                    key={goal.name}
+                                    className="btn btn-secondary"
+                                    onClick={() => setSelectedGoalIdx(idx)}
+                                    style={{ 
+                                        height: 'auto', 
+                                        padding: '1.25rem 1rem', 
+                                        textAlign: 'left', 
+                                        flexDirection: 'column', 
+                                        gap: '0.25rem',
+                                        border: selectedGoalIdx === idx ? `2px solid ${goal.color}` : '1px solid rgba(255,255,255,0.05)',
+                                        background: selectedGoalIdx === idx ? `${goal.color}11` : 'rgba(255,255,255,0.02)'
+                                    }}
+                                >
+                                    <div style={{ fontSize: '0.9rem', fontWeight: 900, color: selectedGoalIdx === idx ? goal.color : '#fff' }}>{goal.name}</div>
+                                    <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 600 }}>{goal.adjustment > 0 ? '+' : ''}{goal.adjustment} kcal</div>
+                                </button>
+                            ))}
                         </div>
+                        <div className="card" style={{ margin: 0, padding: '1rem', background: 'rgba(255,255,255,0.01)', border: '1px dashed rgba(255,255,255,0.1)' }}>
+                            <p className="text-muted" style={{ fontSize: '0.85rem', margin: 0 }}>
+                                <strong>Strategy:</strong> {goals[selectedGoalIdx].desc}
+                            </p>
+                        </div>
+                    </div>
 
-                        <div className="card" style={{ marginBottom: 0 }}>
-                            <h3 style={{ marginBottom: '1.5rem', fontSize: '1rem', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Macro Distribution</h3>
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.5rem' }}>
-                                {MACRO_PRESETS.map((p, idx) => (
-                                    <button 
-                                        key={p.name}
-                                        className={`btn ${macroPresetIdx === idx ? 'btn-primary' : 'btn-secondary'}`}
-                                        style={{ padding: '1rem 0.5rem', fontSize: '0.75rem' }}
-                                        onClick={() => setMacroPresetIdx(idx)}
-                                    >
-                                        <div style={{ fontWeight: 900 }}>{p.name}</div>
-                                        <div style={{ fontSize: '0.6rem', opacity: 0.7, fontWeight: 400, textTransform: 'none' }}>{p.p*100}/{p.f*100}/{p.c*100}</div>
-                                    </button>
-                                ))}
+                    {/* Macro Presets */}
+                    <div style={{ display: 'grid', gap: '1rem' }}>
+                        <label style={{ fontSize: '0.8rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Macro Distribution</label>
+                        <div style={{ display: 'grid', gap: '0.75rem' }}>
+                            {MACRO_PRESETS.map((p) => (
+                                <button 
+                                    key={p.name}
+                                    className="btn btn-secondary"
+                                    onClick={() => setMacroPresetId(p.id)}
+                                    style={{ 
+                                        padding: '1rem', 
+                                        textAlign: 'left', 
+                                        justifyContent: 'space-between',
+                                        border: macroPresetId === p.id ? '2px solid var(--primary)' : '1px solid rgba(255,255,255,0.05)',
+                                        background: macroPresetId === p.id ? 'rgba(251, 197, 49, 0.05)' : 'rgba(255,255,255,0.02)'
+                                    }}
+                                >
+                                    <div>
+                                        <div style={{ fontSize: '0.85rem', fontWeight: 900 }}>{p.name}</div>
+                                        <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>{p.desc}</div>
+                                    </div>
+                                    {macroPresetId === p.id && <div style={{ color: 'var(--primary)', fontWeight: 900 }}>✓</div>}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {/* SECTION 3: THE PLAN */}
+            <div style={{ marginBottom: '6rem' }}>
+                <div style={{ background: 'var(--primary)', padding: '3rem', borderRadius: '1.5rem', display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '4rem', color: '#000', position: 'relative', overflow: 'hidden' }}>
+                    <div style={{ position: 'absolute', top: '-50px', right: '-50px', width: '200px', height: '200px', background: 'rgba(0,0,0,0.05)', borderRadius: '50%' }} />
+                    
+                    <div>
+                        <div style={{ fontSize: '0.8rem', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.2em', marginBottom: '1rem', opacity: 0.7 }}>Your Optimized Daily Target</div>
+                        <div style={{ fontSize: '5rem', fontWeight: 900, lineHeight: 1, marginBottom: '0.5rem' }}>{currentCals}</div>
+                        <div style={{ fontSize: '1.5rem', fontWeight: 800, marginBottom: '2rem' }}>KCAL / DAY</div>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1.5rem', borderTop: '2px solid rgba(0,0,0,0.1)', paddingTop: '2rem' }}>
+                            <div>
+                                <div style={{ fontSize: '0.7rem', fontWeight: 900, opacity: 0.7, textTransform: 'uppercase' }}>Protein</div>
+                                <div style={{ fontSize: '2rem', fontWeight: 900 }}>{macros.protein}g</div>
+                            </div>
+                            <div>
+                                <div style={{ fontSize: '0.7rem', fontWeight: 900, opacity: 0.7, textTransform: 'uppercase' }}>Carbs</div>
+                                <div style={{ fontSize: '2rem', fontWeight: 900 }}>{macros.carbs}g</div>
+                            </div>
+                            <div>
+                                <div style={{ fontSize: '0.7rem', fontWeight: 900, opacity: 0.7, textTransform: 'uppercase' }}>Fats</div>
+                                <div style={{ fontSize: '2rem', fontWeight: 900 }}>{macros.fat}g</div>
                             </div>
                         </div>
                     </div>
 
-                    <div className="card" style={{ border: '2px solid var(--primary)', background: 'rgba(251, 197, 49, 0.03)', marginBottom: 0, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-                        <div>
-                            <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
-                                <div className="text-muted" style={{ fontSize: '0.75rem', fontWeight: 800, textTransform: 'uppercase' }}>Daily Target: {goals[selectedGoalIdx].name}</div>
-                                <div className="stat-value" style={{ fontSize: '3rem' }}>{currentCals}</div>
-                                <div className="text-muted" style={{ fontSize: '0.8rem' }}>kcal / DAY</div>
-                            </div>
-
-                            <div style={{ display: 'grid', gap: '0.75rem' }}>
-                                <div style={{ background: 'rgba(255,255,255,0.03)', padding: '0.75rem', borderLeft: '4px solid #ff4757' }}>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.25rem' }}>
-                                        <span style={{ fontWeight: 800, fontSize: '0.7rem' }}>PROTEIN</span>
-                                        <span style={{ color: '#ff4757', fontWeight: 900 }}>{macros.protein}G</span>
-                                    </div>
-                                    <div style={{ height: '3px', background: 'rgba(255,255,255,0.1)' }}>
-                                        <div style={{ width: `${preset.p * 100}%`, height: '100%', background: '#ff4757' }} />
-                                    </div>
-                                </div>
-                                <div style={{ background: 'rgba(255,255,255,0.03)', padding: '0.75rem', borderLeft: '4px solid #ffa502' }}>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.25rem' }}>
-                                        <span style={{ fontWeight: 800, fontSize: '0.7rem' }}>FATS</span>
-                                        <span style={{ color: '#ffa502', fontWeight: 900 }}>{macros.fat}G</span>
-                                    </div>
-                                    <div style={{ height: '3px', background: 'rgba(255,255,255,0.1)' }}>
-                                        <div style={{ width: `${preset.f * 100}%`, height: '100%', background: '#ffa502' }} />
-                                    </div>
-                                </div>
-                                <div style={{ background: 'rgba(255,255,255,0.03)', padding: '0.75rem', borderLeft: '4px solid #2ecc71' }}>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.25rem' }}>
-                                        <span style={{ fontWeight: 800, fontSize: '0.7rem' }}>CARBS</span>
-                                        <span style={{ color: '#2ecc71', fontWeight: 900 }}>{macros.carbs}G</span>
-                                    </div>
-                                    <div style={{ height: '3px', background: 'rgba(255,255,255,0.1)' }}>
-                                        <div style={{ width: `${preset.c * 100}%`, height: '100%', background: '#2ecc71' }} />
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div style={{ marginTop: '2rem' }}>
-                            <div style={{ background: 'rgba(255,255,255,0.02)', padding: '1rem', border: '1px solid var(--card-border)', borderRadius: '4px' }}>
-                                <div style={{ color: 'var(--primary)', fontWeight: 800, fontSize: '0.75rem', textTransform: 'uppercase', marginBottom: '0.5rem', letterSpacing: '0.05em' }}>
-                                    {MACRO_PRESETS[macroPresetIdx].name} Rationale
-                                </div>
-                                <p className="text-muted" style={{ fontSize: '0.8rem', margin: 0, lineHeight: 1.5 }}>
-                                    {MACRO_PRESETS[macroPresetIdx].why}
-                                </p>
-                            </div>
-                            <div style={{ marginTop: '1rem', fontSize: '0.65rem', color: 'var(--text-muted)', textAlign: 'center' }}>
-                                {preset.name} Mode: {preset.desc}
-                            </div>
-                        </div>
+                    <div style={{ background: 'rgba(0,0,0,0.9)', padding: '2rem', borderRadius: '1rem', color: '#fff', alignSelf: 'center' }}>
+                        <h3 style={{ color: 'var(--primary)', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                            <span style={{ background: 'var(--primary)', color: '#000', width: '20px', height: '20px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.7rem' }}>i</span>
+                            Preset Rationale
+                        </h3>
+                        <p style={{ fontSize: '0.9rem', lineHeight: 1.6, color: 'rgba(255,255,255,0.8)', margin: 0 }}>
+                            {preset.why}
+                        </p>
                     </div>
                 </div>
             </div>

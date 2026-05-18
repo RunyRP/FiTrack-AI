@@ -18,6 +18,7 @@ class UserProfileBase(BaseModel):
     objective: Optional[str] = None
     cut_intensity: Optional[str] = None
     manual_target_kcal: Optional[int] = None
+    macro_distribution: Optional[str] = "balanced"
     target_steps: Optional[int] = 10000
     selected_machinery: Optional[list] = []
     setup_complete: Optional[bool] = False

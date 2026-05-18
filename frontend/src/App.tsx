@@ -4,6 +4,7 @@ import { GoogleOAuthProvider } from '@react-oauth/google';
 import api from './api';
 import { Dashboard } from './components/Dashboard';
 import { Profile } from './components/Profile';
+import { EquipmentManager } from './components/EquipmentManager';
 import { Setup } from './components/Setup';
 import { Login } from './components/Login';
 import { Register } from './components/Register';
@@ -193,6 +194,14 @@ function App() {
                   element={
                     <ProtectedRoute>
                       <Profile />
+                    </ProtectedRoute>
+                  } 
+                />
+                <Route 
+                  path="/equipment" 
+                  element={
+                    <ProtectedRoute>
+                      <EquipmentManager />
                     </ProtectedRoute>
                   } 
                 />

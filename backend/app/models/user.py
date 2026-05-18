@@ -53,6 +53,7 @@ class UserProfile(Base):
     objective = Column(String) # e.g., "lose_weight", "maintain", "gain_muscle"
     cut_intensity = Column(String, default="medium") # light, medium, aggressive
     manual_target_kcal = Column(Integer, nullable=True)
+    macro_distribution = Column(String, default="balanced") # balanced, low_carb, high_protein, keto
     selected_machinery = Column(JSON, default=list) # List of machine IDs
     setup_complete = Column(Boolean, default=False)
     

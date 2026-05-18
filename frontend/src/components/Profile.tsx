@@ -3,6 +3,7 @@ import api from '../api';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../App';
 import { WeightLossIcon, MuscleGainIcon, MaintenanceIcon, UserIcon, DumbbellIcon } from './Icons';
+import { MACRO_DISTRIBUTIONS, type MacroDistType } from '../constants';
 
 export const Profile = () => {
   const { user: currentUser, refreshUser, logout } = useAuth();
@@ -16,6 +17,7 @@ export const Profile = () => {
     objective: 'maintain',
     cut_intensity: 'medium',
     manual_target_kcal: '',
+    macro_distribution: 'balanced',
     target_steps: '10000'
   });
   const [message, setMessage] = useState('');
@@ -35,6 +37,7 @@ export const Profile = () => {
         objective: p.objective || 'maintain',
         cut_intensity: p.cut_intensity || 'medium',
         manual_target_kcal: p.manual_target_kcal ? String(p.manual_target_kcal) : '',
+        macro_distribution: p.macro_distribution || 'balanced',
         target_steps: p.target_steps ? String(p.target_steps) : '10000'
       });
     }
@@ -58,25 +61,29 @@ export const Profile = () => {
 
     setUpdating(true);
     try {
+      const currentProfile = { ...profile, ...partialUpdate };
+      
+      // Safe parsing to avoid NaN/null issues on backend
+      const ageVal = parseInt(String(currentProfile.age));
+      const weightVal = parseFloat(String(currentProfile.weight));
+      const heightVal = parseFloat(String(currentProfile.height));
+      
       const dataToSave = { 
-          ...profile, 
-          ...partialUpdate,
-          age: parseInt(String(partialUpdate?.age || profile.age)),
-          weight: parseFloat(String(partialUpdate?.weight || profile.weight)),
-          height: parseFloat(String(partialUpdate?.height || profile.height)),
-          manual_target_kcal: partialUpdate?.manual_target_kcal !== undefined 
-            ? (partialUpdate.manual_target_kcal ? parseInt(partialUpdate.manual_target_kcal) : null)
-            : (profile.manual_target_kcal ? parseInt(profile.manual_target_kcal) : null),
-          target_steps: partialUpdate?.target_steps !== undefined 
-            ? (partialUpdate.target_steps ? parseInt(partialUpdate.target_steps) : 10000)
-            : (profile.target_steps ? parseInt(profile.target_steps) : 10000)
+          ...currentProfile, 
+          age: isNaN(ageVal) ? null : ageVal,
+          weight: isNaN(weightVal) ? null : weightVal,
+          height: isNaN(heightVal) ? null : heightVal,
+          manual_target_kcal: currentProfile.manual_target_kcal ? parseInt(String(currentProfile.manual_target_kcal)) : null,
+          target_steps: currentProfile.target_steps ? parseInt(String(currentProfile.target_steps)) : 10000
       };
+      
       await api.put('/user/profile', dataToSave);
       localStorage.removeItem('dashboard_cache');
       await refreshUser();
       setMessage('Profile updated and goals recalculated!');
       setTimeout(() => setMessage(''), 3000);
     } catch (err) {
+      console.error("Error updating profile:", err);
       setMessage('Error updating profile.');
     } finally {
       setUpdating(false);
@@ -91,6 +98,11 @@ export const Profile = () => {
   const changeIntensity = (newInt: string) => {
       setProfile({ ...profile, cut_intensity: newInt });
       handleSubmit(undefined, { cut_intensity: newInt });
+  };
+
+  const changeMacroDist = (newDist: string) => {
+      setProfile(prev => ({ ...prev, macro_distribution: newDist }));
+      handleSubmit(undefined, { macro_distribution: newDist });
   };
 // ... (rest of the component structure)
 
@@ -190,6 +202,44 @@ export const Profile = () => {
                     </div>
                 </div>
             )}
+
+            {/* Macro Distribution Selector */}
+            <div style={{ marginTop: '2.5rem', padding: '1.5rem', background: 'rgba(255,255,255,0.02)', borderRadius: '1.25rem', border: '1px solid rgba(255,255,255,0.05)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
+                    <label style={{ fontSize: '0.8rem', fontWeight: 800, color: 'var(--primary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Macro Distribution</label>
+                    <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 700, background: 'rgba(255,255,255,0.05)', padding: '0.2rem 0.5rem', borderRadius: '4px' }}>DYNAMIC TARGETS</div>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.5rem' }}>
+                    {(Object.keys(MACRO_DISTRIBUTIONS) as MacroDistType[]).map(id => {
+                        const dist = MACRO_DISTRIBUTIONS[id];
+                        return (
+                            <button 
+                                key={id}
+                                onClick={() => changeMacroDist(id)}
+                                className={`btn ${profile.macro_distribution === id ? 'btn-primary' : 'btn-secondary'}`}
+                                style={{ 
+                                    padding: '1.25rem 0.25rem', 
+                                    textAlign: 'center', 
+                                    display: 'flex', 
+                                    flexDirection: 'column', 
+                                    gap: '0.15rem', 
+                                    border: profile.macro_distribution === id ? '2px solid var(--primary)' : '1px solid rgba(255,255,255,0.05)',
+                                    background: profile.macro_distribution === id ? 'rgba(0,242,254,0.1)' : 'rgba(255,255,255,0.03)',
+                                    transition: 'all 0.2s ease',
+                                    height: 'auto',
+                                    minWidth: 0
+                                }}
+                                disabled={updating}
+                            >
+                                <span style={{ fontWeight: 900, fontSize: '0.7rem', color: profile.macro_distribution === id ? 'var(--primary)' : '#fff', marginBottom: '0.25rem' }}>{dist.name}</span>
+                                <span style={{ fontSize: '0.55rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>{Math.round(dist.p * 100)}% Protein</span>
+                                <span style={{ fontSize: '0.55rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>{Math.round(dist.c * 100)}% Carbs</span>
+                                <span style={{ fontSize: '0.55rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>{Math.round(dist.f * 100)}% Fat</span>
+                            </button>
+                        );
+                    })}
+                </div>
+            </div>
         </div>
 
         <div style={{ marginBottom: '3rem' }}>

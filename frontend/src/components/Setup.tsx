@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
-import api from '../api';
+import api, { API_URL } from '../api';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../App';
+import { CameraIcon } from './Icons';
 
 export const Setup = () => {
   const location = useLocation();
@@ -17,6 +18,11 @@ export const Setup = () => {
   const [machinery, setMachinery] = useState<any[]>([]);
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [loading, setLoading] = useState(false);
+  const [showCustomForm, setShowCustomForm] = useState(false);
+  const [customName, setCustomName] = useState('');
+  const [customMuscle, setCustomMuscle] = useState('Chest');
+  const [customFile, setCustomFile] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
   const navigate = useNavigate();
   const { refreshUser, user } = useAuth();
 
@@ -76,6 +82,12 @@ export const Setup = () => {
     );
   };
 
+  const getImageUrl = (url: string) => {
+    if (!url) return '';
+    if (url.startsWith('http')) return url;
+    return `${API_URL}${url}`;
+  };
+
   const handleCompleteSetup = async () => {
     setLoading(true);
     try {
@@ -96,6 +108,37 @@ export const Setup = () => {
       console.error(err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleAddCustomEquipment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!customName || !customFile) return;
+
+    // Check for duplicates locally
+    const isDuplicate = machinery.some(m => m.name.toLowerCase() === customName.trim().toLowerCase());
+    if (isDuplicate) {
+        alert(`A machine with the name "${customName}" already exists in your library.`);
+        return;
+    }
+
+    setUploading(true);
+    const formData = new FormData();
+    formData.append('name', customName);
+    formData.append('muscle_group', customMuscle);
+    formData.append('file', customFile);
+
+    try {
+      const res = await api.post('/workout/machinery', formData);
+      setMachinery(prev => [...prev, res.data]);
+      setSelectedIds(prev => [...prev, res.data.id]);
+      setShowCustomForm(false);
+      setCustomName('');
+      setCustomFile(null);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setUploading(false);
     }
   };
 
@@ -221,14 +264,113 @@ export const Setup = () => {
                         <h2>Step 4: Equipment (Optional)</h2>
                         <p className="text-muted">Select the machines you have. Skip to use only bodyweight.</p>
                     </div>
-                    <button 
-                        className="btn btn-secondary" 
-                        style={{ padding: '0.5rem 1rem', fontSize: '0.8rem' }}
-                        onClick={handleCompleteSetup}
-                    >
-                        Skip & Finish
-                    </button>
+                    <div style={{ display: 'flex', gap: '0.5rem' }}>
+                        <button 
+                            className="btn btn-primary" 
+                            style={{ padding: '0.5rem 1rem', fontSize: '0.8rem' }}
+                            onClick={() => setShowCustomForm(!showCustomForm)}
+                        >
+                            {showCustomForm ? 'Cancel Custom' : '+ Add Custom'}
+                        </button>
+                        <button 
+                            className="btn btn-secondary" 
+                            style={{ padding: '0.5rem 1rem', fontSize: '0.8rem' }}
+                            onClick={handleCompleteSetup}
+                        >
+                            Skip & Finish
+                        </button>
+                    </div>
                 </div>
+
+                {showCustomForm && (
+                    <div className="card" style={{ marginTop: '1rem', background: 'rgba(255,255,255,0.02)', border: '1px dashed var(--primary)' }}>
+                        <h3>Add Custom Equipment</h3>
+                        <form onSubmit={handleAddCustomEquipment} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginTop: '1rem' }}>
+                            <div className="input-group">
+                                <label>Equipment/Exercise Name</label>
+                                <input 
+                                    type="text" 
+                                    placeholder="e.g. Kettlebell Swing" 
+                                    value={customName} 
+                                    onChange={e => setCustomName(e.target.value)}
+                                    required
+                                />
+                            </div>
+                            <div className="input-group">
+                                <label>Primary Muscle Group</label>
+                                <select value={customMuscle} onChange={e => setCustomMuscle(e.target.value)}>
+                                    <option value="Chest">Chest</option>
+                                    <option value="Back">Back</option>
+                                    <option value="Shoulders">Shoulders</option>
+                                    <option value="Legs">Legs</option>
+                                    <option value="Arms">Arms</option>
+                                    <option value="Core">Core</option>
+                                    <option value="Other">Other</option>
+                                </select>
+                            </div>
+                            <div className="input-group" style={{ gridColumn: 'span 2' }}>
+                                <label>Photo</label>
+                                <div style={{ position: 'relative' }}>
+                                    <input 
+                                        type="file" 
+                                        id="custom-file-input"
+                                        accept="image/*"
+                                        onChange={e => setCustomFile(e.target.files?.[0] || null)}
+                                        style={{ 
+                                            position: 'absolute',
+                                            width: '1px',
+                                            height: '1px',
+                                            padding: '0',
+                                            margin: '-1px',
+                                            overflow: 'hidden',
+                                            clip: 'rect(0,0,0,0)',
+                                            border: '0'
+                                        }}
+                                        required
+                                    />
+                                    <label 
+                                        htmlFor="custom-file-input"
+                                        style={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            gap: '0.75rem',
+                                            padding: '1.25rem',
+                                            background: 'rgba(255,255,255,0.02)',
+                                            border: '1px dashed var(--card-border)',
+                                            cursor: 'pointer',
+                                            transition: 'all 0.3s ease',
+                                            textAlign: 'center',
+                                            textTransform: 'none',
+                                            fontWeight: 400,
+                                            fontSize: '0.9rem',
+                                            color: customFile ? 'var(--primary)' : 'var(--text-muted)'
+                                        }}
+                                        onMouseEnter={(e) => {
+                                            e.currentTarget.style.borderColor = 'var(--primary)';
+                                            e.currentTarget.style.background = 'rgba(251, 197, 49, 0.05)';
+                                        }}
+                                        onMouseLeave={(e) => {
+                                            e.currentTarget.style.borderColor = 'var(--card-border)';
+                                            e.currentTarget.style.background = 'rgba(255,255,255,0.02)';
+                                        }}
+                                    >
+                                        <CameraIcon size={20} color={customFile ? 'var(--primary)' : 'var(--text-muted)'} />
+                                        {customFile ? `Selected: ${customFile.name}` : 'Click to upload equipment photo'}
+                                    </label>
+                                </div>
+                            </div>
+                            <button 
+                                type="submit" 
+                                className="btn btn-primary" 
+                                style={{ gridColumn: 'span 2' }}
+                                disabled={uploading}
+                            >
+                                {uploading ? 'Uploading...' : 'Add Equipment'}
+                            </button>
+                        </form>
+                    </div>
+                )}
                 
                 <div style={{ 
                     marginTop: '2rem', 
@@ -260,7 +402,7 @@ export const Setup = () => {
                                             onClick={() => toggleMachine(m.id)}
                                             className={`equipment-card ${selectedIds.includes(m.id) ? 'selected' : ''}`}
                                         >
-                                            <img src={m.image_url} alt={m.name} style={{ width: '100%', height: '200px', objectFit: 'cover' }} />
+                                            <img src={getImageUrl(m.image_url)} alt={m.name} style={{ width: '100%', height: '200px', objectFit: 'cover' }} />
                                             <div style={{ padding: '0.75rem', textAlign: 'center' }}>
                                                 <strong style={{ fontSize: '0.85rem', color: selectedIds.includes(m.id) ? 'var(--primary)' : 'white' }}>{m.name}</strong>
                                             </div>

@@ -5,22 +5,33 @@ export const MealHistory = () => {
   const [history, setHistory] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const fetchHistory = async () => {
+    try {
+      const res = await api.get('/log/history?days=30');
+      // Filter out days with no food items
+      const withFood = res.data.filter((h: any) => h.food_items && h.food_items.length > 0);
+      // Sort by date descending
+      setHistory(withFood.reverse());
+    } catch (err) {
+      console.error('Error fetching meal history:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const fetchHistory = async () => {
-      try {
-        const res = await api.get('/log/history?days=30');
-        // Filter out days with no food items
-        const withFood = res.data.filter((h: any) => h.food_items && h.food_items.length > 0);
-        // Sort by date descending
-        setHistory(withFood.reverse());
-      } catch (err) {
-        console.error('Error fetching meal history:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
     fetchHistory();
   }, []);
+
+  const deleteFoodItem = async (loggedAt: string, date: string) => {
+    if (!confirm('Are you sure you want to remove this item?')) return;
+    try {
+        await api.delete(`/log/food-item?logged_at=${encodeURIComponent(loggedAt)}&date_str=${date}`);
+        fetchHistory();
+    } catch (err) {
+        console.error(err);
+    }
+  };
 
   if (loading) return <div className="container">Loading history...</div>;
 
@@ -50,12 +61,18 @@ export const MealHistory = () => {
             
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
               {day.food_items.map((item: any, fIdx: number) => (
-                <div key={fIdx} className="meal-item" style={{ background: 'rgba(255,255,255,0.02)', padding: '0.75rem', borderRadius: '4px' }}>
+                <div key={fIdx} className="meal-item" style={{ background: 'rgba(255,255,255,0.02)', padding: '0.75rem', borderRadius: '4px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <div>
                     <strong>{item.label}</strong>
-                    <span className="text-muted" style={{ marginLeft: '1rem', fontSize: '0.9rem' }}>{item.grams}g</span>
+                    <span className="text-muted" style={{ marginLeft: '1rem', fontSize: '0.9rem' }}>{item.grams}g • {item.kcal} kcal</span>
                   </div>
-                  <div style={{ fontWeight: 600 }}>{item.kcal} kcal</div>
+                  <button 
+                    className="btn btn-secondary" 
+                    style={{ padding: '0.3rem 0.6rem', fontSize: '0.7rem', color: '#ff4d4d', borderColor: 'rgba(255,77,77,0.2)' }}
+                    onClick={() => deleteFoodItem(item.logged_at, day.date)}
+                  >
+                    Remove
+                  </button>
                 </div>
               ))}
             </div>

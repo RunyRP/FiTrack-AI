@@ -1,10 +1,15 @@
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, File, UploadFile, Form
 from sqlalchemy.orm import Session
+from sqlalchemy import or_
 from app.db.session import get_db
 from app.models.machinery import Machinery
 from app.core.auth import get_current_user
 from app.models.user import User
-from typing import List
+from typing import List, Optional
+import os
+import uuid
+import shutil
+import json
 
 from app.models.workout import WorkoutSession, WorkoutExercise, WorkoutSplit, WorkoutSchedule
 from app.schemas.workout import (
@@ -18,8 +23,143 @@ import datetime
 router = APIRouter()
 
 @router.get("/machinery")
-def get_all_machinery(db: Session = Depends(get_db)):
-    return db.query(Machinery).all()
+def get_all_machinery(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    # Return global machinery and user's custom machinery
+    return db.query(Machinery).filter(
+        or_(Machinery.user_id == None, Machinery.user_id == current_user.id)
+    ).all()
+
+@router.post("/machinery")
+async def create_custom_machinery(
+    name: str = Form(...),
+    muscle_group: str = Form(...),
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    # Check for duplicate name
+    existing = db.query(Machinery).filter(
+        Machinery.user_id == current_user.id,
+        Machinery.name == name.strip()
+    ).first()
+    if existing:
+        return {"status": "error", "message": f"A machine with the name '{name}' already exists."}, 400
+
+    # Save the file
+    file_ext = os.path.splitext(file.filename)[1]
+    filename = f"{uuid.uuid4()}{file_ext}"
+    file_path = os.path.join("app", "static", "machinery", filename)
+    
+    # Ensure directory exists (should exist but just in case)
+    os.makedirs(os.path.dirname(file_path), exist_ok=True)
+    
+    with open(file_path, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+    
+    image_url = f"/static/machinery/{filename}"
+    
+    # Create the machinery
+    # For custom machinery, we simplify: the machinery name is the exercise name
+    new_machine = Machinery(
+        user_id=current_user.id,
+        name=name.strip(),
+        image_url=image_url,
+        exercises=[{"name": name.strip(), "muscles": [muscle_group]}]
+    )
+    
+    db.add(new_machine)
+    db.commit()
+    db.refresh(new_machine)
+    
+    return new_machine
+
+@router.put("/machinery/{machine_id}")
+async def update_custom_machinery(
+    machine_id: int,
+    name: Optional[str] = Form(None),
+    muscle_group: Optional[str] = Form(None),
+    file: Optional[UploadFile] = File(None),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    from sqlalchemy import text
+    import json
+
+    machine = db.query(Machinery).filter(
+        Machinery.id == machine_id,
+        Machinery.user_id == current_user.id
+    ).first()
+    
+    if not machine:
+        return {"status": "error", "message": "Machine not found"}, 404
+    
+    try:
+        new_name = name.strip() if name else machine.name
+        
+        # Check for duplicate name if name is being changed
+        if name and new_name != machine.name:
+            existing = db.query(Machinery).filter(
+                Machinery.user_id == current_user.id,
+                Machinery.name == new_name,
+                Machinery.id != machine_id
+            ).first()
+            if existing:
+                return {"status": "error", "message": f"A machine with the name '{new_name}' already exists."}, 400
+
+        # Build new exercises JSON
+        current_muscles = machine.exercises[0]["muscles"] if machine.exercises else ["Other"]
+        new_muscles = [muscle_group] if muscle_group else current_muscles
+        new_exercises_json = json.dumps([{"name": new_name, "muscles": new_muscles}])
+        
+        # Use a raw SQL update to bypass any SQLAlchemy session/detection issues
+        db.execute(
+            text("UPDATE machinery SET name = :name, exercises = :exercises WHERE id = :id"),
+            {"name": new_name, "exercises": new_exercises_json, "id": machine_id}
+        )
+        
+        if file and file.filename:
+            file_ext = os.path.splitext(file.filename)[1]
+            filename = f"{uuid.uuid4()}{file_ext}"
+            file_path = os.path.join("app", "static", "machinery", filename)
+            os.makedirs(os.path.dirname(file_path), exist_ok=True)
+            with open(file_path, "wb") as buffer:
+                shutil.copyfileobj(file.file, buffer)
+            
+            image_url = f"/static/machinery/{filename}"
+            db.execute(
+                text("UPDATE machinery SET image_url = :url WHERE id = :id"),
+                {"url": image_url, "id": machine_id}
+            )
+        
+        db.commit()
+        
+        # Fetch fresh object
+        machine = db.query(Machinery).get(machine_id)
+        return machine
+    except Exception as e:
+        db.rollback()
+        return {"status": "error", "message": str(e)}, 500
+
+@router.delete("/machinery/{machine_id}")
+def delete_custom_machinery(
+    machine_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    machine = db.query(Machinery).filter(
+        Machinery.id == machine_id,
+        Machinery.user_id == current_user.id
+    ).first()
+    
+    if not machine:
+        return {"status": "error", "message": "Machine not found or access denied"}, 404
+    
+    db.delete(machine)
+    db.commit()
+    return {"status": "ok"}
 
 # --- Splits CRUD ---
 

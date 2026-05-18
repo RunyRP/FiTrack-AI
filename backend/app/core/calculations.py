@@ -68,3 +68,18 @@ def calculate_target_kcal_logic(
         return int(tdee + adjustments[objective])
 
     return int(tdee)
+
+MACRO_DISTRIBUTIONS = {
+    "balanced": {"p": 0.30, "c": 0.40, "f": 0.30},
+    "low_carb": {"p": 0.40, "c": 0.20, "f": 0.40},
+    "high_protein": {"p": 0.50, "c": 0.25, "f": 0.25},
+    "keto": {"p": 0.25, "c": 0.05, "f": 0.70}
+}
+
+def calculate_macros(kcal: int, distribution_id: str):
+    dist = MACRO_DISTRIBUTIONS.get(distribution_id, MACRO_DISTRIBUTIONS["balanced"])
+    return {
+        "protein": round((kcal * dist["p"]) / 4),
+        "carbs": round((kcal * dist["c"]) / 4),
+        "fat": round((kcal * dist["f"]) / 9)
+    }

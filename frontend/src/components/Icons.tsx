@@ -35,6 +35,17 @@ export const MaintenanceIcon = ({ size = 24, color = "currentColor", style }: Ic
   </svg>
 );
 
+export const LightbulbIcon = ({ size = 24, color = "currentColor", style }: IconProps) => (
+  <svg width={size} height={size} viewBox="0 0 20 20" fill={color} style={style}>
+    <path d="M10 2a.75.75 0 0 1 .75.75v.5a.75.75 0 0 1-1.5 0v-.5a.75.75 0 0 1 .75-.75Z" />
+    <path d="M5.58 4.167a.75.75 0 0 0-1.06 1.06l.353.354a.75.75 0 1 0 1.061-1.06l-.353-.354Z" />
+    <path d="M2 9.75a.75.75 0 0 1 .75-.75h.5a.75.75 0 0 1 0 1.5h-.5a.75.75 0 0 1-.75-.75Z" />
+    <path d="M16 9.75a.75.75 0 0 1 .75-.75h.5a.75.75 0 0 1 0 1.5h-.5a.75.75 0 0 1-.75-.75Z" />
+    <path d="M15.657 5.404a.75.75 0 0 0-1.06-1.06l-.354.353a.75.75 0 1 0 1.06 1.06l.354-.353Z" />
+    <path d="M6.474 5.998a4.987 4.987 0 0 1 7.052 0c.95.95 1.46 2.103 1.46 3.298 0 1.194-.51 2.348-1.46 3.297a4.45 4.45 0 0 1-.053.053c-.473.455-.723.866-.723 1.24v1.114a2.5 2.5 0 0 1-2.5 2.5h-.5a2.5 2.5 0 0 1-2.5-2.5v-1.114c0-.374-.25-.785-.722-1.24a4.312 4.312 0 0 1-.054-.053c-.95-.95-1.46-2.103-1.46-3.297 0-1.195.51-2.349 1.46-3.298Zm5.992 1.06a3.487 3.487 0 0 0-4.932 0c-.705.707-1.02 1.492-1.02 2.238 0 .745.315 1.53 1.02 2.236l.034.033c.366.353.788.836 1.015 1.435h2.834c.227-.6.649-1.082 1.015-1.435l.034-.033c.705-.706 1.02-1.491 1.02-2.236 0-.746-.315-1.531-1.02-2.237Zm-1.216 7.442h-2.5v.5a1 1 0 0 0 1 1h.5a1 1 0 0 0 1-1v-.5Z" />
+  </svg>
+);
+
 export const CoachIcon = ({ size = 24, color = "currentColor", style }: IconProps) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={style}>
     <rect x="3" y="11" width="18" height="10" rx="2" />
@@ -123,8 +134,8 @@ export const TrashIcon = ({ size = 24, color = "currentColor", style }: IconProp
 
 export const CameraIcon = ({ size = 24, color = "currentColor", style }: IconProps) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={style}>
-    <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
-    <circle cx="12" cy="13" r="4" />
+    <path d="M4 18V8a1 1 0 0 1 1-1h1.5l1.707-1.707A1 1 0 0 1 8.914 5h6.172a1 1 0 0 1 .707.293L17.5 7H19a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1Z"/>
+    <path d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"/>
   </svg>
 );
 

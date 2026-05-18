@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import api from '../api';
+import api, { API_URL } from '../api';
 import { useAuth } from '../App';
 import { useNavigate } from 'react-router-dom';
 import { WorkoutSplits } from './WorkoutSplits';
@@ -306,6 +306,12 @@ export const WorkoutSuggestions = () => {
     return 'Other';
   };
 
+  const getImageUrl = (url: string) => {
+    if (!url) return '';
+    if (url.startsWith('http')) return url;
+    return `${API_URL}${url}`;
+  };
+
   const [selectedMuscleGroup, setSelectedMuscleGroup] = useState<string>('Chest');
   const MUSCLE_GROUPS = ['Chest', 'Back', 'Shoulders', 'Legs', 'Arms', 'Core', 'Other'];
 
@@ -447,7 +453,7 @@ export const WorkoutSuggestions = () => {
                 <div style={{ display: 'flex', gap: '1.5rem' }}>
                     {s.machine_image && (
                         <div style={{ width: '180px', height: '180px' }}>
-                            <img src={s.machine_image} alt={s.exercise_name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                            <img src={getImageUrl(s.machine_image)} alt={s.exercise_name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                         </div>
                     )}
                     <div style={{ flex: 1, padding: '1.5rem' }}>

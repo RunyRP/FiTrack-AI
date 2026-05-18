@@ -1,13 +1,17 @@
 import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useGoogleLogin } from '@react-oauth/google';
 import api from '../api';
 import { useAuth } from '../App';
 import { 
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Cell
 } from 'recharts';
-import { CoachIcon, SavedIcon, SyncIcon, ResetIcon, DropIcon, GlassIcon, BottleIcon, FireIcon, FootprintsIcon, ScaleIcon, ConnectedIcon } from './Icons';
+import { CoachIcon, SavedIcon, SyncIcon, ResetIcon, DropIcon, GlassIcon, BottleIcon, FireIcon, FootprintsIcon, ScaleIcon, ConnectedIcon, TrashIcon, AppleIcon } from './Icons';
+import { MACRO_DISTRIBUTIONS, type MacroDistType } from '../constants';
+import { QuickLogModal } from './QuickLogModal';
 
 export const Dashboard = () => {
+  const [showLogModal, setShowLogModal] = useState(false);
   const [data, setData] = useState<any>(() => {
       const cached = localStorage.getItem('dashboard_cache');
       return cached ? JSON.parse(cached) : null;
@@ -155,6 +159,16 @@ export const Dashboard = () => {
     }
   };
 
+  const deleteFoodItem = async (loggedAt: string) => {
+    if (!confirm('Remove this item?')) return;
+    try {
+        await api.delete(`/log/food-item?logged_at=${encodeURIComponent(loggedAt)}&date_str=${today.date}`);
+        await fetchData();
+    } catch (err) {
+        console.error(err);
+    }
+  };
+
   const googleSync = useGoogleLogin({
     flow: 'auth-code',
     onSuccess: async (codeResponse) => {
@@ -180,24 +194,30 @@ export const Dashboard = () => {
   );
 
   const { today, user: dashboardUser, history = [], feedback, weightHistory = [] } = data;
-  const profile = dashboardUser?.profile || authUser?.profile || {};
+  
+  // Merge profiles to ensure we have the most complete data
+  const profile = {
+      ...(authUser?.profile || {}),
+      ...(dashboardUser?.profile || {})
+  };
+  
   const displayName = profile.name || authUser?.email?.split('@')[0] || 'Athlete';
   
-  const kcalPercent = profile.target_kcal ? (today.total_kcal / profile.target_kcal) * 100 : 0;
+  const kcalPercent = (profile?.target_kcal && today?.total_kcal) ? (today.total_kcal / profile.target_kcal) * 100 : 0;
   const radius = 70;
   const circumference = 2 * Math.PI * radius;
   const offset = circumference - (Math.min(kcalPercent, 100) / 100) * circumference;
 
-  const totals = today.food_items.reduce((acc: any, item: any) => ({
+  const totals = (today?.food_items || []).reduce((acc: any, item: any) => ({
       p: acc.p + (item.protein || 0),
       c: acc.c + (item.carbs || 0),
       f: acc.f + (item.fat || 0)
   }), { p: 0, c: 0, f: 0 });
 
   const targets = {
-      p: Math.round(((profile.target_kcal || 2000) * 0.3) / 4),
-      c: Math.round(((profile.target_kcal || 2000) * 0.4) / 4),
-      f: Math.round(((profile.target_kcal || 2000) * 0.3) / 9)
+      p: profile.target_protein || Math.round(((profile.target_kcal || 2000) * (MACRO_DISTRIBUTIONS[(profile.macro_distribution || 'balanced') as MacroDistType]?.p || 0.3)) / 4),
+      c: profile.target_carbs || Math.round(((profile.target_kcal || 2000) * (MACRO_DISTRIBUTIONS[(profile.macro_distribution || 'balanced') as MacroDistType]?.c || 0.4)) / 4),
+      f: profile.target_fat || Math.round(((profile.target_kcal || 2000) * (MACRO_DISTRIBUTIONS[(profile.macro_distribution || 'balanced') as MacroDistType]?.f || 0.3)) / 9)
   };
 
   const lastKnownWeight = today.weight || (weightHistory.length > 0 ? weightHistory[weightHistory.length - 1].weight : profile.weight);
@@ -217,7 +237,11 @@ export const Dashboard = () => {
     <div className="container">
       <div className="card" style={{ textAlign: 'left', marginBottom: '2rem', background: '#121212', border: '1px solid var(--card-border)' }}>
         <h1 style={{ marginBottom: '0.5rem' }}>Welcome Back, <span style={{ color: 'var(--primary)' }}>{displayName}</span></h1>
-        <p className="text-muted" style={{ fontSize: '1.1rem' }}>Personalized plan: <strong>{String(profile.objective || 'N/A').replace('_', ' ').toUpperCase()}</strong></p>
+        <p className="text-muted" style={{ fontSize: '1.1rem' }}>
+            Plan: <strong>{String(profile.objective || 'N/A').replace('_', ' ').toUpperCase()}</strong> 
+            <span style={{ margin: '0 0.75rem', opacity: 0.3 }}>|</span>
+            Distribution: <strong>{MACRO_DISTRIBUTIONS[(profile.macro_distribution || 'balanced') as MacroDistType]?.name || 'Balanced'}</strong>
+        </p>
       </div>
 
       {feedback && (
@@ -299,9 +323,9 @@ export const Dashboard = () => {
           
           <div style={{ marginTop: '2rem', display: 'grid', gap: '1rem', textAlign: 'left' }}>
               {[
-                  { label: 'Protein', current: totals.p, target: targets.p, color: 'var(--primary)' },
-                  { label: 'Carbs', current: totals.c, target: targets.c, color: '#fbc531' },
-                  { label: 'Fats', current: totals.f, target: targets.f, color: 'var(--accent)' }
+                  { label: 'Protein', current: totals.p, target: targets.p, color: '#3498db' },
+                  { label: 'Carbs', current: totals.c, target: targets.c, color: 'var(--primary)' },
+                  { label: 'Fats', current: totals.f, target: targets.f, color: '#e74c3c' }
               ].map(m => (
                   <div key={m.label}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', marginBottom: '0.25rem', fontWeight: 600 }}>
@@ -403,6 +427,73 @@ export const Dashboard = () => {
                 </div>
             </div>
         </div>
+      </div>
+
+
+      {/* Today's Food Diary */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: '3rem 0 1.5rem' }}>
+        <h2 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            <AppleIcon size={28} color="var(--primary)" /> Today's Food Diary
+        </h2>
+        <button className="btn btn-primary" onClick={() => setShowLogModal(true)}>+ Log Food</button>
+      </div>
+      <div className="card" style={{ padding: '0.5rem', background: 'rgba(255,255,255,0.01)', border: '1px solid var(--card-border)' }}>
+        {today?.food_items && today.food_items.length > 0 ? (
+          <div style={{ display: 'grid', gap: '0.5rem' }}>
+            {today.food_items.map((item: any, idx: number) => (
+              <div 
+                key={idx} 
+                className="meal-item" 
+                style={{ 
+                  display: 'flex', 
+                  justifyContent: 'space-between', 
+                  alignItems: 'center', 
+                  padding: '1rem 1.5rem',
+                  background: 'rgba(255,255,255,0.02)',
+                  borderRadius: '0.75rem',
+                  border: '1px solid rgba(255,255,255,0.03)'
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
+                    <div style={{ width: '45px', height: '45px', borderRadius: '50%', background: 'rgba(251, 197, 49, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--primary)', fontWeight: 900, fontSize: '0.8rem' }}>
+                        {item.type?.charAt(0) || 'M'}
+                    </div>
+                    <div>
+                        <div style={{ fontWeight: 800, fontSize: '1.1rem', letterSpacing: '-0.02em' }}>{item.label}</div>
+                        <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600, marginTop: '0.1rem' }}>
+                            {item.grams}g • <span style={{ color: 'var(--primary)' }}>{item.kcal} kcal</span> • P: {item.protein?.toFixed(1)}g C: {item.carbs?.toFixed(1)}g F: {item.fat?.toFixed(1)}g
+                        </div>
+                    </div>
+                </div>
+                <button 
+                  onClick={() => deleteFoodItem(item.logged_at)}
+                  className="btn btn-secondary"
+                  style={{ 
+                      padding: '0.6rem', 
+                      borderRadius: '50%', 
+                      width: '38px', 
+                      height: '38px', 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      justifyContent: 'center',
+                      color: 'rgba(255,255,255,0.2)',
+                      border: '1px solid rgba(255,255,255,0.05)'
+                  }}
+                  onMouseOver={(e) => e.currentTarget.style.color = '#ff4757'}
+                  onMouseOut={(e) => e.currentTarget.style.color = 'rgba(255,255,255,0.2)'}
+                >
+                  <TrashIcon size={18} />
+                </button>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div style={{ padding: '4rem 2rem', textAlign: 'center' }}>
+            <AppleIcon size={48} color="rgba(255,255,255,0.05)" style={{ marginBottom: '1.5rem' }} />
+            <p className="text-muted" style={{ fontSize: '1.1rem' }}>No meals logged today yet.</p>
+            <button className="btn btn-primary" style={{ marginTop: '1rem' }} onClick={() => window.location.href='/meal'}>Log a Meal</button>
+          </div>
+        )}
       </div>
 
 
@@ -509,6 +600,27 @@ export const Dashboard = () => {
             </div>
         </div>
       </div>
+
+      {showLogModal && createPortal(
+          <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,0.9)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10000, padding: '2rem', backdropFilter: 'blur(8px)' }}>
+              <div style={{ position: 'relative', width: '100%', maxWidth: '1000px', maxHeight: '90vh', overflowY: 'auto' }}>
+                  <button 
+                    onClick={() => setShowLogModal(false)}
+                    style={{ position: 'absolute', top: '1.5rem', right: '1.5rem', background: 'rgba(255,255,255,0.1)', border: 'none', color: '#fff', fontSize: '1.5rem', cursor: 'pointer', width: '40px', height: '40px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10001 }}
+                  >
+                    ×
+                  </button>
+                  <QuickLogModal 
+                    onClose={() => setShowLogModal(false)}
+                    onSuccess={() => {
+                        setShowLogModal(false);
+                        fetchData();
+                    }} 
+                  />
+              </div>
+          </div>,
+          document.body
+      )}
     </div>
   );
 };

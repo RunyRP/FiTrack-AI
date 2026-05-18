@@ -19,6 +19,72 @@ Base.metadata.create_all(bind=engine)
 from sqlalchemy import text
 with engine.connect() as conn:
     try:
+        conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS custom_meals (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+                label VARCHAR NOT NULL,
+                kcal_per_100g FLOAT DEFAULT 0.0,
+                protein_per_100g FLOAT DEFAULT 0.0,
+                carbs_per_100g FLOAT DEFAULT 0.0,
+                fat_per_100g FLOAT DEFAULT 0.0,
+                fiber_per_100g FLOAT DEFAULT 0.0,
+                salt_per_100g FLOAT DEFAULT 0.0,
+                is_whole_meal BOOLEAN DEFAULT 0,
+                default_grams FLOAT DEFAULT 100.0
+            )
+        """))
+        conn.commit()
+        
+        # Add columns if table already existed (idempotent migration)
+        try:
+            conn.execute(text("ALTER TABLE custom_meals ADD COLUMN is_whole_meal BOOLEAN DEFAULT 0"))
+            conn.commit()
+        except Exception: pass
+        
+        try:
+            conn.execute(text("ALTER TABLE custom_meals ADD COLUMN default_grams FLOAT DEFAULT 100.0"))
+            conn.commit()
+        except Exception: pass
+
+        try:
+            conn.execute(text("ALTER TABLE custom_meals ADD COLUMN fiber_per_100g FLOAT DEFAULT 0.0"))
+            conn.commit()
+        except Exception: pass
+
+        try:
+            conn.execute(text("ALTER TABLE custom_meals ADD COLUMN salt_per_100g FLOAT DEFAULT 0.0"))
+            conn.commit()
+        except Exception: pass
+
+        try:
+            conn.execute(text("ALTER TABLE custom_meals ADD COLUMN ingredients JSON"))
+            conn.commit()
+        except Exception: pass
+
+        try:
+            conn.execute(text("ALTER TABLE custom_meals ADD COLUMN is_quantifiable BOOLEAN DEFAULT 0"))
+            conn.commit()
+        except Exception: pass
+
+        try:
+            conn.execute(text("ALTER TABLE custom_meals ADD COLUMN unit_name VARCHAR"))
+            conn.commit()
+        except Exception: pass
+        
+        print("DEBUG: Ensured custom_meals table and columns exist")
+    except Exception:
+        pass
+
+    try:
+        conn.execute(text("ALTER TABLE machinery ADD COLUMN user_id INTEGER REFERENCES users(id)"))
+        conn.commit()
+        print("DEBUG: Added user_id column to machinery table")
+    except Exception:
+        # Column likely already exists
+        pass
+
+    try:
         conn.execute(text("ALTER TABLE users ADD COLUMN google_refresh_token VARCHAR"))
         conn.commit()
     except Exception:
@@ -46,6 +112,21 @@ with engine.connect() as conn:
     except Exception:
         # Column likely already exists
         pass
+
+    try:
+        conn.execute(text("ALTER TABLE user_profiles ADD COLUMN macro_distribution VARCHAR DEFAULT 'balanced'"))
+        conn.commit()
+    except Exception: pass
+
+    try:
+        conn.execute(text("ALTER TABLE user_profiles ADD COLUMN cut_intensity VARCHAR DEFAULT 'medium'"))
+        conn.commit()
+    except Exception: pass
+
+    try:
+        conn.execute(text("ALTER TABLE user_profiles ADD COLUMN manual_target_kcal INTEGER"))
+        conn.commit()
+    except Exception: pass
 
     try:
         conn.execute(text("ALTER TABLE chat_messages ADD COLUMN thread_title VARCHAR"))

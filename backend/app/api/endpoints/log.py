@@ -11,6 +11,7 @@ import requests
 import datetime
 from pydantic import BaseModel
 from sqlalchemy import and_
+from sqlalchemy.orm.attributes import flag_modified
 
 class GoogleSyncRequest(BaseModel):
     access_token: Optional[str] = None
@@ -33,6 +34,55 @@ def get_today_log(
         db.commit()
         db.refresh(log)
     return log
+
+@router.get("/recent-items")
+def get_recent_items(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    # Get logs from the last 7 days
+    start_date = date.today() - timedelta(days=7)
+    logs = db.query(DailyLog).filter(
+        DailyLog.user_id == current_user.id,
+        DailyLog.date >= start_date
+    ).order_by(DailyLog.date.desc()).all()
+    
+    recent_items = []
+    seen_labels = set()
+    
+    for log in logs:
+        if not log.food_items:
+            continue
+        # Items are stored with most recent last in the list, so we reverse it
+        for item in reversed(log.food_items):
+            label = item.get("label")
+            if label and label not in seen_labels:
+                # We need to format this for the 'selectQuickItem' function
+                # The frontend expects kcal_per_100g or kcal + grams
+                grams = item.get("grams", 100)
+                kcal = item.get("kcal", 0)
+                
+                recent_items.append({
+                    "label": label,
+                    "kcal": kcal,
+                    "grams": grams,
+                    "kcal_per_100g": (kcal / grams) * 100 if grams > 0 else 0,
+                    "protein": item.get("protein", 0),
+                    "carbs": item.get("carbs", 0),
+                    "fat": item.get("fat", 0),
+                    "protein_per_100g": (item.get("protein", 0) / grams) * 100 if grams > 0 else 0,
+                    "carbs_per_100g": (item.get("carbs", 0) / grams) * 100 if grams > 0 else 0,
+                    "fat_per_100g": (item.get("fat", 0) / grams) * 100 if grams > 0 else 0,
+                    "is_quantifiable": False,
+                    "default_grams": grams
+                })
+                seen_labels.add(label)
+                if len(recent_items) >= 10:
+                    break
+        if len(recent_items) >= 10:
+            break
+            
+    return recent_items
 
 @router.get("/dashboard-data")
 def get_dashboard_data(
@@ -63,9 +113,20 @@ def get_dashboard_data(
         curr_date = start_date_7 + timedelta(days=i)
         if curr_date in log_map_7:
             entry = log_map_7[curr_date]
+            # Calculate macros for the day
+            p, c, f = 0, 0, 0
+            if entry.food_items:
+                for item in entry.food_items:
+                    p += item.get("protein", 0)
+                    c += item.get("carbs", 0)
+                    f += item.get("fat", 0)
+                    
             history_list.append({
                 "date": curr_date.isoformat(),
                 "total_kcal": int(entry.total_kcal or 0),
+                "protein": round(p, 1),
+                "carbs": round(c, 1),
+                "fat": round(f, 1),
                 "steps": int(entry.steps or 0),
                 "weight": entry.weight
             })
@@ -73,6 +134,9 @@ def get_dashboard_data(
             history_list.append({
                 "date": curr_date.isoformat(),
                 "total_kcal": 0,
+                "protein": 0,
+                "carbs": 0,
+                "fat": 0,
                 "steps": 0,
                 "weight": None
             })
@@ -154,6 +218,9 @@ def get_dashboard_data(
         feedback["insights"].append("Excellent hydration! You're keeping your body primed for peak performance.")
 
     # 5. Build Final Response
+    from app.core.calculations import calculate_macros
+    macros = calculate_macros(target_kcal, profile.macro_distribution if profile else "balanced")
+
     return {
         "user": {
             "id": current_user.id,
@@ -163,8 +230,12 @@ def get_dashboard_data(
                 "name": profile.name if profile else None,
                 "weight": profile.weight if profile else None,
                 "target_kcal": target_kcal,
+                "target_protein": macros["protein"],
+                "target_carbs": macros["carbs"],
+                "target_fat": macros["fat"],
                 "target_steps": profile.target_steps if profile else 10000,
-                "objective": profile.objective if profile else "maintain"
+                "objective": profile.objective if profile else "maintain",
+                "macro_distribution": profile.macro_distribution if profile else "balanced"
             }
         },
         "today": {
@@ -241,6 +312,92 @@ def get_daily_feedback(
     db.commit()
     return {"summary": ai_feedback, "insights": insights, "status": status}
 
+class FoodItemUpdate(BaseModel):
+    label: str
+    grams: int
+    kcal: int
+    protein: Optional[float] = 0
+    carbs: Optional[float] = 0
+    fat: Optional[float] = 0
+    fiber: Optional[float] = 0
+    salt: Optional[float] = 0
+    type: Optional[str] = "Lunch"
+
+@router.put("/food-item")
+def update_food_item(
+    logged_at: str,
+    request: FoodItemUpdate,
+    date_str: Optional[str] = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    target_date = date.fromisoformat(date_str) if date_str else date.today()
+    log = db.query(DailyLog).filter(DailyLog.user_id == current_user.id, DailyLog.date == target_date).first()
+    
+    if not log:
+        raise HTTPException(status_code=404, detail="Log not found")
+    
+    current_items = list(log.food_items) if log.food_items else []
+    
+    # Find the item to update
+    item_idx = next((i for i, item in enumerate(current_items) if item.get("logged_at") == logged_at), -1)
+    
+    if item_idx == -1:
+        raise HTTPException(status_code=404, detail="Food item not found")
+    
+    old_kcal = int(current_items[item_idx].get("kcal", 0))
+    
+    # Update the item
+    current_items[item_idx].update({
+        "label": request.label,
+        "grams": request.grams,
+        "kcal": request.kcal,
+        "protein": request.protein,
+        "carbs": request.carbs,
+        "fat": request.fat,
+        "fiber": request.fiber,
+        "salt": request.salt,
+        "type": request.type
+    })
+    
+    log.food_items = current_items
+    flag_modified(log, "food_items")
+    log.total_kcal = max(0, log.total_kcal - old_kcal + request.kcal)
+    
+    db.commit()
+    db.refresh(log)
+    return {"message": "Item updated", "total_kcal": log.total_kcal, "item": current_items[item_idx]}
+
+@router.delete("/food-item")
+def delete_food_item(
+    logged_at: str,
+    date_str: Optional[str] = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    target_date = date.fromisoformat(date_str) if date_str else date.today()
+    log = db.query(DailyLog).filter(DailyLog.user_id == current_user.id, DailyLog.date == target_date).first()
+    
+    if not log:
+        raise HTTPException(status_code=404, detail="Log not found")
+    
+    current_items = list(log.food_items) if log.food_items else []
+    
+    # Find the item to remove
+    item_to_remove = next((item for item in current_items if item.get("logged_at") == logged_at), None)
+    
+    if not item_to_remove:
+        raise HTTPException(status_code=404, detail="Food item not found")
+    
+    # Remove item and update calories
+    current_items.remove(item_to_remove)
+    log.food_items = current_items
+    log.total_kcal = max(0, log.total_kcal - int(item_to_remove.get("kcal", 0)))
+    
+    db.commit()
+    db.refresh(log)
+    return {"message": "Item deleted", "total_kcal": log.total_kcal}
+
 @router.put("/steps")
 def update_steps(steps: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     today = date.today()
@@ -294,24 +451,63 @@ def sync_google_fit(db: Session = Depends(get_db), current_user: User = Depends(
     access_token = None
     if current_user.google_refresh_token:
         r = requests.post("https://oauth2.googleapis.com/token", data={"client_id": os.getenv("GOOGLE_CLIENT_ID"), "client_secret": os.getenv("GOOGLE_CLIENT_SECRET"), "refresh_token": current_user.google_refresh_token, "grant_type": "refresh_token"})
-        if r.status_code == 200: access_token = r.json().get("access_token")
-    if not access_token: raise HTTPException(status_code=403)
+        if r.status_code == 200: 
+            access_token = r.json().get("access_token")
+        else:
+            print(f"DEBUG: Failed to refresh token for {current_user.email}: {r.status_code} - {r.text}")
+            # If token is invalid/expired, clear it so user can re-sync
+            if r.status_code == 400:
+                try:
+                    error_data = r.json()
+                    if error_data.get("error") == "invalid_grant":
+                        print(f"DEBUG: Clearing expired/revoked token for {current_user.email}")
+                        current_user.google_refresh_token = None
+                        db.commit()
+                except Exception as e:
+                    print(f"DEBUG: Error parsing token error response: {e}")
+    
+    if not access_token: 
+        print(f"DEBUG: No access token available for Google Fit sync ({current_user.email})")
+        raise HTTPException(status_code=403, detail="Google Fit connection expired or invalid. Please reconnect.")
+        
     now = datetime.datetime.now(); start = datetime.datetime(now.year, now.month, now.day); end = start + datetime.timedelta(days=1)
     url = "https://www.googleapis.com/fitness/v1/users/me/dataset:aggregate"
     body = {"aggregateBy": [{"dataSourceId": "derived:com.google.step_count.delta:com.google.android.gms:estimated_steps"}, {"dataTypeName": "com.google.weight"}], "bucketByTime": {"durationMillis": 86400000}, "startTimeMillis": int(start.timestamp()*1000), "endTimeMillis": int(end.timestamp()*1000)}
+    
+    print(f"DEBUG: Syncing Google Fit for {current_user.email} between {start} and {end}")
     res = requests.post(url, json=body, headers={"Authorization": f"Bearer {access_token}"})
+    
     if res.status_code == 200:
         d = res.json(); steps = 0; weight = None
         for b in d.get("bucket", []):
             for ds in b.get("dataset", []):
                 for p in ds.get("point", []):
                     for v in p.get("value", []):
-                        if "step_count" in ds.get("dataSourceId", ""): steps += v.get("intVal", 0)
-                        else: weight = v.get("fpVal")
+                        if "step_count" in ds.get("dataSourceId", ""): 
+                            val = v.get("intVal", 0)
+                            steps += val
+                        else: 
+                            weight = v.get("fpVal")
+        
         today_date = date.today()
         l = db.query(DailyLog).filter(DailyLog.user_id == current_user.id, DailyLog.date == today_date).first()
-        if not l: l = DailyLog(user_id=current_user.id, date=today_date, steps=steps, weight=weight); db.add(l)
-        else: l.steps = steps; 
-        if weight: l.weight = weight
+        if not l: 
+            l = DailyLog(user_id=current_user.id, date=today_date, steps=steps, weight=weight)
+            db.add(l)
+            print(f"DEBUG: Created new DailyLog for {today_date} with {steps} steps")
+        else: 
+            l.steps = steps
+            if weight: l.weight = weight
+            print(f"DEBUG: Updated DailyLog for {today_date} to {steps} steps")
+            
         db.commit(); return {"steps": steps, "weight": weight}
-    return {"status": "error"}
+    
+    print(f"DEBUG: Google Fit API error: {res.status_code} - {res.text}")
+    if res.status_code == 403:
+        print(f"DEBUG: Clearing insufficient scopes token for {current_user.email}")
+        current_user.google_refresh_token = None
+        db.commit()
+        raise HTTPException(status_code=403, detail="Google Fit permissions insufficient. Please reconnect.")
+    raise HTTPException(status_code=500, detail="Failed to sync with Google Fit.")
+
+
