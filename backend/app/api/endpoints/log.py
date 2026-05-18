@@ -243,6 +243,7 @@ def get_dashboard_data(
             "steps": int(log.steps or 0),
             "water_ml": int(log.water_ml or 0),
             "weight": log.weight,
+            "got_creatine": log.got_creatine,
             "total_kcal": int(log.total_kcal or 0),
             "food_items": log.food_items,
             "ai_summary": log.ai_summary
@@ -251,6 +252,23 @@ def get_dashboard_data(
         "weightHistory": weight_history,
         "feedback": feedback
     }
+
+@router.post("/toggle-creatine")
+def toggle_creatine(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    today = date.today()
+    log = db.query(DailyLog).filter(DailyLog.user_id == current_user.id, DailyLog.date == today).first()
+    if not log:
+        log = DailyLog(user_id=current_user.id, date=today, got_creatine=True)
+        db.add(log)
+    else:
+        log.got_creatine = not log.got_creatine
+    
+    db.commit()
+    db.refresh(log)
+    return {"got_creatine": log.got_creatine}
 
 @router.get("/feedback")
 def get_daily_feedback(
@@ -291,6 +309,9 @@ def get_daily_feedback(
         insights.append("Don't forget to hydrate! A glass of water is a simple win for your body right now.")
     else:
         insights.append("Excellent hydration! You're keeping your body primed for peak performance.")
+
+    if not log.got_creatine:
+        insights.append("Your muscles are waiting for that extra edge—don't forget your daily dose of creatine!")
 
     time_context = "today"
     if hour is not None:

@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, Float, ForeignKey, Date, JSON, String
+from sqlalchemy import Column, Integer, Float, ForeignKey, Date, JSON, String, Boolean
 from sqlalchemy.orm import relationship
 from app.db.session import Base
 from datetime import date
@@ -13,6 +13,7 @@ class DailyLog(Base):
     steps = Column(Integer, default=0)
     water_ml = Column(Integer, default=0)
     weight = Column(Float, nullable=True)
+    got_creatine = Column(Boolean, default=False)
     
     # Store food items: [{"label": "pizza", "kcal": 266, "grams": 100, "type": "Lunch", "protein": 10, "carbs": 30, "fat": 12}, ...]
     food_items = Column(JSON, default=list)

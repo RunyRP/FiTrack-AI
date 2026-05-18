@@ -190,6 +190,13 @@ export const AppleIcon = ({ size = 24, color = "currentColor", style }: IconProp
   </svg>
 );
 
+export const EditIcon = ({ size = 24, color = "currentColor", style }: IconProps) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={style}>
+    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+  </svg>
+);
+
 export const LayoutIcon = ({ size = 24, color = "currentColor", style }: IconProps) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={style}>
     <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
@@ -251,6 +258,13 @@ export const CalculatorIcon = ({ size = 24, color = "currentColor", style }: Ico
     <path d="M8 14h.01" />
     <path d="M12 18h.01" />
     <path d="M8 18h.01" />
+  </svg>
+);
+
+export const CapsuleIcon = ({ size = 24, color = "currentColor", style }: IconProps) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={style}>
+    <path d="m10.5 20.5 10-10a4.95 4.95 0 1 0-7-7l-10 10a4.95 4.95 0 1 0 7 7Z" />
+    <path d="m8.5 8.5 7 7" />
   </svg>
 );
 

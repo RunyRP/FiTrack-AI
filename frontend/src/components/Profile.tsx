@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import api from '../api';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../App';
-import { WeightLossIcon, MuscleGainIcon, MaintenanceIcon, UserIcon, DumbbellIcon } from './Icons';
+import { WeightLossIcon, MuscleGainIcon, MaintenanceIcon, UserIcon, DumbbellIcon, EditIcon } from './Icons';
 import { MACRO_DISTRIBUTIONS, type MacroDistType } from '../constants';
 
 export const Profile = () => {
@@ -243,17 +243,24 @@ export const Profile = () => {
         </div>
 
         <div style={{ marginBottom: '3rem' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                <label style={{ fontSize: '0.8rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Gym Setup</label>
+            <label style={{ fontSize: '0.8rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Gym Setup</label>
+            <p className="text-muted" style={{ fontSize: '0.85rem', marginTop: '0.5rem', marginBottom: '1.25rem' }}>Update the machines available at your gym to get more accurate workout suggestions.</p>
+            <div style={{ display: 'flex', gap: '0.75rem' }}>
+                <button 
+                    className="btn btn-secondary" 
+                    style={{ fontSize: '0.75rem', padding: '0.6rem 1.2rem', display: 'flex', alignItems: 'center', gap: '0.5rem', flex: 1 }}
+                    onClick={() => navigate('/equipment')}
+                >
+                    <EditIcon size={16} /> MANAGE CUSTOM ITEMS
+                </button>
                 <button 
                     className="btn btn-primary" 
-                    style={{ fontSize: '0.7rem', padding: '0.4rem 0.8rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+                    style={{ fontSize: '0.75rem', padding: '0.6rem 1.2rem', display: 'flex', alignItems: 'center', gap: '0.5rem', flex: 1 }}
                     onClick={() => navigate('/setup', { state: { equipmentOnly: true } })}
                 >
                     <DumbbellIcon size={16} /> YOUR GYM EQUIPMENT
                 </button>
             </div>
-            <p className="text-muted" style={{ fontSize: '0.85rem' }}>Update the machines available at your gym to get more accurate workout suggestions.</p>
         </div>
 
 

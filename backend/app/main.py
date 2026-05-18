@@ -98,6 +98,11 @@ with engine.connect() as conn:
         pass
 
     try:
+        conn.execute(text("ALTER TABLE daily_logs ADD COLUMN got_creatine BOOLEAN DEFAULT 0"))
+        conn.commit()
+        print("DEBUG: Added got_creatine column to daily_logs table")
+    except Exception:
+        pass
         conn.execute(text("ALTER TABLE workout_sessions ADD COLUMN split_id INTEGER REFERENCES workout_splits(id)"))
         conn.commit()
         print("DEBUG: Added split_id column to workout_sessions table")

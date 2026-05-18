@@ -6,7 +6,7 @@ import { useAuth } from '../App';
 import { 
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Cell
 } from 'recharts';
-import { CoachIcon, SavedIcon, SyncIcon, ResetIcon, DropIcon, GlassIcon, BottleIcon, FireIcon, FootprintsIcon, ScaleIcon, ConnectedIcon, TrashIcon, AppleIcon } from './Icons';
+import { CoachIcon, SavedIcon, SyncIcon, ResetIcon, DropIcon, GlassIcon, BottleIcon, FireIcon, FootprintsIcon, ScaleIcon, ConnectedIcon, TrashIcon, AppleIcon, CapsuleIcon } from './Icons';
 import { MACRO_DISTRIBUTIONS, type MacroDistType } from '../constants';
 import { QuickLogModal } from './QuickLogModal';
 
@@ -21,6 +21,7 @@ export const Dashboard = () => {
   const [weightInput, setWeightInput] = useState<string>('');
   const [weightPeriod, setWeightPeriod] = useState<number>(4); // Default to 4 weeks
   const [savingWater, setSavingWater] = useState(false);
+  const [savingCreatine, setSavingCreatine] = useState(false);
   const [lastStepsUpdate, setLastStepsUpdate] = useState<string>('');
   const { user: authUser, refreshUser } = useAuth();
 
@@ -145,6 +146,17 @@ export const Dashboard = () => {
       
       const finalVal = parts.length === 2 ? `${integerPart}.${decimalPart}` : integerPart;
       setWaterInput(finalVal || '0');
+  };
+
+  const toggleCreatine = async () => {
+    try {
+      setSavingCreatine(true);
+      await api.post('/log/toggle-creatine');
+      await fetchData();
+      setTimeout(() => setSavingCreatine(false), 600);
+    } catch (err) {
+      setSavingCreatine(false);
+    }
   };
 
   const updateWeight = async () => {
@@ -373,6 +385,49 @@ export const Dashboard = () => {
                     {item.icon} {item.label}
                   </button>
               ))}
+          </div>
+
+          {/* Creatine Toggle */}
+          <div style={{ 
+              marginTop: '2rem', 
+              paddingTop: '1.5rem', 
+              borderTop: '1px solid rgba(255,255,255,0.05)',
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'center', 
+              gap: '1rem' 
+          }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <CapsuleIcon size={18} color={today.got_creatine ? 'var(--primary)' : 'var(--text-muted)'} />
+                  <span style={{ fontSize: '0.8rem', fontWeight: 800, color: today.got_creatine ? '#fff' : 'var(--text-muted)', textTransform: 'uppercase' }}>
+                      Creatine Daily Dose
+                  </span>
+              </div>
+              <div 
+                  onClick={toggleCreatine}
+                  style={{ 
+                      width: '48px', 
+                      height: '24px', 
+                      background: today.got_creatine ? 'var(--primary)' : 'rgba(255,255,255,0.1)', 
+                      borderRadius: '12px', 
+                      position: 'relative', 
+                      cursor: 'pointer',
+                      transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                      opacity: savingCreatine ? 0.6 : 1,
+                      pointerEvents: savingCreatine ? 'none' : 'auto'
+                  }}
+              >
+                  <div style={{ 
+                      position: 'absolute', 
+                      top: '3px', 
+                      left: today.got_creatine ? '27px' : '3px', 
+                      width: '18px', 
+                      height: '18px', 
+                      background: today.got_creatine ? '#000' : 'var(--text-muted)', 
+                      borderRadius: '50%', 
+                      transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)' 
+                  }} />
+              </div>
           </div>
 
         </div>
