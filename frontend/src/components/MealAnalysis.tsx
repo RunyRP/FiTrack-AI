@@ -2,10 +2,10 @@ import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import api from '../api';
 import { useNavigate } from 'react-router-dom';
-import { CameraIcon, SearchIcon, SuccessIcon, PlusIcon } from './Icons';
+import { CameraIcon, SearchIcon, SuccessIcon, PlusIcon, CalendarIcon, BottleIcon, TrashIcon, EditIcon, SyncIcon, CapsuleIcon, FireIcon } from './Icons';
 
 export const MealAnalysis = ({ onSuccess }: { onSuccess?: () => void }) => {
-  const [activeTab, setActiveTab] = useState<'photo' | 'search' | 'foods' | 'meals'>('photo');
+  const [activeTab, setActiveTab] = useState<'photo' | 'search' | 'foods' | 'meals' | 'history'>('photo');
   const [file, setFile] = useState<File | null>(null);
   const [results, setResults] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -16,6 +16,12 @@ export const MealAnalysis = ({ onSuccess }: { onSuccess?: () => void }) => {
   const [editItem, setEditItem] = useState<any>(null);
   const [mealType, setMealType] = useState('Lunch');
   
+  // History State
+  const [historyData, setHistoryData] = useState<any[]>([]);
+  const [expandedDate, setExpandedDate] = useState<string | null>(null);
+  const [editingLogItem, setEditingLogItem] = useState<{item: any, date: string} | null>(null);
+  const [historyError, setHistoryError] = useState<string | null>(null);
+
   // Custom Foods & Meals State
   const [customItems, setCustomItems] = useState<any[]>([]);
   const [showAddCustom, setShowAddCustom] = useState(false);
@@ -52,21 +58,75 @@ export const MealAnalysis = ({ onSuccess }: { onSuccess?: () => void }) => {
 
   const navigate = useNavigate();
 
-  useEffect(() => {
-    if (activeTab === 'foods' || activeTab === 'meals') {
-      fetchCustomData();
+  const fetchHistory = async () => {
+    setLoading(true);
+    setHistoryError(null);
+    try {
+      const res = await api.get('/log/history?days=30');
+      setHistoryData(res.data);
+    } catch (err: any) {
+      console.error("History fetch error:", err);
+      setHistoryError(err.response?.data?.detail || "Failed to load history.");
+    } finally {
+      setLoading(false);
     }
-  }, [activeTab]);
+  };
 
   const fetchCustomData = async () => {
     setLoading(true);
     try {
       const res = await api.get('/meal/custom');
-      setCustomItems(res.data);
+      // Remove duplicates based on label
+      const uniqueItems = (res.data || []).filter((item: any, index: number, self: any[]) =>
+          index === self.findIndex((t) => t.label === item.label)
+      );
+      setCustomItems(uniqueItems);
     } catch (err) {
       console.error(err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchCustomData();
+    fetchHistory();
+  }, []);
+
+  useEffect(() => {
+    if (activeTab === 'foods' || activeTab === 'meals') {
+      fetchCustomData();
+    } else if (activeTab === 'history') {
+      fetchHistory();
+    }
+  }, [activeTab]);
+
+  const deleteHistoricalFood = async (loggedAt: string, date: string) => {
+    if (!confirm('Remove this item?')) return;
+    try {
+        await api.delete(`/log/food-item?logged_at=${encodeURIComponent(loggedAt)}&date_str=${date}`);
+        fetchHistory();
+    } catch (err) {
+        console.error(err);
+    }
+  };
+
+  const updateHistoricalWater = async (date: string, liters: string) => {
+    try {
+        const ml = Math.round(parseFloat(liters) * 1000);
+        await api.put(`/log/water?water_ml=${ml}&date_str=${date}`);
+        fetchHistory();
+    } catch (err) {
+        console.error(err);
+    }
+  };
+
+  const toggleHistoricalCreatine = async (date: string) => {
+    try {
+        await api.post(`/toggle-creatine?date_str=${date}`);
+        fetchHistory();
+    } catch (err) {
+        console.error(err);
     }
   };
 
@@ -108,14 +168,46 @@ export const MealAnalysis = ({ onSuccess }: { onSuccess?: () => void }) => {
 
       setEditForm({
           ...item,
-          kcal_per_100g: String(Math.round((item.kcal_per_100g * ratio) * 10) / 10),
-          protein_per_100g: String(Math.round((item.protein_per_100g * ratio) * 10) / 10),
-          carbs_per_100g: String(Math.round((item.carbs_per_100g * ratio) * 10) / 10),
-          fat_per_100g: String(Math.round((item.fat_per_100g * ratio) * 10) / 10),
-          fiber_per_100g: String(Math.round(((item.fiber_per_100g || 0) * ratio) * 10) / 10),
-          salt_per_100g: String(Math.round(((item.salt_per_100g || 0) * ratio) * 10) / 10),
+          ingredients: item.ingredients ? [...item.ingredients] : [],
+          kcal_per_100g: String(Math.round((item.kcal_per_100g * ratio) * 100) / 100),
+          protein_per_100g: String(Math.round((item.protein_per_100g * ratio) * 100) / 100),
+          carbs_per_100g: String(Math.round((item.carbs_per_100g * ratio) * 100) / 100),
+          fat_per_100g: String(Math.round((item.fat_per_100g * ratio) * 100) / 100),
+          fiber_per_100g: String(Math.round(((item.fiber_per_100g || 0) * ratio) * 100) / 100),
+          salt_per_100g: String(Math.round(((item.salt_per_100g || 0) * ratio) * 100) / 100),
           default_grams: String(item.default_grams || 100)
       });
+  };
+
+  const handleEditIngredientChange = (idx: number, field: string, value: any) => {
+    if (!editForm.ingredients) return;
+    const newIngredients = [...editForm.ingredients];
+    let item = { ...newIngredients[idx], [field]: value };
+    
+    // If weight changed, recalculate this ingredient's kcal and macros if it has base rates
+    if (field === 'grams' && item.kcal_100g !== undefined) {
+        const ratio = (Number(value) || 0) / 100;
+        item.kcal = Math.round((Number(item.kcal_100g) || 0) * ratio);
+        item.protein = Number(((Number(item.protein_100g) || 0) * ratio).toFixed(2));
+        item.carbs = Number(((Number(item.carbs_100g) || 0) * ratio).toFixed(2));
+        item.fat = Number(((Number(item.fat_100g) || 0) * ratio).toFixed(2));
+    }
+
+    newIngredients[idx] = item;
+    const totalKcal = newIngredients.reduce((sum, ing) => sum + (Number(ing.kcal) || 0), 0);
+    const totalP = newIngredients.reduce((sum, ing) => sum + (Number(ing.protein) || 0), 0);
+    const totalC = newIngredients.reduce((sum, ing) => sum + (Number(ing.carbs) || 0), 0);
+    const totalF = newIngredients.reduce((sum, ing) => sum + (Number(ing.fat) || 0), 0);
+    
+    setEditForm({
+        ...editForm,
+        ingredients: newIngredients,
+        kcal_per_100g: String(Math.round(totalKcal)),
+        protein_per_100g: String(totalP.toFixed(2)),
+        carbs_per_100g: String(totalC.toFixed(2)),
+        fat_per_100g: String(totalF.toFixed(2)),
+        default_grams: String(newIngredients.reduce((sum, ing) => sum + (Number(ing.grams) || 0), 0))
+    });
   };
 
   const handleUpdateCustomItem = async (e: React.FormEvent) => {
@@ -160,7 +252,8 @@ export const MealAnalysis = ({ onSuccess }: { onSuccess?: () => void }) => {
         fat: cm.fat_per_100g,
         fiber: cm.fiber_per_100g,
         salt: cm.salt_per_100g,
-        type: mealType
+        type: mealType,
+        ingredients: cm.ingredients || null
       });
       setMessage(`${cm.label} logged!`);
       if (onSuccess) {
@@ -205,7 +298,6 @@ export const MealAnalysis = ({ onSuccess }: { onSuccess?: () => void }) => {
   };
 
   const addToMeal = (item: any) => {
-      // Calculate base 100g values immediately if they don't exist
       const g = Number(item.grams) || 100;
       const baseKcal = Number(item.kcal_100g) || (Number(item.kcal) / (g / 100));
       const baseP = Number(item.protein_100g) || (Number(item.protein) / (g / 100));
@@ -242,7 +334,6 @@ export const MealAnalysis = ({ onSuccess }: { onSuccess?: () => void }) => {
   const updateBuilderItemGrams = (idx: number, newGrams: number) => {
       const updated = [...mealBuilderItems];
       const item = updated[idx];
-      
       const safeGrams = Math.max(0, Number(newGrams) || 0);
       const kcal100 = Number(item.kcal_100g) || 0;
       const baseRatio = safeGrams / 100.0;
@@ -264,12 +355,10 @@ export const MealAnalysis = ({ onSuccess }: { onSuccess?: () => void }) => {
       setMealBuilderItems(mealBuilderItems.filter((_, i) => i !== idx));
   };
 
-  // Helper for consistent nutritional updates
   const updateEditItemStats = (newGrams: number, newQuantity: string | number) => {
       const safeGrams = Math.max(0, Number(newGrams) || 0);
       const kcal100 = Number(editItem.kcal_100g) || 0;
       const baseRatio = safeGrams / 100.0;
-      
       setQuantity(newQuantity);
       setEditItem({ 
           ...editItem, 
@@ -298,11 +387,11 @@ export const MealAnalysis = ({ onSuccess }: { onSuccess?: () => void }) => {
           await api.post('/meal/custom', {
               label: mealBuilderName,
               kcal_per_100g: builderTotals.kcal,
-              protein_per_100g: builderTotals.p,
-              carbs_per_100g: builderTotals.c,
-              fat_per_100g: builderTotals.f,
-              fiber_per_100g: builderTotals.fib,
-              salt_per_100g: builderTotals.s,
+              protein_per_100g: Number(builderTotals.p.toFixed(2)),
+              carbs_per_100g: Number(builderTotals.c.toFixed(2)),
+              fat_per_100g: Number(builderTotals.f.toFixed(2)),
+              fiber_per_100g: Number(builderTotals.fib.toFixed(2)),
+              salt_per_100g: Number(builderTotals.s.toFixed(2)),
               is_whole_meal: true,
               default_grams: mealBuilderItems.reduce((acc, i) => acc + (i.grams || 0), 0),
               ingredients: mealBuilderItems
@@ -319,22 +408,144 @@ export const MealAnalysis = ({ onSuccess }: { onSuccess?: () => void }) => {
           setTimeout(() => setMessage(''), 4000);
       }
   };
-  
-  // --- Standard Search ---
-  useEffect(() => {
-    const delayDebounceFn = setTimeout(() => {
-      if (searchQuery.trim() && activeTab === 'search') {
-        handleSearch();
+
+  const handleRefineSimpleChange = (field: string, value: any) => {
+      if (!editItem) return;
+      let newItem = { ...editItem, [field]: value };
+      
+      const grams = parseInt(value) || 0;
+      if (field === 'grams' && editItem.kcal_100g !== undefined) {
+          const ratio = grams / 100;
+          newItem.kcal = Math.round((Number(editItem.kcal_100g) || 0) * ratio);
+          newItem.protein = Number(((Number(editItem.protein_100g) || 0) * ratio).toFixed(2)) || 0;
+          newItem.carbs = Number(((Number(editItem.carbs_100g) || 0) * ratio).toFixed(2)) || 0;
+          newItem.fat = Number(((Number(editItem.fat_100g) || 0) * ratio).toFixed(2)) || 0;
+          newItem.grams = grams;
       }
-    }, 300);
-    return () => clearTimeout(delayDebounceFn);
-  }, [searchQuery]);
+      
+      setEditItem(newItem);
+  };
+
+  const handleRefineIngredientChange = (idx: number, field: string, value: any) => {
+      if (!editItem?.ingredients) return;
+      const newIngredients = [...editItem.ingredients];
+      let item = { ...newIngredients[idx], [field]: value };
+
+      const grams = parseInt(value) || 0;
+      // If weight changed, recalculate this ingredient's kcal and macros if it has base rates
+      if (field === 'grams' && item.kcal_100g !== undefined) {
+          const ratio = grams / 100;
+          item.kcal = Math.round((Number(item.kcal_100g) || 0) * ratio);
+          item.protein = Number(((Number(item.protein_100g) || 0) * ratio).toFixed(2)) || 0;
+          item.carbs = Number(((Number(item.carbs_100g) || 0) * ratio).toFixed(2)) || 0;
+          item.fat = Number(((Number(item.fat_100g) || 0) * ratio).toFixed(2)) || 0;
+          item.grams = grams;
+      }
+
+      newIngredients[idx] = item;
+      const totalKcal = newIngredients.reduce((sum, ing) => sum + (Number(ing.kcal) || 0), 0);
+      const totalP = newIngredients.reduce((sum, ing) => sum + (Number(ing.protein) || 0), 0);
+      const totalC = newIngredients.reduce((sum, ing) => sum + (Number(ing.carbs) || 0), 0);
+      const totalF = newIngredients.reduce((sum, ing) => sum + (Number(ing.fat) || 0), 0);
+      const totalG = newIngredients.reduce((sum, ing) => sum + (Number(ing.grams) || 0), 0);
+      setEditItem({
+          ...editItem,
+          ingredients: newIngredients,
+          kcal: Math.round(totalKcal) || 0,
+          protein: Number(totalP.toFixed(2)) || 0,
+          carbs: Number(totalC.toFixed(2)) || 0,
+          fat: Number(totalF.toFixed(2)) || 0,
+          grams: Math.round(totalG) || 0
+      });
+  };
+
+  const removeRefineIngredient = (idx: number) => {
+      if (!editItem?.ingredients) return;
+      const newIngredients = editItem.ingredients.filter((_: any, i: number) => i !== idx);
+      const totalKcal = newIngredients.reduce((sum, ing) => sum + (Number(ing.kcal) || 0), 0);
+      const totalP = newIngredients.reduce((sum, ing) => sum + (Number(ing.protein) || 0), 0);
+      const totalC = newIngredients.reduce((sum, ing) => sum + (Number(ing.carbs) || 0), 0);
+      const totalF = newIngredients.reduce((sum, ing) => sum + (Number(ing.fat) || 0), 0);
+      const totalG = newIngredients.reduce((sum, ing) => sum + (Number(ing.grams) || 0), 0);
+      setEditItem({
+          ...editItem,
+          ingredients: newIngredients,
+          kcal: Math.round(totalKcal) || 0,
+          protein: Number(totalP.toFixed(2)) || 0,
+          carbs: Number(totalC.toFixed(2)) || 0,
+          fat: Number(totalF.toFixed(2)) || 0,
+          grams: Math.round(totalG) || 0
+      });
+  };
+
+  const handleLogMeal = async () => {
+    if (!editItem) return;
+    setLogging(true);
+    try {
+      const targetDate = (window as any).retroactiveDate || null;
+      const url = targetDate ? `/meal/log?date_str=${targetDate}` : '/meal/log';
+      
+      // Ensure integer values and clean data for backend
+      const payload = {
+        label: editItem.label || "Unknown Food",
+        grams: Math.round(Number(editItem.grams) || 0),
+        kcal: Math.round(Number(editItem.kcal) || 0),
+        protein: Number(Number(editItem.protein).toFixed(2)) || 0,
+        carbs: Number(Number(editItem.carbs).toFixed(2)) || 0,
+        fat: Number(Number(editItem.fat).toFixed(2)) || 0,
+        fiber: Number(Number(editItem.fiber).toFixed(2)) || 0,
+        salt: Number(Number(editItem.salt).toFixed(2)) || 0,
+        type: mealType,
+        ingredients: editItem.ingredients || editItem.original_item?.ingredients || null
+      };
+
+      await api.post(url, payload);
+      setMessage(targetDate ? `Meal logged for ${targetDate}!` : 'Meal logged successfully!');
+      (window as any).retroactiveDate = null;
+      setEditItem(null); // Clear item to prevent UI sticking/crashing
+      setResults([]);
+
+      if (onSuccess) {
+          setTimeout(onSuccess, 1000);
+      } else if (targetDate) {
+          setTimeout(() => {
+              setMessage('');
+              setActiveTab('history');
+              fetchHistory();
+          }, 1000);
+      } else {
+          setTimeout(() => navigate('/'), 1000);
+      }
+    } catch (err) { 
+        console.error("LOGGING ERROR:", err);
+        setMessage('Error logging meal.'); 
+    } finally { setLogging(false); }
+  };
+
+  const handleUpdateHistoricalItem = async (formData: any, date: string, loggedAt: string) => {
+    try {
+        await api.put(`/log/food-item?logged_at=${encodeURIComponent(loggedAt)}&date_str=${date}`, {
+            ...formData,
+            protein: Number(Number(formData.protein).toFixed(2)) || 0,
+            carbs: Number(Number(formData.carbs).toFixed(2)) || 0,
+            fat: Number(Number(formData.fat).toFixed(2)) || 0
+        });
+        setEditingLogItem(null);
+        fetchHistory();
+    } catch (err) {
+        console.error(err);
+    }
+  };
 
   const handleSearch = async () => {
     setLoading(true);
     try {
-      const res = await api.get(`/meal/search?q=${searchQuery}`);
-      setResults(res.data.results);
+      const res = await api.get(`/meal/search?q=${encodeURIComponent(searchQuery)}`);
+      // Remove duplicates based on label
+      const uniqueResults = (res.data.results || []).filter((item: any, index: number, self: any[]) =>
+          index === self.findIndex((t) => t.label === item.label)
+      );
+      setResults(uniqueResults.slice(0, 5));
       setSelectedIdx(null);
       setEditItem(null);
     } catch (err) { console.error(err); }
@@ -374,14 +585,13 @@ export const MealAnalysis = ({ onSuccess }: { onSuccess?: () => void }) => {
 
   const handleSelect = (idx: number, item: any) => {
     setSelectedIdx(idx);
-    
-    // For standard items from AI, we calculate 100g base once
-    const baseKcal = item.kcal_100g || (item.kcal / (item.grams / 100));
-    const baseP = item.protein_100g || (item.protein / (item.grams / 100));
-    const baseC = item.carbs_100g || (item.carbs / (item.grams / 100));
-    const baseF = item.fat_100g || (item.fat / (item.grams / 100));
-    const baseFib = item.fiber_100g || ((item.fiber || 0) / (item.grams / 100));
-    const baseS = item.salt_100g || ((item.salt || 0) / (item.grams / 100));
+    const g = item.grams || 100;
+    const baseKcal = item.kcal_100g || (item.kcal / (g / 100));
+    const baseP = item.protein_100g || (item.protein / (g / 100));
+    const baseC = item.carbs_100g || (item.carbs / (g / 100));
+    const baseF = item.fat_100g || (item.fat / (g / 100));
+    const baseFib = item.fiber_100g || ((item.fiber || 0) / (g / 100));
+    const baseS = item.salt_100g || ((item.salt || 0) / (g / 100));
 
     setEditItem({ 
         ...item, 
@@ -393,49 +603,197 @@ export const MealAnalysis = ({ onSuccess }: { onSuccess?: () => void }) => {
         fiber_100g: baseFib,
         salt_100g: baseS
     });
-    setQuantity(item.is_quantifiable ? 1 : 1);
+    setQuantity(1);
   };
 
-  const handleLogMeal = async () => {
-    if (!editItem) return;
-    setLogging(true);
-    try {
-      await api.post('/meal/log', {
-        ...editItem,
-        type: mealType
-      });
-      setMessage('Meal logged successfully!');
-      if (onSuccess) {
-          setTimeout(onSuccess, 1500);
-      } else {
-          setTimeout(() => navigate('/'), 1500);
+  useEffect(() => {
+    const delayDebounceFn = setTimeout(() => {
+      if (searchQuery.trim() && activeTab === 'search') {
+        handleSearch();
       }
-    } catch (err) { setMessage('Error logging meal.'); }
-    finally { setLogging(false); }
-  };
+    }, 300);
+    return () => clearTimeout(delayDebounceFn);
+  }, [searchQuery]);
 
   return (
     <div className="container animate-fade-in">
-      <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+      <div className="card" style={{ padding: 0, overflow: 'visible' }}>
         <div className="nav-links" style={{ display: 'flex', borderRadius: 0, border: 'none', background: 'rgba(255,255,255,0.03)', padding: '0.5rem', flexWrap: 'wrap' }}>
             {[
                 { id: 'photo', label: 'AI Photo', icon: <CameraIcon size={16} /> },
                 { id: 'foods', label: 'My Foods', icon: <PlusIcon size={16} /> },
                 { id: 'meals', label: 'My Meals', icon: <PlusIcon size={16} /> },
-                { id: 'search', label: 'Search', icon: <SearchIcon size={16} /> }
+                { id: 'search', label: 'Search', icon: <SearchIcon size={16} /> },
+                { id: 'history', label: 'History', icon: <CalendarIcon size={16} /> }
             ].map(tab => (
                 <button 
                     key={tab.id}
                     onClick={() => { setActiveTab(tab.id as any); setResults([]); setEditItem(null); }}
                     className={`btn ${activeTab === tab.id ? 'btn-primary' : 'btn-secondary'}`}
-                    style={{ flex: 1, minWidth: '120px', borderRadius: '0.75rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', margin: '0.2rem' }}
+                    style={{ flex: 1, minWidth: '100px', borderRadius: '0.75rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', margin: '0.2rem', padding: '0.6rem' }}
                 >
                     {tab.icon} {tab.label}
                 </button>
             ))}
         </div>
 
-        <div style={{ padding: '2.5rem' }}>
+        <div style={{ padding: activeTab === 'history' ? '1.5rem' : '2.5rem' }}>
+            {activeTab === 'history' && (
+                <div className="animate-fade-in">
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
+                        <div>
+                            <h2 style={{ margin: 0 }}>Food Diary History</h2>
+                            <p className="text-muted">Review and refine your logs from the last 30 days. (Days found: {historyData.length})</p>
+                        </div>
+                        <button className="btn btn-secondary" onClick={fetchHistory} disabled={loading}>
+                            {loading ? '...' : <SyncIcon size={16} />}
+                        </button>
+                    </div>
+
+                    <div style={{ display: 'grid', gap: '1rem' }}>
+                        {loading && historyData.length === 0 && (
+                            <div className="text-muted" style={{ textAlign: 'center', padding: '3rem' }}>Loading history...</div>
+                        )}
+                        
+                        {historyError && (
+                            <div className="card" style={{ padding: '2rem', textAlign: 'center', border: '1px solid #ff4757', background: 'rgba(255,71,87,0.05)' }}>
+                                <p style={{ color: '#ff4757', fontWeight: 600 }}>{historyError}</p>
+                                <button className="btn btn-secondary" onClick={fetchHistory} style={{ marginTop: '1rem' }}>Try Again</button>
+                            </div>
+                        )}
+
+                        {!loading && !historyError && historyData.length === 0 && (
+                            <div className="card" style={{ padding: '3rem', textAlign: 'center', background: 'rgba(255,255,255,0.01)' }}>
+                                <CalendarIcon size={48} color="rgba(255,255,255,0.05)" style={{ marginBottom: '1.5rem' }} />
+                                <p className="text-muted" style={{ fontSize: '1.1rem' }}>No history records found.</p>
+                                <button className="btn btn-secondary" onClick={() => setActiveTab('search')} style={{ marginTop: '1rem' }}>Start Logging Today</button>
+                            </div>
+                        )}
+
+                        {!loading && historyData && Array.isArray(historyData) && historyData.map((day) => {
+                            let dateLabel = 'Unknown Date';
+                            try {
+                                if (day.date) {
+                                    dateLabel = new Date(day.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }).toUpperCase();
+                                }
+                            } catch(e) {}
+
+                            return (
+                                <div key={day.date} className="card" style={{ padding: 0, overflow: 'hidden', border: expandedDate === day.date ? '1px solid var(--primary)' : '1px solid var(--card-border)', background: expandedDate === day.date ? 'rgba(251, 197, 49, 0.02)' : 'rgba(255,255,255,0.01)' }}>
+                                    <div 
+                                        onClick={() => setExpandedDate(expandedDate === day.date ? null : day.date)}
+                                        style={{ padding: '1.25rem', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}
+                                    >
+                                        <div style={{ flex: 1, minWidth: '150px' }}>
+                                            <div style={{ fontWeight: 800, fontSize: '1.1rem', color: expandedDate === day.date ? 'var(--primary)' : '#fff' }}>
+                                                {dateLabel}
+                                            </div>
+                                            <div style={{ display: 'flex', gap: '1rem', marginTop: '0.5rem', flexWrap: 'wrap' }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.8rem' }}>
+                                                    <FireIcon size={14} color="var(--primary)" />
+                                                    <span style={{ fontWeight: 700 }}>{day.total_kcal || 0} kcal</span>
+                                                    {day.got_creatine && <CapsuleIcon size={12} color="var(--primary)" style={{ marginLeft: '0.5rem' }} />}
+                                                </div>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.8rem' }}>
+                                                    <BottleIcon size={14} color="#00d2ff" />
+                                                    <span style={{ fontWeight: 700 }}>{((day.water_ml || 0) / 1000).toFixed(1)}L</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        
+                                        <div style={{ display: 'flex', gap: '1rem', fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 700 }}>
+                                            <span>P: {(day.protein || 0).toFixed(2)}g</span>
+                                            <span>C: {(day.carbs || 0).toFixed(2)}g</span>
+                                            <span>F: {(day.fat || 0).toFixed(2)}g</span>
+                                        </div>
+                                    </div>
+
+                                    {expandedDate === day.date && (
+                                        <div className="animate-fade-in" style={{ padding: '1.25rem', borderTop: '1px solid rgba(255,255,255,0.05)', background: 'rgba(0,0,0,0.2)' }}>
+                                            {/* Creatine Toggle Section */}
+                                            <div style={{ marginBottom: '1.25rem', background: 'rgba(251, 197, 49, 0.05)', padding: '0.75rem', borderRadius: '0.5rem', border: '1px solid rgba(251, 197, 49, 0.1)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                                    <CapsuleIcon size={16} color={day.got_creatine ? "var(--primary)" : "var(--text-muted)"} />
+                                                    <span style={{ fontSize: '0.8rem', fontWeight: 700, color: day.got_creatine ? "#fff" : "var(--text-muted)" }}>CREATINE TAKEN</span>
+                                                </div>
+                                                <div onClick={() => toggleHistoricalCreatine(day.date)} style={{ width: '48px', height: '24px', background: day.got_creatine ? 'var(--primary)' : 'rgba(255,255,255,0.1)', borderRadius: '12px', cursor: 'pointer', position: 'relative', transition: 'all 0.3s ease' }}>
+                                                    <div style={{ position: 'absolute', top: '3px', left: day.got_creatine ? '27px' : '3px', width: '18px', height: '18px', background: day.got_creatine ? '#000' : 'var(--text-muted)', borderRadius: '50%', transition: 'all 0.3s ease' }} />
+                                                </div>
+                                            </div>
+
+                                            <div style={{ marginBottom: '1.25rem', background: 'rgba(0,210,255,0.05)', padding: '0.75rem', borderRadius: '0.5rem', border: '1px solid rgba(0,210,255,0.1)' }}>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+                                                    <h4 style={{ fontSize: '0.7rem', color: '#00d2ff', textTransform: 'uppercase', fontWeight: 800, margin: 0, display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                                                        <BottleIcon size={14} /> Hydration
+                                                    </h4>
+                                                    <span style={{ fontSize: '0.8rem', fontWeight: 700 }}>{((day.water_ml || 0) / 1000).toFixed(1)} Liters</span>
+                                                </div>
+                                                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                                    <input 
+                                                        type="number"
+                                                        step="0.1"
+                                                        defaultValue={((day.water_ml || 0) / 1000).toFixed(1)}
+                                                        onBlur={(e) => updateHistoricalWater(day.date, e.target.value)}
+                                                        style={{ flex: 1, background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(0,210,255,0.2)', color: '#fff', padding: '0.5rem', borderRadius: '0.5rem', textAlign: 'center', fontWeight: 700 }}
+                                                    />
+                                                    <button className="btn" style={{ background: '#00d2ff', color: '#000', fontSize: '0.7rem', fontWeight: 800, padding: '0 1rem' }}>SET</button>
+                                                </div>
+                                            </div>
+
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                                                <h4 style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 800 }}>Logged Items</h4>
+                                                <button 
+                                                    className="btn btn-primary" 
+                                                    style={{ padding: '0.3rem 0.6rem', fontSize: '0.65rem' }}
+                                                    onClick={() => {
+                                                        setActiveTab('search');
+                                                        setMessage(`Retroactive logging for ${day.date}`);
+                                                        (window as any).retroactiveDate = day.date;
+                                                    }}
+                                                >
+                                                    + Add Item
+                                                </button>
+                                            </div>
+
+                                            <div style={{ display: 'grid', gap: '0.5rem' }}>
+                                                {day.food_items && day.food_items.length > 0 ? day.food_items.map((item: any, fIdx: number) => (
+                                                    <div key={fIdx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem 1rem', background: 'rgba(255,255,255,0.03)', borderRadius: '0.5rem', border: '1px solid rgba(255,255,255,0.05)' }}>
+                                                        <div>
+                                                            <div style={{ fontWeight: 700, fontSize: '0.9rem' }}>{item.label}</div>
+                                                            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                                                                {item.grams}g • {item.kcal} kcal • {item.type} • {(item.protein || 0).toFixed(2)}P {(item.carbs || 0).toFixed(2)}C {(item.fat || 0).toFixed(2)}F
+                                                            </div>
+                                                        </div>
+                                                        <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                                            <button 
+                                                                className="btn btn-secondary" 
+                                                                style={{ padding: '0.4rem', width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                                                onClick={() => {
+                                                                    setEditingLogItem({ item, date: day.date });
+                                                                }}
+                                                            >
+                                                                <EditIcon size={14} />
+                                                            </button>
+                                                            <button 
+                                                                className="btn btn-secondary" 
+                                                                style={{ padding: '0.4rem', width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ff4d4d' }}
+                                                                onClick={() => deleteHistoricalFood(item.logged_at, day.date)}
+                                                            >
+                                                                <TrashIcon size={14} />
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                )) : <p className="text-muted" style={{ fontSize: '0.8rem', textAlign: 'center', padding: '1rem' }}>No items logged.</p>}
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+            )}
+
             {activeTab === 'photo' && (
                 <>
                     <h2>AI Meal Analysis</h2>
@@ -461,93 +819,119 @@ export const MealAnalysis = ({ onSuccess }: { onSuccess?: () => void }) => {
                         <input type="text" placeholder="Search (e.g. Chicken Breast, Pasta...)" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
                     </div>
                     {loading && <p className="text-muted animate-fade-in">Searching...</p>}
+                    
+                    <div style={{ display: 'grid', gap: '0.5rem', marginTop: '1rem' }}>
+                        {results.map((r, i) => (
+                            <div key={i} onClick={() => handleSelect(i, r)} style={{ cursor: 'pointer', padding: '0.75rem 1rem', background: selectedIdx === i ? 'rgba(251, 197, 49, 0.05)' : 'rgba(255,255,255,0.02)', border: selectedIdx === i ? '1px solid var(--primary)' : '1px solid rgba(255,255,255,0.05)', borderRadius: '0.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <div>
+                                    <div style={{ fontWeight: 700 }}>{r.label}</div>
+                                    <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{r.kcal} kcal • {r.grams}g</div>
+                                </div>
+                                <PlusIcon size={16} color="var(--primary)" />
+                            </div>
+                        ))}
+                    </div>
+
+                    {editItem && (
+                        <div className="card animate-fade-in" style={{ marginTop: '2rem', border: '1px solid var(--primary)' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+                                <h3 style={{ margin: 0 }}>Refine & Log</h3>
+                                <div style={{ fontSize: '0.9rem', color: 'var(--primary)', fontWeight: 800 }}>{editItem.kcal} kcal <span style={{ opacity: 0.5, margin: '0 0.5rem' }}>•</span> {editItem.grams}g</div>
+                            </div>
+                            
+                            <div className="input-group">
+                                <label style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 800 }}>Food Name</label>
+                                <input type="text" value={editItem.label} onChange={e => setEditItem({...editItem, label: e.target.value})} />
+                            </div>
+
+                            {editItem.ingredients && editItem.ingredients.length > 0 ? (
+                                <div style={{ marginBottom: '1.5rem' }}>
+                                    <h4 style={{ fontSize: '0.75rem', color: 'var(--primary)', textTransform: 'uppercase', marginBottom: '1rem', fontWeight: 800 }}>Composition</h4>
+                                    <div style={{ display: 'grid', gap: '0.75rem' }}>
+                                        {editItem.ingredients.map((ing: any, idx: number) => (
+                                            <div key={idx} style={{ background: 'rgba(255,255,255,0.02)', padding: '1rem', borderRadius: '0.75rem', border: '1px solid rgba(255,255,255,0.03)' }}>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+                                                    <div style={{ fontWeight: 700, fontSize: '0.9rem' }}>{ing.label}</div>
+                                                    <button onClick={() => removeRefineIngredient(idx)} style={{ background: 'none', border: 'none', color: '#ff4d4d', cursor: 'pointer' }}>×</button>
+                                                </div>
+                                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                                                    <div className="input-group" style={{ marginBottom: 0 }}>
+                                                        <label style={{ fontSize: '0.6rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Grams</label>
+                                                        <input type="number" value={ing.grams} onChange={e => handleRefineIngredientChange(idx, 'grams', parseInt(e.target.value)||0)} style={{ fontSize: '0.8rem', textAlign: 'center' }} />
+                                                    </div>
+                                                    <div className="input-group" style={{ marginBottom: 0 }}>
+                                                        <label style={{ fontSize: '0.6rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Kcal</label>
+                                                        <input type="number" value={ing.kcal} onChange={e => handleRefineIngredientChange(idx, 'kcal', parseInt(e.target.value)||0)} style={{ fontSize: '0.8rem', textAlign: 'center' }} />
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="input-group">
+                                    <label style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 800 }}>Weight (Grams)</label>
+                                    <input type="number" value={editItem.grams} onChange={e => handleRefineSimpleChange('grams', parseInt(e.target.value)||0)} style={{ textAlign: 'center', fontSize: '1.1rem', fontWeight: 700 }} />
+                                </div>
+                            )}
+
+                            <button className="btn btn-primary" onClick={handleLogMeal} disabled={logging} style={{ width: '100%', marginTop: '1rem' }}>{logging ? 'Logging...' : 'Log This Meal'}</button>
+                        </div>
+                    )}
                 </>
             )}
 
             {activeTab === 'foods' && (
                 <>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <div>
-                            <h2>My Custom Foods</h2>
-                            <p className="text-muted">Individual ingredients or items (per 100g).</p>
-                        </div>
+                        <div><h2>My Custom Foods</h2><p className="text-muted">Individual items per 100g.</p></div>
                         <button className="btn btn-primary" onClick={() => setShowAddCustom(!showAddCustom)}>{showAddCustom ? 'Cancel' : '+ Add Food'}</button>
                     </div>
 
                     {showAddCustom && (
-                        <div className="card animate-fade-in" style={{ marginTop: '2rem', border: '1px solid var(--primary)', background: 'rgba(251, 197, 49, 0.02)' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-                                <h3 style={{ margin: 0 }}>New Custom Food</h3>
-                                <div style={{ display: 'flex', gap: '0.5rem' }}>
-                                    <button 
-                                        type="button" 
-                                        className={`btn ${newCustom.is_quantifiable ? 'btn-primary' : 'btn-secondary'}`}
-                                        style={{ fontSize: '0.7rem', padding: '0.4rem 0.8rem' }}
-                                        onClick={() => setNewCustom({...newCustom, is_quantifiable: !newCustom.is_quantifiable})}
-                                    >
-                                        {newCustom.is_quantifiable ? '✓ Quantifiable' : '+ Make Quantifiable'}
-                                    </button>
+                        <div className="card animate-fade-in" style={{ marginTop: '2rem', border: '1px solid var(--primary)', background: 'rgba(251, 197, 49, 0.03)' }}>
+                            <h3 style={{ marginBottom: '1.5rem' }}>Create New Food</h3>
+                            <form onSubmit={handleAddCustomFood} style={{ display: 'grid', gap: '1.25rem' }}>
+                                <div className="input-group">
+                                    <label style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 800 }}>Food Label</label>
+                                    <input type="text" placeholder="e.g. Greek Yogurt 2%" value={newCustom.label} onChange={e => setNewCustom({...newCustom, label: e.target.value})} required />
                                 </div>
-                            </div>
-                            
-                            <form onSubmit={handleAddCustomFood} style={{ display: 'grid', gap: '1rem' }}>
-                                <div style={{ display: 'grid', gridTemplateColumns: newCustom.is_quantifiable ? '2fr 1fr 1fr' : '2fr 1fr', gap: '1rem' }}>
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                                     <div className="input-group">
-                                        <label>Food Name</label>
-                                        <input type="text" placeholder="e.g. Rice Cake" value={newCustom.label} onChange={e => setNewCustom({...newCustom, label: e.target.value})} required />
+                                        <label style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 800 }}>Kcal / 100g</label>
+                                        <input type="number" value={newCustom.kcal_per_100g} onChange={e => setNewCustom({...newCustom, kcal_per_100g: e.target.value})} required />
                                     </div>
                                     <div className="input-group">
-                                        <label>Unit Weight (g)</label>
-                                        <input type="number" value={newCustom.default_grams} onChange={e => setNewCustom({...newCustom, default_grams: e.target.value})} required />
+                                        <label style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 800 }}>Protein</label>
+                                        <input type="number" step="0.1" value={newCustom.protein_per_100g} onChange={e => setNewCustom({...newCustom, protein_per_100g: e.target.value})} required />
                                     </div>
-                                    {newCustom.is_quantifiable && (
-                                        <div className="input-group">
-                                            <label>Unit Name</label>
-                                            <input type="text" placeholder="piece" value={newCustom.unit_name} onChange={e => setNewCustom({...newCustom, unit_name: e.target.value})} required />
-                                        </div>
-                                    )}
-                                </div>
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '1rem' }}>
-                                    <div className="input-group"><label>{newCustom.is_quantifiable ? 'Kcal/Unit' : 'Kcal (100g)'}</label><input type="number" value={newCustom.kcal_per_100g} onChange={e => setNewCustom({...newCustom, kcal_per_100g: e.target.value})} required /></div>
-                                    <div className="input-group"><label>{newCustom.is_quantifiable ? 'Pro/Unit (g)' : 'Protein (g)'}</label><input type="number" step="0.01" value={newCustom.protein_per_100g} onChange={e => setNewCustom({...newCustom, protein_per_100g: e.target.value})} required /></div>
-                                    <div className="input-group"><label>{newCustom.is_quantifiable ? 'Carb/Unit (g)' : 'Carbs (g)'}</label><input type="number" step="0.01" value={newCustom.carbs_per_100g} onChange={e => setNewCustom({...newCustom, carbs_per_100g: e.target.value})} required /></div>
-                                    <div className="input-group"><label>{newCustom.is_quantifiable ? 'Fat/Unit (g)' : 'Fat (g)'}</label><input type="number" step="0.01" value={newCustom.fat_per_100g} onChange={e => setNewCustom({...newCustom, fat_per_100g: e.target.value})} required /></div>
-                                </div>
-                                <div style={{ marginBottom: '1rem' }}>
-                                    <button type="button" className="btn btn-secondary" style={{ fontSize: '0.75rem', padding: '0.4rem 0.8rem' }} onClick={() => setShowAdvanced(!showAdvanced)}>{showAdvanced ? '− Hide Fiber/Salt' : '+ Add Fiber/Salt'}</button>
-                                </div>
-                                {showAdvanced && (
-                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
-                                        <div className="input-group"><label>{newCustom.is_quantifiable ? 'Fib/Unit (g)' : 'Fiber (g)'}</label><input type="number" step="0.01" value={newCustom.fiber_per_100g} onChange={e => setNewCustom({...newCustom, fiber_per_100g: e.target.value})} /></div>
-                                        <div className="input-group"><label>{newCustom.is_quantifiable ? 'Salt/Unit (g)' : 'Salt (g)'}</label><input type="number" step="0.01" value={newCustom.salt_per_100g} onChange={e => setNewCustom({...newCustom, salt_per_100g: e.target.value})} /></div>
+                                    <div className="input-group">
+                                        <label style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 800 }}>Carbs</label>
+                                        <input type="number" step="0.1" value={newCustom.carbs_per_100g} onChange={e => setNewCustom({...newCustom, carbs_per_100g: e.target.value})} required />
                                     </div>
-                                )}
-                                <button type="submit" className="btn btn-primary" style={{ width: '100%' }}>Save Food</button>
+                                    <div className="input-group">
+                                        <label style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 800 }}>Fat</label>
+                                        <input type="number" step="0.1" value={newCustom.fat_per_100g} onChange={e => setNewCustom({...newCustom, fat_per_100g: e.target.value})} required />
+                                    </div>
+                                </div>
+                                <button className="btn btn-primary" type="submit" style={{ width: '100%', padding: '1rem', fontWeight: 800, textTransform: 'uppercase' }}>Save to Library</button>
                             </form>
                         </div>
                     )}
 
-                    <div style={{ marginTop: '2rem', display: 'grid', gap: '1rem' }}>
-                        {customItems.filter(i => !i.is_whole_meal).map(cm => {
-                            const ratio = cm.is_quantifiable ? (parseFloat(cm.default_grams) || 100) / 100.0 : 1.0;
-                            return (
-                            <div key={cm.id} className="card" style={{ padding: '1rem', background: 'rgba(255,255,255,0.02)', marginBottom: 0 }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                    <div onClick={() => handleEditItem(cm)} style={{ cursor: 'pointer', flex: 1 }}>
-                                        <div style={{ fontWeight: 700, fontSize: '1.1rem' }}>{cm.label}</div>
-                                        <div style={{ display: 'flex', gap: '1rem', fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
-                                            <span>{Math.round(cm.kcal_per_100g * ratio)} kcal</span>
-                                            <span>P: {(cm.protein_per_100g * ratio).toFixed(1)}g C: {(cm.carbs_per_100g * ratio).toFixed(1)}g F: {(cm.fat_per_100g * ratio).toFixed(1)}g ({cm.is_quantifiable ? `1 ${cm.unit_name}` : '100g'})</span>
-                                        </div>
-                                    </div>
-                                    <div style={{ display: 'flex', gap: '0.5rem' }}>
-                                        <button className="btn btn-secondary" style={{ padding: '0.4rem 0.8rem', fontSize: '0.7rem' }} onClick={() => handleEditItem(cm)}>Edit</button>
-                                        <button className="btn btn-secondary" style={{ padding: '0.4rem 0.8rem', color: '#ff4d4d', borderColor: 'rgba(255,77,77,0.2)', fontSize: '0.7rem' }} onClick={() => handleDeleteCustom(cm.id)}>Delete</button>
-                                    </div>
+                    <div style={{ marginTop: '2rem', display: 'grid', gap: '0.75rem' }}>
+                        {customItems.filter(i => !i.is_whole_meal).map(i => (
+                            <div key={i.id} className="card" style={{ padding: '1rem', marginBottom: 0, background: 'rgba(255,255,255,0.02)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <div>
+                                    <div style={{ fontWeight: 700 }}>{i.label}</div>
+                                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{Math.round(i.kcal_per_100g)} kcal / 100g</div>
+                                </div>
+                                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                    <button className="btn btn-secondary" style={{ padding: '0.4rem' }} onClick={() => handleEditItem(i)}><EditIcon size={14}/></button>
+                                    <button className="btn btn-secondary" style={{ padding: '0.4rem', color: '#ff4d4d' }} onClick={() => handleDeleteCustom(i.id)}><TrashIcon size={14}/></button>
                                 </div>
                             </div>
-                            );
-                        })}
+                        ))}
                     </div>
                 </>
             )}
@@ -555,101 +939,126 @@ export const MealAnalysis = ({ onSuccess }: { onSuccess?: () => void }) => {
             {activeTab === 'meals' && (
                 <>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <div>
-                            <h2>My Whole Meals</h2>
-                            <p className="text-muted">Built from combinations of your foods.</p>
-                        </div>
-                        <button className="btn btn-primary" onClick={() => setIsBuildingMeal(!isBuildingMeal)}>{isBuildingMeal ? 'Cancel Builder' : '+ Build a Meal'}</button>
+                        <div><h2>My Whole Meals</h2><p className="text-muted">Your saved meal combinations.</p></div>
+                        <button className="btn btn-primary" onClick={() => setIsBuildingMeal(!isBuildingMeal)}>{isBuildingMeal ? 'Cancel' : '+ Build Meal'}</button>
                     </div>
 
                     {isBuildingMeal && (
-                        <div className="card animate-fade-in" style={{ marginTop: '2rem', border: '1px solid var(--primary)', background: 'rgba(0, 242, 254, 0.02)' }}>
-                            <h3>Meal Builder</h3>
-                            <div className="input-group" style={{ marginTop: '1.5rem' }}>
-                                <label>Meal Name</label>
-                                <input type="text" placeholder="e.g. My Daily Post-Workout Lunch" value={mealBuilderName} onChange={e => setMealBuilderName(e.target.value)} />
+                        <div className="card animate-fade-in" style={{ marginTop: '2rem', border: '1px solid var(--primary)', background: 'rgba(251, 197, 49, 0.03)', overflow: 'visible', position: 'relative', zIndex: 100 }}>
+                            <h3 style={{ marginBottom: '1.5rem' }}>Build New Meal</h3>
+                            
+                            <div className="input-group" style={{ marginBottom: '1.5rem' }}>
+                                <label style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 800 }}>Meal Name</label>
+                                <input type="text" placeholder="e.g. My Favorite Pasta" value={mealBuilderName} onChange={e => setMealBuilderName(e.target.value)} />
                             </div>
 
-                            <div className="input-group" style={{ position: 'relative' }}>
-                                <label>Add Foods to Meal</label>
-                                <input type="text" placeholder="Search foods..." value={builderSearch} onChange={e => setBuilderSearch(e.target.value)} />
+                            <div className="input-group" style={{ position: 'relative', zIndex: 110 }}>
+                                <label style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 800 }}>Add Ingredients</label>
+                                <div style={{ position: 'relative' }}>
+                                    <SearchIcon size={16} style={{ position: 'absolute', left: '0.75rem', top: '50%', transform: 'translateY(-50%)', opacity: 0.5 }} />
+                                    <input type="text" placeholder="Search to add..." value={builderSearch} onChange={e => setBuilderSearch(e.target.value)} style={{ paddingLeft: '2.5rem' }} />
+                                </div>
+                                
                                 {builderResults.length > 0 && (
-                                    <div className="card" style={{ position: 'absolute', top: '100%', left: 0, width: '100%', zIndex: 10, background: '#111', padding: '0.5rem', maxHeight: '200px', overflowY: 'auto', border: '1px solid var(--primary)' }}>
+                                    <div className="card" style={{ 
+                                        position: 'absolute', 
+                                        top: '100%', 
+                                        left: 0, 
+                                        width: '100%', 
+                                        zIndex: 120, 
+                                        padding: '0.5rem', 
+                                        background: '#000', 
+                                        border: '1px solid var(--primary)', 
+                                        boxShadow: '0 10px 30px rgba(0,0,0,0.8), 0 0 10px rgba(251,197,49,0.2)',
+                                        maxHeight: '200px', 
+                                        overflowY: 'auto',
+                                        marginTop: '0.25rem'
+                                    }}>
                                         {builderResults.map((r, i) => (
-                                            <div key={i} className="meal-item" onClick={() => addToMeal(r)} style={{ cursor: 'pointer', padding: '0.75rem', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                                                {r.label} <span className="text-muted">({r.kcal} kcal)</span>
+                                            <div 
+                                                key={i} 
+                                                onClick={() => addToMeal(r)} 
+                                                className="search-result-item"
+                                                style={{ 
+                                                    padding: '0.75rem', 
+                                                    cursor: 'pointer', 
+                                                    borderRadius: '0.4rem', 
+                                                    background: 'rgba(255,255,255,0.03)', 
+                                                    marginBottom: '0.25rem',
+                                                    border: '1px solid transparent',
+                                                    transition: 'all 0.2s ease',
+                                                    display: 'flex',
+                                                    justifyContent: 'space-between',
+                                                    alignItems: 'center'
+                                                }}
+                                                onMouseOver={(e) => {
+                                                    e.currentTarget.style.background = 'rgba(251,197,49,0.1)';
+                                                    e.currentTarget.style.borderColor = 'rgba(251,197,49,0.3)';
+                                                }}
+                                                onMouseOut={(e) => {
+                                                    e.currentTarget.style.background = 'rgba(255,255,255,0.03)';
+                                                    e.currentTarget.style.borderColor = 'transparent';
+                                                }}
+                                            >
+                                                <span style={{ fontWeight: 700, fontSize: '0.85rem' }}>{r.label}</span>
+                                                <span style={{ fontSize: '0.75rem', color: 'var(--primary)', fontWeight: 800 }}>{r.kcal} kcal</span>
                                             </div>
                                         ))}
                                     </div>
                                 )}
                             </div>
 
-                            {mealBuilderItems.length > 0 && (
-                                <div style={{ marginTop: '2rem', borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '1.5rem' }}>
-                                    <div style={{ display: 'grid', gap: '0.75rem' }}>
-                                        {mealBuilderItems.map((item, idx) => (
-                                            <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '1rem', background: 'rgba(255,255,255,0.02)', padding: '0.75rem', borderRadius: '0.5rem' }}>
-                                                <div style={{ flex: 1 }}>
-                                                    <div style={{ fontWeight: 600 }}>{item.label}</div>
-                                                    <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
-                                                        {item.is_quantifiable ? `${(item.grams / item.default_grams).toFixed(1)} ${item.unit_name}s` : `${item.grams}g`}
-                                                    </div>
-                                                </div>
-                                                
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                                    {item.is_quantifiable ? (
-                                                        <>
-                                                            <button className="btn btn-secondary" style={{ padding: '0.2rem 0.5rem', fontSize: '0.8rem' }} onClick={() => updateBuilderItemGrams(idx, Math.max(0, item.grams - (parseFloat(item.default_grams) || 100)))}>−</button>
-                                                            <div style={{ width: '40px', textAlign: 'center', fontWeight: 700 }}>{(item.grams / (parseFloat(item.default_grams) || 100)).toFixed(0)}</div>
-                                                            <button className="btn btn-secondary" style={{ padding: '0.2rem 0.5rem', fontSize: '0.8rem' }} onClick={() => updateBuilderItemGrams(idx, item.grams + (parseFloat(item.default_grams) || 100))}>+</button>
-                                                        </>
-                                                    ) : (
-                                                        <div className="input-group" style={{ width: '80px', marginBottom: 0 }}>
-                                                            <input type="number" value={item.grams} onChange={e => updateBuilderItemGrams(idx, parseInt(e.target.value)||0)} style={{ padding: '0.3rem' }} />
-                                                        </div>
-                                                    )}
-                                                </div>
+                            <div style={{ marginTop: '1.5rem', display: 'grid', gap: '0.5rem' }}>
+                                {mealBuilderItems.map((item, idx) => (
+                                    <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem', background: 'rgba(255,255,255,0.02)', borderRadius: '0.5rem' }}>
+                                        <div style={{ flex: 1 }}>
+                                            <div style={{ fontWeight: 700, fontSize: '0.9rem' }}>{item.label}</div>
+                                            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{item.kcal} kcal</div>
+                                        </div>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                                            <input 
+                                                type="number" 
+                                                value={item.grams} 
+                                                onChange={e => updateBuilderItemGrams(idx, parseInt(e.target.value)||0)}
+                                                style={{ width: '70px', padding: '0.3rem', fontSize: '0.8rem', textAlign: 'center' }} 
+                                            />
+                                            <button onClick={() => removeFromBuilder(idx)} style={{ background: 'none', border: 'none', color: '#ff4d4d', cursor: 'pointer' }}>×</button>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
 
-                                                <button className="btn btn-secondary" style={{ padding: '0.3rem 0.6rem', color: '#ff4d4d' }} onClick={() => removeFromBuilder(idx)}>×</button>
-                                            </div>
-                                        ))}
+                            {mealBuilderItems.length > 0 && (
+                                <div style={{ marginTop: '1.5rem', padding: '1rem', background: 'rgba(251,197,49,0.1)', borderRadius: '0.75rem', textAlign: 'center' }}>
+                                    <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '0.25rem' }}>Total Meal Stats</div>
+                                    <div style={{ fontWeight: 800, color: 'var(--primary)', fontSize: '1.1rem' }}>
+                                        {builderTotals.kcal} kcal <span style={{ opacity: 0.3, margin: '0 0.5rem' }}>•</span> 
+                                        {builderTotals.p.toFixed(1)}P {builderTotals.c.toFixed(1)}C {builderTotals.f.toFixed(1)}F
                                     </div>
-                                    
-                                    <div style={{ marginTop: '2rem', padding: '1.5rem', background: 'rgba(0,0,0,0.3)', borderRadius: '1rem', border: '1px solid rgba(0, 242, 254, 0.1)' }}>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-                                            <span style={{ fontWeight: 800 }}>MEAL TOTAL</span>
-                                            <span style={{ color: 'var(--primary)', fontWeight: 900, fontSize: '1.2rem' }}>{builderTotals.kcal} KCAL</span>
-                                        </div>
-                                        <div style={{ display: 'flex', gap: '1rem', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                                            <span>P: {Number(builderTotals.p).toFixed(2)}g</span>
-                                            <span>C: {Number(builderTotals.c).toFixed(2)}g</span>
-                                            <span>F: {Number(builderTotals.f).toFixed(2)}g</span>
-                                            {builderTotals.fib > 0 && <span>Fib: {Number(builderTotals.fib).toFixed(2)}g</span>}
-                                        </div>
-                                    </div>
-                                    
-                                    <button className="btn btn-primary" style={{ width: '100%', marginTop: '1.5rem' }} onClick={saveBuiltMeal} disabled={!mealBuilderName || mealBuilderItems.length === 0}>Save Whole Meal</button>
                                 </div>
                             )}
+
+                            <button 
+                                className="btn btn-primary" 
+                                disabled={!mealBuilderName || mealBuilderItems.length === 0} 
+                                onClick={saveBuiltMeal}
+                                style={{ width: '100%', marginTop: '1.5rem', padding: '1rem', fontWeight: 800, textTransform: 'uppercase' }}
+                            >
+                                Save Whole Meal
+                            </button>
                         </div>
                     )}
 
-                    <div style={{ marginTop: '2rem', display: 'grid', gap: '1rem' }}>
-                        {customItems.filter(i => i.is_whole_meal).map(cm => (
-                            <div key={cm.id} className="card" style={{ padding: '1.25rem', background: 'rgba(255,255,255,0.02)', borderLeft: '4px solid var(--primary)' }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                    <div onClick={() => handleEditItem(cm)} style={{ cursor: 'pointer', flex: 1 }}>
-                                        <div style={{ fontWeight: 800, fontSize: '1.2rem', color: 'var(--primary)' }}>{cm.label}</div>
-                                        <div style={{ display: 'flex', gap: '1rem', fontSize: '0.8rem', color: '#fff', marginTop: '0.5rem' }}>
-                                            <span style={{ fontWeight: 700 }}>{Math.round(cm.kcal_per_100g)} kcal</span>
-                                            <span className="text-muted">P: {Number(cm.protein_per_100g).toFixed(2)}g C: {Number(cm.carbs_per_100g).toFixed(2)}g F: {Number(cm.fat_per_100g).toFixed(2)}g</span>
-                                        </div>
-                                    </div>
-                                    <div style={{ display: 'flex', gap: '0.5rem' }}>
-                                        <button className="btn btn-primary" style={{ padding: '0.5rem 1rem', fontSize: '0.75rem', fontWeight: 800 }} onClick={() => handleQuickLog(cm)} disabled={logging}>QUICK LOG</button>
-                                        <button className="btn btn-secondary" style={{ padding: '0.5rem 0.8rem', fontSize: '0.75rem' }} onClick={() => handleEditItem(cm)}>Edit</button>
-                                        <button className="btn btn-secondary" style={{ padding: '0.5rem 0.8rem', color: '#ff4d4d', fontSize: '0.75rem' }} onClick={() => handleDeleteCustom(cm.id)}>Delete</button>
-                                    </div>
+                    <div style={{ marginTop: '2rem', display: 'grid', gap: '0.75rem' }}>
+                        {customItems.filter(i => i.is_whole_meal).map(i => (
+                            <div key={i.id} className="card" style={{ padding: '1.25rem', borderLeft: '4px solid var(--primary)', marginBottom: 0, background: 'rgba(255,255,255,0.02)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <div>
+                                    <div style={{ fontWeight: 700 }}>{i.label}</div>
+                                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{Math.round(i.kcal_per_100g)} kcal total</div>
+                                </div>
+                                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                    <button className="btn btn-secondary" style={{ padding: '0.4rem' }} onClick={() => handleEditItem(i)}><EditIcon size={14}/></button>
+                                    <button className="btn btn-secondary" style={{ padding: '0.4rem', color: '#ff4d4d' }} onClick={() => handleDeleteCustom(i.id)}><TrashIcon size={14}/></button>
                                 </div>
                             </div>
                         ))}
@@ -658,228 +1067,140 @@ export const MealAnalysis = ({ onSuccess }: { onSuccess?: () => void }) => {
             )}
 
             {message && (
-                <div style={{ marginTop: '1.5rem', padding: '1rem', borderRadius: '0.75rem', background: 'rgba(0,242,254,0.1)', color: 'var(--primary)', textAlign: 'center', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
-                    <SuccessIcon size={20} /> {message}
-                </div>
+                <div style={{ marginTop: '1.5rem', padding: '1rem', borderRadius: '0.75rem', background: 'rgba(0,242,254,0.1)', color: 'var(--primary)', textAlign: 'center', fontWeight: 600 }}>{message}</div>
             )}
         </div>
       </div>
 
-
-      {(results.length > 0 || editItem) && (
-        <div style={{ display: 'grid', gridTemplateColumns: results.length > 0 ? '1fr 1fr' : '1fr', gap: '2rem', marginTop: '2rem' }}>
-            {results.length > 0 && (
-            <div className="card">
-                <h3>Search Results</h3>
-                <p className="text-muted" style={{ marginBottom: '1.5rem' }}>Select the closest match:</p>
-                <div style={{ maxHeight: '440px', overflowY: 'auto', paddingRight: '0.5rem' }}>
-                    {results.map((item, idx) => (
-                    <div 
-                        key={idx} 
-                        className="meal-item"
-                        onClick={() => handleSelect(idx, item)}
-                        style={{ 
-                        cursor: 'pointer', 
-                        flexDirection: 'column',
-                        alignItems: 'flex-start',
-                        border: selectedIdx === idx ? '1px solid var(--primary)' : '1px solid var(--card-border)',
-                        background: selectedIdx === idx ? 'rgba(0, 242, 254, 0.05)' : undefined,
-                        transition: 'all 0.2s ease'
-                        }}
-                    >
-                        <div style={{ display: 'flex', width: '100%', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-                            <div className="meal-info">
-                                <span className="meal-label">{item.label}</span>
-                                {item.is_custom && <span style={{ fontSize: '0.6rem', background: 'var(--primary)', color: '#000', padding: '0.1rem 0.3rem', borderRadius: '0.2rem', marginLeft: '0.5rem', fontWeight: 900 }}>CUSTOM</span>}
-                            </div>
-                            <div className="meal-kcal">{item.kcal} kcal</div>
-                        </div>
-                        <div style={{ display: 'flex', gap: '0.75rem', fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 700 }}>
-                            <span>P: {Number(item.protein).toFixed(2)}g</span>
-                            <span>C: {Number(item.carbs).toFixed(2)}g</span>
-                            <span>F: {Number(item.fat).toFixed(2)}g</span>
-                        </div>
-                    </div>
-                    ))}
-                </div>
-            </div>
-            )}
-
-            {editItem && (
-            <div className="card animate-fade-in">
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-                    <h3 style={{ margin: 0 }}>Refine & Log</h3>
-                    <div style={{ background: 'var(--primary)', color: '#000', padding: '0.2rem 0.6rem', borderRadius: '0.4rem', fontWeight: 900, fontSize: '0.7rem' }}>
-                        {editItem.original_item?.is_whole_meal ? 'WHOLE MEAL' : (editItem.original_item?.is_quantifiable ? 'UNIT BASED' : 'WEIGHT BASED')}
-                    </div>
-                </div>
-
-                <div className="input-group">
-                    <label>Meal Category</label>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', marginBottom: '1rem' }}>
-                        {['Breakfast', 'Lunch', 'Dinner', 'Snack'].map(cat => (
-                            <button 
-                                key={cat}
-                                type="button"
-                                className={`btn ${mealType === cat ? 'btn-primary' : 'btn-secondary'}`}
-                                style={{ fontSize: '0.8rem', padding: '0.5rem', fontWeight: mealType === cat ? 800 : 400 }}
-                                onClick={() => setMealType(cat)}
-                            >
-                                {cat}
-                            </button>
-                        ))}
-                    </div>
-                </div>
-
-                <div className="input-group">
-                    <label>Food/Meal Name</label>
-                    <input type="text" value={editItem.label} onChange={(e) => setEditItem({ ...editItem, label: e.target.value })} />
-                </div>
-                
-                <div style={{ display: 'grid', gridTemplateColumns: editItem.original_item?.is_quantifiable ? '1.2fr 1fr' : '1fr 1fr', gap: '1rem', background: 'rgba(255,255,255,0.02)', padding: '1rem', borderRadius: '0.75rem', marginBottom: '1.5rem' }}>
-                    {editItem.original_item?.is_quantifiable ? (
-                        <div className="input-group" style={{ marginBottom: 0 }}>
-                            <label>Quantity ({editItem.original_item.unit_name}s)</label>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                                <button className="btn btn-secondary" style={{ padding: '0.5rem 1rem' }} onClick={() => {
-                                    const newQ = Math.max(0.5, Number(quantity) - 1);
-                                    const newGrams = newQ * (parseFloat(editItem.original_item?.default_grams) || 100);
-                                    updateEditItemStats(newGrams, newQ);
-                                }}>−</button>
-                                <input 
-                                    type="number" 
-                                    step="0.5"
-                                    value={quantity} 
-                                    onChange={(e) => {
-                                        const newQ = parseFloat(e.target.value) || 0;
-                                        const newGrams = newQ * (parseFloat(editItem.original_item?.default_grams) || 100);
-                                        updateEditItemStats(newGrams, newQ);
-                                    }} 
-                                    style={{ textAlign: 'center', fontWeight: 800, fontSize: '1.2rem' }}
-                                />
-                                <button className="btn btn-secondary" style={{ padding: '0.5rem 1rem' }} onClick={() => {
-                                    const newQ = Number(quantity) + 1;
-                                    const newGrams = newQ * (parseFloat(editItem.original_item?.default_grams) || 100);
-                                    updateEditItemStats(newGrams, newQ);
-                                }}>+</button>
-                            </div>
-                        </div>
-                    ) : (
-                        <div className="input-group" style={{ marginBottom: 0 }}>
-                            <label>Weight (g)</label>
-                            <input 
-                                type="number" 
-                                value={editItem.grams} 
-                                onChange={(e) => {
-                                    const newGrams = parseInt(e.target.value) || 0;
-                                    updateEditItemStats(newGrams, quantity);
-                                }} 
-                            />
-                        </div>
-                    )}
-                    <div className="input-group" style={{ marginBottom: 0 }}>
-                        <label>Total Calories</label>
-                        <input type="number" value={editItem.kcal} onChange={(e) => {
-                            const val = parseInt(e.target.value) || 0;
-                            const g = Number(editItem.grams) || 100;
-                            setEditItem({ 
-                                ...editItem, 
-                                kcal: val,
-                                kcal_100g: val / (g / 100)
-                            });
-                        }} style={{ color: 'var(--primary)', fontWeight: 800, fontSize: '1.1rem' }} />
-                    </div>
-                </div>
-
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem' }}>
-                    <div className="input-group"><label>Protein (g)</label><input type="number" step="0.01" value={editItem.protein.toFixed(2)} onChange={e => {
-                        const val = parseFloat(e.target.value) || 0;
-                        const g = Number(editItem.grams) || 100;
-                        setEditItem({...editItem, protein: val, protein_100g: val / (g / 100)});
-                    }}/></div>
-                    <div className="input-group"><label>Carbs (g)</label><input type="number" step="0.01" value={editItem.carbs.toFixed(2)} onChange={e => {
-                        const val = parseFloat(e.target.value) || 0;
-                        const g = Number(editItem.grams) || 100;
-                        setEditItem({...editItem, carbs: val, carbs_100g: val / (g / 100)});
-                    }}/></div>
-                    <div className="input-group"><label>Fat (g)</label><input type="number" step="0.01" value={editItem.fat.toFixed(2)} onChange={e => {
-                        const val = parseFloat(e.target.value) || 0;
-                        const g = Number(editItem.grams) || 100;
-                        setEditItem({...editItem, fat: val, fat_100g: val / (g / 100)});
-                    }}/></div>
-                </div>
-
-                <div style={{ marginBottom: '1rem', marginTop: '1rem' }}>
-                    <button type="button" className="btn btn-secondary" style={{ fontSize: '0.75rem', padding: '0.4rem 0.8rem', opacity: 0.7 }} onClick={() => setShowEditAdvanced(!showEditAdvanced)}>{showEditAdvanced ? '− Hide Advanced' : '+ Add Fiber/Salt'}</button>
-                </div>
-
-                {showEditAdvanced && (
-                    <div className="animate-fade-in" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
-                        <div className="input-group"><label>Fiber (g)</label><input type="number" step="0.01" value={editItem.fiber?.toFixed(2) || 0} onChange={e => setEditItem({...editItem, fiber: parseFloat(e.target.value)||0})}/></div>
-                        <div className="input-group"><label>Salt (g)</label><input type="number" step="0.01" value={editItem.salt?.toFixed(2) || 0} onChange={e => setEditItem({...editItem, salt: parseFloat(e.target.value)||0})}/></div>
-                    </div>
-                )}
-                
-                <button className="btn btn-primary" onClick={handleLogMeal} disabled={logging} style={{ width: '100%', marginTop: '1rem', padding: '1.25rem', fontSize: '1rem' }}>{logging ? 'Saving...' : 'Confirm & Log to Diary'}</button>
-            </div>
-            )}
-        </div>
-      )}
-
       {editingCustomItem && createPortal(
-          <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: '1.5rem', backdropFilter: 'blur(4px)' }}>
-              <div className="card animate-fade-in" style={{ maxWidth: '600px', width: '100%', border: '1px solid var(--primary)' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
-                      <h3 style={{ margin: 0 }}>Edit {editingCustomItem.is_whole_meal ? 'Meal' : 'Food'}</h3>
-                      {!editingCustomItem.is_whole_meal && (
-                          <button 
-                              className={`btn ${editForm.is_quantifiable ? 'btn-primary' : 'btn-secondary'}`}
-                              style={{ fontSize: '0.7rem', padding: '0.4rem 0.8rem' }}
-                              onClick={() => setEditForm({...editForm, is_quantifiable: !editForm.is_quantifiable})}
-                          >
-                              {editForm.is_quantifiable ? '✓ Quantifiable' : '+ Make Quantifiable'}
-                          </button>
-                      )}
+          <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 11000, padding: '1rem', backdropFilter: 'blur(10px)' }}>
+            <div className="card" style={{ width: '100%', maxWidth: '500px', padding: '2rem', position: 'relative', background: '#0a0a0a', border: '1px solid var(--card-border)', borderRadius: '1rem', maxHeight: '95vh', overflowY: 'auto' }}>
+              <button onClick={() => setEditingCustomItem(null)} style={{ position: 'absolute', top: '1rem', right: '1rem', background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: '1.5rem', cursor: 'pointer' }}>×</button>
+              <h2 style={{ marginBottom: '1.5rem' }}>Edit {editingCustomItem.is_whole_meal ? 'Meal' : 'Food'}</h2>
+              
+              <form onSubmit={handleUpdateCustomItem} style={{ display: 'grid', gap: '1.25rem' }}>
+                  <div className="input-group">
+                      <label style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 800 }}>Label</label>
+                      <input type="text" value={editForm.label} onChange={e => setEditForm({...editForm, label: e.target.value})} required />
                   </div>
 
-                  <form onSubmit={handleUpdateCustomItem} style={{ display: 'grid', gap: '1.25rem' }}>
-                      <div style={{ display: 'grid', gridTemplateColumns: editForm.is_quantifiable ? '2fr 1fr 1fr' : '2fr 1fr', gap: '1rem' }}>
-                          <div className="input-group">
-                              <label>Name</label>
-                              <input type="text" value={editForm.label} onChange={e => setEditForm({...editForm, label: e.target.value})} required />
+                  {editingCustomItem.is_whole_meal ? (
+                      <div style={{ padding: '1rem', background: 'rgba(255,255,255,0.02)', borderRadius: '0.75rem', border: '1px solid rgba(255,255,255,0.05)' }}>
+                          <h4 style={{ fontSize: '0.7rem', color: 'var(--primary)', textTransform: 'uppercase', marginBottom: '1rem', fontWeight: 800 }}>Composition</h4>
+                          <div style={{ display: 'grid', gap: '1rem' }}>
+                              {editForm.ingredients.map((ing: any, i: number) => (
+                                  <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 100px', gap: '0.75rem', alignItems: 'center' }}>
+                                      <span style={{ fontSize: '0.85rem' }}>{ing.label}</span>
+                                      <div className="input-group" style={{ marginBottom: 0 }}>
+                                          <input 
+                                            type="number" 
+                                            value={ing.grams} 
+                                            onChange={e => handleEditIngredientChange(i, 'grams', parseInt(e.target.value)||0)}
+                                            style={{ padding: '0.4rem', fontSize: '0.8rem', textAlign: 'center' }} 
+                                          />
+                                      </div>
+                                  </div>
+                              ))}
                           </div>
-                          {!editingCustomItem.is_whole_meal && (
-                              <div className="input-group">
-                                  <label>{editForm.is_quantifiable ? 'Unit Wt' : 'Std Wt'} (g)</label>
-                                  <input type="number" value={editForm.default_grams} onChange={e => setEditForm({...editForm, default_grams: e.target.value})} required />
-                              </div>
-                          )}
-                          {editForm.is_quantifiable && (
-                              <div className="input-group">
-                                  <label>Unit Name</label>
-                                  <input type="text" placeholder="piece" value={editForm.unit_name} onChange={e => setEditForm({...editForm, unit_name: e.target.value})} required />
-                              </div>
-                          )}
                       </div>
-
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '1rem' }}>
-                          <div className="input-group"><label>{editingCustomItem.is_whole_meal ? 'Total Kcal' : (editForm.is_quantifiable ? 'Kcal/Unit' : 'Kcal (100g)')}</label><input type="number" value={editForm.kcal_per_100g} onChange={e => setEditForm({...editForm, kcal_per_100g: e.target.value})} required /></div>
-                          <div className="input-group"><label>{editForm.is_quantifiable && !editingCustomItem.is_whole_meal ? 'Pro/Unit (g)' : 'Protein (g)'}</label><input type="number" step="0.01" value={editForm.protein_per_100g} onChange={e => setEditForm({...editForm, protein_per_100g: e.target.value})} required /></div>
-                          <div className="input-group"><label>{editForm.is_quantifiable && !editingCustomItem.is_whole_meal ? 'Carb/Unit (g)' : 'Carbs (g)'}</label><input type="number" step="0.01" value={editForm.carbs_per_100g} onChange={e => setEditForm({...editForm, carbs_per_100g: e.target.value})} required /></div>
-                          <div className="input-group"><label>{editForm.is_quantifiable && !editingCustomItem.is_whole_meal ? 'Fat/Unit (g)' : 'Fat (g)'}</label><input type="number" step="0.01" value={editForm.fat_per_100g} onChange={e => setEditForm({...editForm, fat_per_100g: e.target.value})} required /></div>
-                      </div>
-
+                  ) : (
                       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                          <div className="input-group"><label>{editForm.is_quantifiable && !editingCustomItem.is_whole_meal ? 'Fib/Unit (g)' : 'Fiber (g)'}</label><input type="number" step="0.01" value={editForm.fiber_per_100g} onChange={e => setEditForm({...editForm, fiber_per_100g: e.target.value})} /></div>
-                          <div className="input-group"><label>{editForm.is_quantifiable && !editingCustomItem.is_whole_meal ? 'Salt/Unit (g)' : 'Salt (g)'}</label><input type="number" step="0.01" value={editForm.salt_per_100g} onChange={e => setEditForm({...editForm, salt_per_100g: e.target.value})} /></div>
+                          <div className="input-group">
+                              <label style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 800 }}>Kcal / 100g</label>
+                              <input type="number" value={editForm.kcal_per_100g} onChange={e => setEditForm({...editForm, kcal_per_100g: e.target.value})} required />
+                          </div>
+                          <div className="input-group">
+                              <label style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 800 }}>Protein</label>
+                              <input type="number" step="0.1" value={editForm.protein_per_100g} onChange={e => setEditForm({...editForm, protein_per_100g: e.target.value})} required />
+                          </div>
+                          <div className="input-group">
+                              <label style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 800 }}>Carbs</label>
+                              <input type="number" step="0.1" value={editForm.carbs_per_100g} onChange={e => setEditForm({...editForm, carbs_per_100g: e.target.value})} required />
+                          </div>
+                          <div className="input-group">
+                              <label style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 800 }}>Fat</label>
+                              <input type="number" step="0.1" value={editForm.fat_per_100g} onChange={e => setEditForm({...editForm, fat_per_100g: e.target.value})} required />
+                          </div>
                       </div>
+                  )}
 
-                      <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem' }}>
-                          <button type="button" className="btn btn-secondary" style={{ flex: 1 }} onClick={() => setEditingCustomItem(null)}>Cancel</button>
-                          <button type="submit" className="btn btn-primary" style={{ flex: 2 }} disabled={updating}>{updating ? 'Saving...' : 'Confirm'}</button>
+                  <div style={{ marginTop: '1rem', padding: '1rem', background: 'rgba(251,197,49,0.05)', borderRadius: '0.75rem', textAlign: 'center' }}>
+                      <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '0.25rem' }}>Total Stats</div>
+                      <div style={{ fontWeight: 800, color: 'var(--primary)', fontSize: '1.1rem' }}>
+                          {editForm.kcal_per_100g} kcal <span style={{ opacity: 0.3, margin: '0 0.5rem' }}>•</span> 
+                          {editForm.protein_per_100g}P {editForm.carbs_per_100g}C {editForm.fat_per_100g}F
                       </div>
-                  </form>
+                  </div>
+
+                  <button className="btn btn-primary" type="submit" disabled={updating} style={{ width: '100%', padding: '1rem', fontWeight: 800 }}>
+                      {updating ? 'Updating...' : 'Save Changes'}
+                  </button>
+              </form>
+            </div>
+          </div>,
+          document.body
+      )}
+
+      {editingLogItem && createPortal(
+          <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 11000, padding: '1rem', backdropFilter: 'blur(10px)' }}>
+            <div className="card" style={{ width: '100%', maxWidth: '450px', padding: '2rem', position: 'relative', background: '#0a0a0a', border: '1px solid var(--card-border)', borderRadius: '1rem', maxHeight: '95vh', overflowY: 'auto' }}>
+              <button onClick={() => setEditingLogItem(null)} style={{ position: 'absolute', top: '1rem', right: '1rem', background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: '1.5rem', cursor: 'pointer' }}>×</button>
+              <h2 style={{ marginBottom: '1.5rem' }}>Edit Historical Log</h2>
+              <p style={{ color: 'var(--primary)', fontWeight: 800, fontSize: '1rem', marginBottom: '1.5rem', textTransform: 'uppercase' }}>{editingLogItem.item.label} <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem', textTransform: 'none' }}>on {editingLogItem.date}</span></p>
+              
+              <div style={{ display: 'grid', gap: '1.5rem' }}>
+                  <div className="input-group">
+                      <label style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 800, marginBottom: '0.5rem', display: 'block' }}>Weight (Grams)</label>
+                      <input 
+                        type="number" 
+                        value={editingLogItem.item.grams} 
+                        onChange={e => {
+                            const newG = parseInt(e.target.value)||0;
+                            const item = { ...editingLogItem.item, grams: newG };
+                            
+                            // Recalculate if base rates exist
+                            const kcal100 = Number(item.kcal_100g) || (item.ingredients ? null : (Number(item.kcal) / (Number(editingLogItem.item.grams)/100)));
+                            if (kcal100 && !item.ingredients) {
+                                const ratio = newG / 100;
+                                item.kcal = Math.round(kcal100 * ratio);
+                                if (item.protein_100g) item.protein = Number((Number(item.protein_100g) * ratio).toFixed(1));
+                                if (item.carbs_100g) item.carbs = Number((Number(item.carbs_100g) * ratio).toFixed(1));
+                                if (item.fat_100g) item.fat = Number((Number(item.fat_100g) * ratio).toFixed(1));
+                            }
+                            setEditingLogItem({ ...editingLogItem, item });
+                        }} 
+                        style={{ width: '100%', padding: '0.8rem', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '0.75rem', color: '#fff', textAlign: 'center', fontSize: '1.1rem', fontWeight: 700 }}
+                      />
+                  </div>
+
+                  <div className="input-group">
+                      <label style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 800, marginBottom: '0.5rem', display: 'block' }}>Total Calories</label>
+                      <input 
+                        type="number" 
+                        value={editingLogItem.item.kcal} 
+                        onChange={e => setEditingLogItem({...editingLogItem, item: {...editingLogItem.item, kcal: parseInt(e.target.value)||0}})} 
+                        style={{ width: '100%', padding: '0.8rem', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '0.75rem', color: 'var(--primary)', textAlign: 'center', fontSize: '1.1rem', fontWeight: 800 }}
+                      />
+                  </div>
+
+                  {editingLogItem.item.ingredients && editingLogItem.item.ingredients.length > 0 && (
+                      <div style={{ padding: '1rem', background: 'rgba(255,255,255,0.02)', borderRadius: '0.75rem', border: '1px solid rgba(255,255,255,0.05)' }}>
+                          <h4 style={{ fontSize: '0.7rem', color: 'var(--primary)', textTransform: 'uppercase', marginBottom: '1rem', fontWeight: 800 }}>Composition</h4>
+                          <div style={{ display: 'grid', gap: '0.5rem' }}>
+                              {editingLogItem.item.ingredients.map((ing: any, i: number) => (
+                                  <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem' }}>
+                                      <span style={{ color: 'var(--text-muted)' }}>{ing.label}</span>
+                                      <span style={{ fontWeight: 600 }}>{ing.grams}g • {ing.kcal} kcal</span>
+                                  </div>
+                              ))}
+                          </div>
+                          <p style={{ fontSize: '0.65rem', color: 'var(--text-muted)', marginTop: '1rem', textAlign: 'center' }}>* Composition is currently read-only in historical view.</p>
+                      </div>
+                  )}
+
+                  <button className="btn btn-primary" style={{ width: '100%', padding: '1rem', fontWeight: 800, textTransform: 'uppercase' }} onClick={() => handleUpdateHistoricalItem(editingLogItem.item, editingLogItem.date, editingLogItem.item.logged_at)}>Save Changes</button>
               </div>
+            </div>
           </div>,
           document.body
       )}

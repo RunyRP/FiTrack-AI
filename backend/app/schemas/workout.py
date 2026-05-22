@@ -5,6 +5,7 @@ import datetime
 class WorkoutSet(BaseModel):
     reps: int
     weight: float
+    rpe: Optional[float] = None
 
 class WorkoutExerciseBase(BaseModel):
     exercise_name: str
@@ -81,3 +82,19 @@ class WorkoutSchedule(WorkoutScheduleBase):
 
     class Config:
         from_attributes = True
+
+# New schemas for AI Load Prediction
+class SessionHistory(BaseModel):
+    date: str
+    weight_kg: float
+    sets: int
+    reps: int
+    rpe: float  # Rate of Perceived Exertion (Scala 1-10)
+
+class PredictionRequest(BaseModel):
+    exercise_name: str
+    history: List[SessionHistory]
+
+class PlateauRequest(BaseModel):
+    exercise_name: str
+    history: List[SessionHistory]

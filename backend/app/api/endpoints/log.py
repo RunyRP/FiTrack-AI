@@ -74,7 +74,8 @@ def get_recent_items(
                     "carbs_per_100g": (item.get("carbs", 0) / grams) * 100 if grams > 0 else 0,
                     "fat_per_100g": (item.get("fat", 0) / grams) * 100 if grams > 0 else 0,
                     "is_quantifiable": False,
-                    "default_grams": grams
+                    "default_grams": grams,
+                    "ingredients": item.get("ingredients")
                 })
                 seen_labels.add(label)
                 if len(recent_items) >= 10:
@@ -109,6 +110,21 @@ def get_dashboard_data(
     
     log_map_7 = {l.date: l for l in existing_logs_7}
     history_list = []
+
+    # Get user targets for comparison
+    from app.core.calculations import calculate_macros
+    target_kcal = (current_user.profile.target_kcal if current_user.profile else 2000) or 2000
+    macros = calculate_macros(target_kcal, current_user.profile.macro_distribution if current_user.profile else "balanced")
+    
+    targets = {
+        "kcal": target_kcal,
+        "steps": current_user.profile.target_steps if current_user.profile else 10000,
+        "water_ml": 3000, # Hardcoded default for now
+        "protein": macros["protein"],
+        "carbs": macros["carbs"],
+        "fat": macros["fat"]
+    }
+
     for i in range(7):
         curr_date = start_date_7 + timedelta(days=i)
         if curr_date in log_map_7:
@@ -121,14 +137,34 @@ def get_dashboard_data(
                     c += item.get("carbs", 0)
                     f += item.get("fat", 0)
                     
+            # Calculate rating (0-5)
+            kcal_target = targets["kcal"]
+            steps_target = targets["steps"]
+            water_target = targets["water_ml"]
+            
+            kcal_ok = entry.total_kcal > 0 and abs(entry.total_kcal - kcal_target) / kcal_target <= 0.15
+            steps_ok = entry.steps >= steps_target
+            water_ok = entry.water_ml >= water_target
+            
+            points = 0
+            if kcal_ok: points += 1
+            if steps_ok: points += 1
+            if water_ok: points += 1
+            if kcal_ok and steps_ok and water_ok: points += 1
+            if entry.got_creatine: points += 1
+            
             history_list.append({
                 "date": curr_date.isoformat(),
                 "total_kcal": int(entry.total_kcal or 0),
-                "protein": round(p, 1),
-                "carbs": round(c, 1),
-                "fat": round(f, 1),
+                "protein": round(p, 2),
+                "carbs": round(c, 2),
+                "fat": round(f, 2),
                 "steps": int(entry.steps or 0),
-                "weight": entry.weight
+                "water_ml": int(entry.water_ml or 0),
+                "weight": entry.weight,
+                "got_creatine": entry.got_creatine,
+                "rating": points,
+                "targets": targets
             })
         else:
             history_list.append({
@@ -138,7 +174,79 @@ def get_dashboard_data(
                 "carbs": 0,
                 "fat": 0,
                 "steps": 0,
-                "weight": None
+                "water_ml": 0,
+                "weight": None,
+                "got_creatine": False,
+                "rating": 0,
+                "targets": targets
+            })
+
+    # 2.1 Get Monday to Sunday history for Performance Tracker
+    # weekday() is 0 for Monday, 6 for Sunday
+    days_to_monday = today_dt.weekday()
+    monday_date = today_dt - timedelta(days=days_to_monday)
+    sunday_date = monday_date + timedelta(days=6)
+    
+    logs_week = db.query(DailyLog).filter(
+        DailyLog.user_id == current_user.id,
+        DailyLog.date >= monday_date,
+        DailyLog.date <= sunday_date
+    ).all()
+    log_map_week = {l.date: l for l in logs_week}
+    
+    weekly_performance = []
+    for i in range(7):
+        curr_date = monday_date + timedelta(days=i)
+        if curr_date in log_map_week:
+            entry = log_map_week[curr_date]
+            p, c, f = 0, 0, 0
+            if entry.food_items:
+                for item in entry.food_items:
+                    p += item.get("protein", 0)
+                    c += item.get("carbs", 0)
+                    f += item.get("fat", 0)
+            # Calculate rating (0-5)
+            kcal_target = targets["kcal"]
+            steps_target = targets["steps"]
+            water_target = targets["water_ml"]
+            
+            kcal_ok = entry.total_kcal > 0 and abs(entry.total_kcal - kcal_target) / kcal_target <= 0.15
+            steps_ok = entry.steps >= steps_target
+            water_ok = entry.water_ml >= water_target
+            
+            points = 0
+            if kcal_ok: points += 1
+            if steps_ok: points += 1
+            if water_ok: points += 1
+            if kcal_ok and steps_ok and water_ok: points += 1
+            if entry.got_creatine: points += 1
+
+            weekly_performance.append({
+                "date": curr_date.isoformat(),
+                "displayDay": curr_date.strftime('%a').upper(),
+                "total_kcal": int(entry.total_kcal or 0),
+                "protein": round(p, 2),
+                "carbs": round(c, 2),
+                "fat": round(f, 2),
+                "steps": int(entry.steps or 0),
+                "water_ml": int(entry.water_ml or 0),
+                "got_creatine": entry.got_creatine,
+                "rating": points,
+                "targets": targets
+            })
+        else:
+            weekly_performance.append({
+                "date": curr_date.isoformat(),
+                "displayDay": curr_date.strftime('%a').upper(),
+                "total_kcal": 0,
+                "protein": 0,
+                "carbs": 0,
+                "fat": 0,
+                "steps": 0,
+                "water_ml": 0,
+                "got_creatine": False,
+                "rating": 0,
+                "targets": targets
             })
 
     # 3. Get 30-day weight history (progressive)
@@ -249,19 +357,21 @@ def get_dashboard_data(
             "ai_summary": log.ai_summary
         },
         "history": history_list,
+        "weekly_performance": weekly_performance,
         "weightHistory": weight_history,
         "feedback": feedback
     }
 
 @router.post("/toggle-creatine")
 def toggle_creatine(
+    date_str: Optional[str] = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    today = date.today()
-    log = db.query(DailyLog).filter(DailyLog.user_id == current_user.id, DailyLog.date == today).first()
+    target_date = date.fromisoformat(date_str) if date_str else date.today()
+    log = db.query(DailyLog).filter(DailyLog.user_id == current_user.id, DailyLog.date == target_date).first()
     if not log:
-        log = DailyLog(user_id=current_user.id, date=today, got_creatine=True)
+        log = DailyLog(user_id=current_user.id, date=target_date, got_creatine=True)
         db.add(log)
     else:
         log.got_creatine = not log.got_creatine
@@ -269,6 +379,49 @@ def toggle_creatine(
     db.commit()
     db.refresh(log)
     return {"got_creatine": log.got_creatine}
+
+@router.get("/history")
+def get_history(
+    days: int = 30,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    print(f"DEBUG: History requested for user {current_user.id} ({current_user.email}) for {days} days")
+    
+    query = db.query(DailyLog).filter(DailyLog.user_id == current_user.id)
+    
+    # Only filter if we aren't asking for everything
+    if days < 1000:
+        start_date = date.today() - timedelta(days=days - 1)
+        query = query.filter(DailyLog.date >= start_date)
+        print(f"DEBUG: Filtering logs >= {start_date}")
+    
+    logs = query.order_by(DailyLog.date.desc()).all()
+    print(f"DEBUG: Found {len(logs)} logs in database")
+    
+    history_data = []
+    for log in logs:
+        # Calculate daily macro totals from food items
+        p, c, f = 0.0, 0.0, 0.0
+        if log.food_items:
+            for item in log.food_items:
+                p += float(item.get("protein", 0) or 0)
+                c += float(item.get("carbs", 0) or 0)
+                f += float(item.get("fat", 0) or 0)
+        
+        history_data.append({
+            "date": str(log.date),
+            "total_kcal": log.total_kcal,
+            "steps": log.steps,
+            "water_ml": log.water_ml,
+            "got_creatine": log.got_creatine,
+            "protein": round(p, 2),
+            "carbs": round(c, 2),
+            "fat": round(f, 2),
+            "food_items": log.food_items or []
+        })
+        
+    return history_data
 
 @router.get("/feedback")
 def get_daily_feedback(
@@ -343,6 +496,7 @@ class FoodItemUpdate(BaseModel):
     fiber: Optional[float] = 0
     salt: Optional[float] = 0
     type: Optional[str] = "Lunch"
+    ingredients: Optional[List[dict]] = None
 
 @router.put("/food-item")
 def update_food_item(
@@ -354,20 +508,20 @@ def update_food_item(
 ):
     target_date = date.fromisoformat(date_str) if date_str else date.today()
     log = db.query(DailyLog).filter(DailyLog.user_id == current_user.id, DailyLog.date == target_date).first()
-    
+
     if not log:
         raise HTTPException(status_code=404, detail="Log not found")
-    
+
     current_items = list(log.food_items) if log.food_items else []
-    
+
     # Find the item to update
     item_idx = next((i for i, item in enumerate(current_items) if item.get("logged_at") == logged_at), -1)
-    
+
     if item_idx == -1:
         raise HTTPException(status_code=404, detail="Food item not found")
-    
+
     old_kcal = int(current_items[item_idx].get("kcal", 0))
-    
+
     # Update the item
     current_items[item_idx].update({
         "label": request.label,
@@ -378,17 +532,18 @@ def update_food_item(
         "fat": request.fat,
         "fiber": request.fiber,
         "salt": request.salt,
-        "type": request.type
+        "type": request.type,
+        "ingredients": request.ingredients
     })
-    
+
     log.food_items = current_items
+    from sqlalchemy.orm.attributes import flag_modified
     flag_modified(log, "food_items")
     log.total_kcal = max(0, log.total_kcal - old_kcal + request.kcal)
-    
+
     db.commit()
     db.refresh(log)
     return {"message": "Item updated", "total_kcal": log.total_kcal, "item": current_items[item_idx]}
-
 @router.delete("/food-item")
 def delete_food_item(
     logged_at: str,
@@ -428,20 +583,38 @@ def update_steps(steps: int, db: Session = Depends(get_db), current_user: User =
     db.commit(); return log
 
 @router.put("/water")
-def update_water(water_ml: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    today = date.today()
-    log = db.query(DailyLog).filter(DailyLog.user_id == current_user.id, DailyLog.date == today).first()
-    if not log: log = DailyLog(user_id=current_user.id, date=today, water_ml=water_ml); db.add(log)
-    else: log.water_ml = water_ml
-    db.commit(); return log
+def update_water(
+    water_ml: int, 
+    date_str: Optional[str] = None,
+    db: Session = Depends(get_db), 
+    current_user: User = Depends(get_current_user)
+):
+    target_date = date.fromisoformat(date_str) if date_str else date.today()
+    log = db.query(DailyLog).filter(DailyLog.user_id == current_user.id, DailyLog.date == target_date).first()
+    if not log: 
+        log = DailyLog(user_id=current_user.id, date=target_date, water_ml=water_ml)
+        db.add(log)
+    else: 
+        log.water_ml = water_ml
+    db.commit()
+    return log
 
 @router.put("/add-water")
-def add_water(water_ml: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    today = date.today()
-    log = db.query(DailyLog).filter(DailyLog.user_id == current_user.id, DailyLog.date == today).first()
-    if not log: log = DailyLog(user_id=current_user.id, date=today, water_ml=water_ml); db.add(log)
-    else: log.water_ml += water_ml
-    db.commit(); return log
+def add_water(
+    water_ml: int, 
+    date_str: Optional[str] = None,
+    db: Session = Depends(get_db), 
+    current_user: User = Depends(get_current_user)
+):
+    target_date = date.fromisoformat(date_str) if date_str else date.today()
+    log = db.query(DailyLog).filter(DailyLog.user_id == current_user.id, DailyLog.date == target_date).first()
+    if not log: 
+        log = DailyLog(user_id=current_user.id, date=target_date, water_ml=water_ml)
+        db.add(log)
+    else: 
+        log.water_ml += water_ml
+    db.commit()
+    return log
 
 @router.put("/weight")
 def update_weight(weight: float, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):

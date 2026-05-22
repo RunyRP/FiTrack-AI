@@ -21,6 +21,7 @@ class MealLogRequest(BaseModel):
     fiber: Optional[float] = 0
     salt: Optional[float] = 0
     type: Optional[str] = "Lunch"
+    ingredients: Optional[List[dict]] = None
 
 @router.post("/analyze")
 async def analyze_meal(
@@ -202,7 +203,8 @@ def search_meal_items(
             "carbs_100g": cm.carbs_per_100g / base_ratio,
             "fat_100g": cm.fat_per_100g / base_ratio,
             "fiber_100g": cm.fiber_per_100g / base_ratio,
-            "salt_100g": cm.salt_per_100g / base_ratio
+            "salt_100g": cm.salt_per_100g / base_ratio,
+            "ingredients": cm.ingredients
         })
         
     return {"results": results}
@@ -210,14 +212,15 @@ def search_meal_items(
 @router.post("/log")
 def log_meal(
     request: MealLogRequest,
+    date_str: Optional[str] = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    today = date.today()
-    log = db.query(DailyLog).filter(DailyLog.user_id == current_user.id, DailyLog.date == today).first()
+    target_date = date.fromisoformat(date_str) if date_str else date.today()
+    log = db.query(DailyLog).filter(DailyLog.user_id == current_user.id, DailyLog.date == target_date).first()
     
     if not log:
-        log = DailyLog(user_id=current_user.id, date=today, food_items=[], total_kcal=0)
+        log = DailyLog(user_id=current_user.id, date=target_date, food_items=[], total_kcal=0)
         db.add(log)
         db.flush()
     
@@ -232,6 +235,7 @@ def log_meal(
         "fiber": request.fiber,
         "salt": request.salt,
         "type": request.type,
+        "ingredients": request.ingredients,
         "logged_at": str(datetime.now())
     }
     

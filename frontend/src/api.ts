@@ -2,7 +2,7 @@ import axios from 'axios';
 
 // This will use the environment variable VITE_API_URL if it exists, 
 // otherwise it falls back to localhost for development.
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+const API_URL = import.meta.env.VITE_API_URL || 'http://192.168.10.195:8000';
 
 const api = axios.create({
   baseURL: API_URL,

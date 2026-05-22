@@ -6,23 +6,312 @@ import { useAuth } from '../App';
 import { 
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Cell
 } from 'recharts';
-import { CoachIcon, SavedIcon, SyncIcon, ResetIcon, DropIcon, GlassIcon, BottleIcon, FireIcon, FootprintsIcon, ScaleIcon, ConnectedIcon, TrashIcon, AppleIcon, CapsuleIcon } from './Icons';
+import { CoachIcon, SavedIcon, SyncIcon, ResetIcon, DropIcon, GlassIcon, BottleIcon, FireIcon, FootprintsIcon, ScaleIcon, ConnectedIcon, TrashIcon, AppleIcon, CapsuleIcon, StarIcon, EditIcon } from './Icons';
 import { MACRO_DISTRIBUTIONS, type MacroDistType } from '../constants';
 import { QuickLogModal } from './QuickLogModal';
 
+interface EditFoodModalProps {
+  item: any;
+  onClose: () => void;
+  onSave: (updated: any) => void;
+}
+
+const EditFoodModal = ({ item, onClose, onSave }: EditFoodModalProps) => {
+  const [formData, setFormData] = useState({ 
+    ...item, 
+    ingredients: item.ingredients ? [...item.ingredients] : [] 
+  });
+  const [saving, setSaving] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      await api.put(`/log/food-item?logged_at=${encodeURIComponent(item.logged_at)}`, formData);
+      onSave(formData);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleIngredientChange = (idx: number, field: string, value: any) => {
+    const newIngredients = [...formData.ingredients];
+    newIngredients[idx] = { ...newIngredients[idx], [field]: value };
+    
+    const totalKcal = newIngredients.reduce((sum, ing) => sum + (Number(ing.kcal) || 0), 0);
+    const totalP = newIngredients.reduce((sum, ing) => sum + (Number(ing.protein) || 0), 0);
+    const totalC = newIngredients.reduce((sum, ing) => sum + (Number(ing.carbs) || 0), 0);
+    const totalF = newIngredients.reduce((sum, ing) => sum + (Number(ing.fat) || 0), 0);
+    const totalG = newIngredients.reduce((sum, ing) => sum + (Number(ing.grams) || 0), 0);
+    
+    setFormData({
+        ...formData,
+        ingredients: newIngredients,
+        kcal: Math.round(totalKcal),
+        protein: Number(totalP.toFixed(2)),
+        carbs: Number(totalC.toFixed(2)),
+        fat: Number(totalF.toFixed(2)),
+        grams: Math.round(totalG)
+    });
+  };
+
+  const removeIngredient = (idx: number) => {
+    const newIngredients = formData.ingredients.filter((_: any, i: number) => i !== idx);
+    
+    const totalKcal = newIngredients.reduce((sum, ing) => sum + (Number(ing.kcal) || 0), 0);
+    const totalP = newIngredients.reduce((sum, ing) => sum + (Number(ing.protein) || 0), 0);
+    const totalC = newIngredients.reduce((sum, ing) => sum + (Number(ing.carbs) || 0), 0);
+    const totalF = newIngredients.reduce((sum, ing) => sum + (Number(ing.fat) || 0), 0);
+    const totalG = newIngredients.reduce((sum, ing) => sum + (Number(ing.grams) || 0), 0);
+    
+    setFormData({
+        ...formData,
+        ingredients: newIngredients,
+        kcal: Math.round(totalKcal),
+        protein: Number(totalP.toFixed(2)),
+        carbs: Number(totalC.toFixed(2)),
+        fat: Number(totalF.toFixed(2)),
+        grams: Math.round(totalG)
+    });
+  };
+
+  const mealTypes = ['Breakfast', 'Lunch', 'Snack', 'Dinner'];
+
+  return (
+    <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 11000, padding: '1rem', backdropFilter: 'blur(10px)' }}>
+      <div className="card" style={{ width: '100%', maxWidth: '500px', padding: '2rem', position: 'relative', background: '#0a0a0a', border: '1px solid var(--card-border)', borderRadius: '1rem', maxHeight: '90vh', overflowY: 'auto' }}>
+        <button 
+          onClick={onClose}
+          style={{ position: 'absolute', top: '1rem', right: '1rem', background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: '1.5rem', cursor: 'pointer', zIndex: 1 }}
+        >
+          ×
+        </button>
+
+        <h2 style={{ marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.75rem', fontSize: '1.5rem' }}>
+          <EditIcon size={24} color="var(--primary)" /> Edit Log
+        </h2>
+        <p style={{ color: 'var(--primary)', fontWeight: 800, fontSize: '1.1rem', marginBottom: '2rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+            {formData.label}
+        </p>
+
+        <form onSubmit={handleSubmit} style={{ display: 'grid', gap: '1.5rem' }}>
+          {/* Meal Type Selection */}
+          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                {mealTypes.map(t => (
+                    <button 
+                        key={t}
+                        type="button"
+                        onClick={() => setFormData({ ...formData, type: t })}
+                        style={{ 
+                            padding: '0.4rem 0.8rem', 
+                            borderRadius: '2rem', 
+                            fontSize: '0.75rem', 
+                            fontWeight: 700, 
+                            cursor: 'pointer',
+                            transition: 'all 0.2s ease',
+                            background: formData.type === t ? 'var(--primary)' : 'rgba(255,255,255,0.03)',
+                            color: formData.type === t ? '#000' : 'var(--text-muted)',
+                            border: '1px solid',
+                            borderColor: formData.type === t ? 'var(--primary)' : 'rgba(255,255,255,0.1)',
+                            flex: '1 0 auto',
+                            minWidth: '70px'
+                        }}
+                    >
+                        {t}
+                    </button>
+                ))}
+          </div>
+
+          {/* Ingredients Section */}
+          {formData.ingredients && formData.ingredients.length > 0 && (
+              <div style={{ marginBottom: '0.5rem' }}>
+                  <h4 style={{ fontSize: '0.7rem', color: 'var(--primary)', textTransform: 'uppercase', fontWeight: 800, marginBottom: '1rem', borderBottom: '1px solid rgba(251, 197, 49, 0.2)', paddingBottom: '0.5rem' }}>Composition</h4>
+                  <div style={{ display: 'grid', gap: '1rem' }}>
+                      {formData.ingredients.map((ing: any, idx: number) => (
+                          <div key={idx} style={{ background: 'rgba(255,255,255,0.02)', padding: '1rem', borderRadius: '0.75rem', border: '1px solid rgba(255,255,255,0.05)' }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+                                  <div style={{ fontWeight: 700, fontSize: '0.9rem', color: '#fff' }}>{ing.label}</div>
+                                  <button 
+                                      onClick={() => removeIngredient(idx)}
+                                      style={{ background: 'none', border: 'none', color: 'rgba(255,71,87,0.4)', cursor: 'pointer', fontSize: '1.2rem', padding: '0 0.5rem' }}
+                                      onMouseOver={(e) => e.currentTarget.style.color = '#ff4757'}
+                                      onMouseOut={(e) => e.currentTarget.style.color = 'rgba(255,71,87,0.4)'}
+                                  >
+                                      ×
+                                  </button>
+                              </div>
+                              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                                  <div>
+                                      <label style={{ fontSize: '0.6rem', color: 'var(--text-muted)', textTransform: 'uppercase', display: 'block', marginBottom: '0.25rem' }}>Grams</label>
+                                      <input 
+                                          type="number"
+                                          value={ing.grams}
+                                          onChange={(e) => handleIngredientChange(idx, 'grams', parseInt(e.target.value))}
+                                          style={{ width: '100%', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', padding: '0.4rem', borderRadius: '0.4rem', fontSize: '0.8rem', textAlign: 'center' }}
+                                      />
+                                  </div>
+                                  <div>
+                                      <label style={{ fontSize: '0.6rem', color: 'var(--text-muted)', textTransform: 'uppercase', display: 'block', marginBottom: '0.25rem' }}>Kcal</label>
+                                      <input 
+                                          type="number"
+                                          value={ing.kcal}
+                                          onChange={(e) => handleIngredientChange(idx, 'kcal', parseInt(e.target.value))}
+                                          style={{ width: '100%', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', padding: '0.4rem', borderRadius: '0.4rem', fontSize: '0.8rem', textAlign: 'center' }}
+                                      />
+                                  </div>
+                              </div>
+                          </div>
+                      ))}
+                  </div>
+              </div>
+          )}
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+              <div>
+                <label style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 800, marginBottom: '0.5rem', display: 'block' }}>Total Grams</label>
+                <input 
+                  type="number" 
+                  value={formData.grams} 
+                  onChange={e => setFormData({ ...formData, grams: parseInt(e.target.value) })}
+                  readOnly={formData.ingredients.length > 0}
+                  style={{ width: '100%', padding: '0.8rem', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '0.75rem', color: '#fff', textAlign: 'center', fontSize: '1rem', fontWeight: 700, opacity: formData.ingredients.length > 0 ? 0.6 : 1 }}
+                />
+              </div>
+              <div>
+                <label style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 800, marginBottom: '0.5rem', display: 'block' }}>Total Calories</label>
+                <input 
+                  type="number" 
+                  value={formData.kcal} 
+                  onChange={e => setFormData({ ...formData, kcal: parseInt(e.target.value) })}
+                  readOnly={formData.ingredients.length > 0}
+                  style={{ width: '100%', padding: '0.8rem', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '0.75rem', color: '#fff', textAlign: 'center', fontSize: '1rem', fontWeight: 700, opacity: formData.ingredients.length > 0 ? 0.6 : 1 }}
+                />
+              </div>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.75rem', padding: '1.25rem', background: 'rgba(255,255,255,0.02)', borderRadius: '0.75rem', border: '1px solid rgba(255,255,255,0.03)' }}>
+              <div>
+                <label style={{ fontSize: '0.6rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 800, marginBottom: '0.4rem', display: 'block', textAlign: 'center' }}>Protein</label>
+                <input 
+                  type="number" step="0.1"
+                  value={formData.protein} 
+                  onChange={e => setFormData({ ...formData, protein: parseFloat(e.target.value) })}
+                  readOnly={formData.ingredients.length > 0}
+                  style={{ width: '100%', background: 'transparent', border: 'none', borderBottom: '1px solid rgba(255,255,255,0.1)', color: '#fff', textAlign: 'center', fontSize: '1.1rem', fontWeight: 800, padding: '0.25rem 0', opacity: formData.ingredients.length > 0 ? 0.6 : 1 }}
+                />
+              </div>
+              <div>
+                <label style={{ fontSize: '0.6rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 800, marginBottom: '0.4rem', display: 'block', textAlign: 'center' }}>Carbs</label>
+                <input 
+                  type="number" step="0.1"
+                  value={formData.carbs} 
+                  onChange={e => setFormData({ ...formData, carbs: parseFloat(e.target.value) })}
+                  readOnly={formData.ingredients.length > 0}
+                  style={{ width: '100%', background: 'transparent', border: 'none', borderBottom: '1px solid rgba(255,255,255,0.1)', color: '#fff', textAlign: 'center', fontSize: '1.1rem', fontWeight: 800, padding: '0.25rem 0', opacity: formData.ingredients.length > 0 ? 0.6 : 1 }}
+                />
+              </div>
+              <div>
+                <label style={{ fontSize: '0.6rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 800, marginBottom: '0.4rem', display: 'block', textAlign: 'center' }}>Fat</label>
+                <input 
+                  type="number" step="0.1"
+                  value={formData.fat} 
+                  onChange={e => setFormData({ ...formData, fat: parseFloat(e.target.value) })}
+                  readOnly={formData.ingredients.length > 0}
+                  style={{ width: '100%', background: 'transparent', border: 'none', borderBottom: '1px solid rgba(255,255,255,0.1)', color: '#fff', textAlign: 'center', fontSize: '1.1rem', fontWeight: 800, padding: '0.25rem 0', opacity: formData.ingredients.length > 0 ? 0.6 : 1 }}
+                />
+              </div>
+          </div>
+
+          <button 
+            type="submit" 
+            disabled={saving} 
+            className="btn btn-primary" 
+            style={{ width: '100%', padding: '1rem', fontWeight: 800, textTransform: 'uppercase', fontSize: '0.8rem', letterSpacing: '0.05em' }}
+          >
+            {saving ? 'Updating...' : 'Save Changes'}
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+};
+
 export const Dashboard = () => {
   const [showLogModal, setShowLogModal] = useState(false);
+  const [mealType, setMealType] = useState(() => {
+      // 1. Try to initialize from cache to maintain sequence across refreshes
+      const cached = localStorage.getItem('dashboard_cache');
+      if (cached) {
+          try {
+              const parsed = JSON.parse(cached);
+              const items = parsed?.today?.food_items;
+              if (items && items.length > 0) {
+                  const loggedTypes = items.map((i: any) => i.type);
+                  const mTypes = ['Breakfast', 'Lunch', 'Snack', 'Dinner'];
+                  let latestIdx = -1;
+                  mTypes.forEach((type, idx) => {
+                      if (loggedTypes.includes(type)) latestIdx = idx;
+                  });
+                  if (latestIdx !== -1) {
+                      return mTypes[(latestIdx + 1) % mTypes.length];
+                  }
+              }
+          } catch(e) {}
+      }
+
+      // 2. Fallback to time-of-day logic
+      const hour = new Date().getHours();
+      if (hour >= 4 && hour < 11) return 'Breakfast';
+      if (hour >= 11 && hour < 16) return 'Lunch';
+      if (hour >= 16 && hour < 19) return 'Snack';
+      return 'Dinner';
+  });
+
+  const [editingItem, setEditingItem] = useState<any>(null);
   const [data, setData] = useState<any>(() => {
       const cached = localStorage.getItem('dashboard_cache');
       return cached ? JSON.parse(cached) : null;
   });
-  const [stepsInput, setStepsInput] = useState<number>(0);
+
+  const mealTypes = ['Breakfast', 'Lunch', 'Snack', 'Dinner'];
+
+  const getNextMealType = (current: string) => {
+    const currentIndex = mealTypes.indexOf(current);
+    const nextIndex = (currentIndex + 1) % mealTypes.length;
+    return mealTypes[nextIndex];
+  };
+
+  // Intelligently suggest the next meal category
+  useEffect(() => {
+    if (data?.today?.food_items) {
+      if (data.today.food_items.length === 0) {
+        // If nothing is logged today, default to time-of-day
+        const hour = new Date().getHours();
+        if (hour >= 4 && hour < 11) setMealType('Breakfast');
+        else if (hour >= 11 && hour < 16) setMealType('Lunch');
+        else if (hour >= 16 && hour < 19) setMealType('Snack');
+        else setMealType('Dinner');
+      } else {
+        // If meals exist, suggest the first missing one in the sequence
+        const loggedTypes = data.today.food_items.map((item: any) => item.type);
+        const nextMeal = mealTypes.find(type => !loggedTypes.includes(type));
+        if (nextMeal) {
+            setMealType(nextMeal);
+        }
+      }
+    }
+  }, [data?.today?.food_items]);
+
+  const [stepsInput, setStepsInput] = useState<string>('');
   const [waterInput, setWaterInput] = useState<string>('0'); 
   const [weightInput, setWeightInput] = useState<string>('');
   const [weightPeriod, setWeightPeriod] = useState<number>(4); // Default to 4 weeks
   const [savingWater, setSavingWater] = useState(false);
   const [savingCreatine, setSavingCreatine] = useState(false);
   const [lastStepsUpdate, setLastStepsUpdate] = useState<string>('');
+  const [hoveredDay, setHoveredDay] = useState<number | null>(null);
   const { user: authUser, refreshUser } = useAuth();
 
   const fetchData = async () => {
@@ -48,7 +337,7 @@ export const Dashboard = () => {
       setData(cleanData);
       localStorage.setItem('dashboard_cache', JSON.stringify(cleanData));
       
-      setStepsInput(res.data.today.steps);
+      setStepsInput(String(res.data.today.steps));
       setWaterInput(String(res.data.today.water_ml / 1000)); 
       setLastStepsUpdate(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
     } catch (err) {
@@ -95,7 +384,7 @@ export const Dashboard = () => {
 
   const updateSteps = async () => {
     try {
-      await api.put(`/log/steps?steps=${stepsInput}`);
+      await api.put(`/log/steps?steps=${parseInt(stepsInput) || 0}`);
       fetchData();
     } catch (err) {
       console.error(err);
@@ -127,7 +416,7 @@ export const Dashboard = () => {
     }
   };
 
-  const handleWaterInputChange = (val: string) => {
+    const handleWaterInputChange = (val: string) => {
       // 1. Remove initial 0 if a digit is pressed
       let cleaned = val;
       if (waterInput === '0' && val.length > 1) {
@@ -140,12 +429,22 @@ export const Dashboard = () => {
       const parts = cleaned.split('.');
       if (parts.length > 2) return; // Ignore multiple dots
       
-      // 3. Enforce digit limits: X.XX format
-      let integerPart = parts[0].slice(0, 1); // Only 1 digit for Liters
+      // 3. Enforce digit limits: XX.XX format
+      let integerPart = parts[0].slice(0, 2); // Allow up to 2 digits for Liters (max 99L)
       let decimalPart = parts[1] !== undefined ? parts[1].slice(0, 2) : '';
       
       const finalVal = parts.length === 2 ? `${integerPart}.${decimalPart}` : integerPart;
       setWaterInput(finalVal || '0');
+  };
+
+    const handleWeightInputChange = (val: string) => {
+      let cleaned = val.replace(',', '.').replace(/[^0-9.]/g, '');
+      const parts = cleaned.split('.');
+      if (parts.length > 2) return;
+      let integerPart = parts[0].slice(0, 3);
+      let decimalPart = parts[1] !== undefined ? parts[1].slice(0, 1) : '';
+      const finalVal = parts.length === 2 ? `${integerPart}.${decimalPart}` : integerPart;
+      setWeightInput(finalVal);
   };
 
   const toggleCreatine = async () => {
@@ -205,7 +504,44 @@ export const Dashboard = () => {
     </div>
   );
 
-  const { today, user: dashboardUser, history = [], feedback, weightHistory = [] } = data;
+  const { today, user: dashboardUser, history = [], weekly_performance: rawWeeklyPerf, feedback, weightHistory = [] } = data;
+  
+  // Robust weekly performance calculation (frontend fallback)
+  const weekly_performance = (() => {
+      if (rawWeeklyPerf && rawWeeklyPerf.length === 7) return rawWeeklyPerf;
+      
+      // Fallback: Generate the current week (Mon-Sun)
+      const days = [];
+      const now = new Date();
+      const currentDay = now.getDay(); // 0 is Sun, 1 is Mon
+      const diff = now.getDate() - currentDay + (currentDay === 0 ? -6 : 1);
+      const monday = new Date(now.setDate(diff));
+      
+      for (let i = 0; i < 7; i++) {
+          const d = new Date(monday);
+          d.setDate(monday.getDate() + i);
+          const iso = d.toISOString().split('T')[0];
+          
+          // Try to find existing data in history or rawWeeklyPerf
+          const existing = (rawWeeklyPerf || []).find((p: any) => p.date === iso) || 
+                           (history || []).find((h: any) => h.date === iso);
+          
+          days.push({
+              date: iso,
+              displayDay: d.toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase(),
+              total_kcal: existing?.total_kcal || 0,
+              protein: existing?.protein || 0,
+              carbs: existing?.carbs || 0,
+              fat: existing?.fat || 0,
+              steps: existing?.steps || 0,
+              water_ml: existing?.water_ml || 0,
+              got_creatine: existing?.got_creatine || false,
+              rating: existing?.rating || 0,
+              targets: existing?.targets || { kcal: 2000, steps: 10000, water_ml: 3000, protein: 150, carbs: 200, fat: 70 }
+          });
+      }
+      return days;
+  })();
   
   // Merge profiles to ensure we have the most complete data
   const profile = {
@@ -247,17 +583,198 @@ export const Dashboard = () => {
 
   return (
     <div className="container">
-      <div className="card" style={{ textAlign: 'left', marginBottom: '2rem', background: '#121212', border: '1px solid var(--card-border)' }}>
-        <h1 style={{ marginBottom: '0.5rem' }}>Welcome Back, <span style={{ color: 'var(--primary)' }}>{displayName}</span></h1>
-        <p className="text-muted" style={{ fontSize: '1.1rem' }}>
-            Plan: <strong>{String(profile.objective || 'N/A').replace('_', ' ').toUpperCase()}</strong> 
-            <span style={{ margin: '0 0.75rem', opacity: 0.3 }}>|</span>
-            Distribution: <strong>{MACRO_DISTRIBUTIONS[(profile.macro_distribution || 'balanced') as MacroDistType]?.name || 'Balanced'}</strong>
-        </p>
+      <div className="card mobile-center" style={{ textAlign: 'left', marginBottom: '1rem', background: '#121212', border: '1px solid var(--card-border)' }}>
+          <div>
+              <h1 style={{ marginBottom: '0.25rem', margin: 0 }}>Welcome Back, <span style={{ color: 'var(--primary)' }}>{displayName}</span></h1>
+              <p className="text-muted" style={{ fontSize: '1.1rem', margin: 0 }}>
+                  Plan: <strong>{String(profile.objective || 'N/A').replace('_', ' ').toUpperCase()}</strong> 
+                  <span style={{ margin: '0 0.75rem', opacity: 0.3 }}>|</span>
+                  Distribution: <strong>{MACRO_DISTRIBUTIONS[(profile.macro_distribution || 'balanced') as MacroDistType]?.name || 'Balanced'}</strong>
+              </p>
+          </div>
+      </div>
+
+      {/* Weekly Performance Tracker */}
+      <div className="card" style={{ marginBottom: '1rem', padding: '1rem', background: '#121212', border: '1px solid var(--card-border)', overflow: 'visible' }}>
+          <h3 style={{ fontSize: '0.8rem', marginBottom: '1rem', color: '#fff', textAlign: 'left', fontWeight: 800 }}>WEEKLY PERFORMANCE</h3>
+          <div style={{ 
+              display: 'flex', 
+              justifyContent: 'space-between', 
+              alignItems: 'center', 
+              gap: '0.5rem',
+              overflow: 'visible',
+              paddingBottom: '0.5rem',
+              scrollbarWidth: 'none', // Firefox
+              msOverflowStyle: 'none', // IE
+          }}>
+              {(weekly_performance || []).map((day: any, i: number) => {
+                  const kcalTarget = day.targets?.kcal || 2000;
+                  const stepsTarget = day.targets?.steps || 10000;
+                  const waterTarget = day.targets?.water_ml || 3000;
+                  const pTarget = day.targets?.protein || 150;
+                  const cTarget = day.targets?.carbs || 200;
+                  const fTarget = day.targets?.fat || 70;
+
+                  const kcalScore = Math.min((day.total_kcal || 0) / kcalTarget, 1);
+                  const stepsScore = Math.min((day.steps || 0) / stepsTarget, 1);
+                  const waterScore = Math.min((day.water_ml || 0) / waterTarget, 1);
+                  const pScore = Math.min((day.protein || 0) / pTarget, 1);
+                  const cScore = Math.min((day.carbs || 0) / cTarget, 1);
+                  const fScore = Math.min((day.fat || 0) / fTarget, 1);
+                  
+                  const macrosScore = (pScore + cScore + fScore) / 3;
+                  const avgPerformance = ((kcalScore + stepsScore + waterScore + macrosScore) / 4) * 100;
+
+                  const todayIso = new Date().toISOString().split('T')[0];
+                  const isToday = day.date === todayIso;
+                  const isFuture = new Date(day.date) > new Date();
+
+                  const TODAY_COLOR = '#00a8ff'; // Distinct Blue for Today
+
+                  let circleColor = 'rgba(255,255,255,0.05)';
+                  let circleBg = 'rgba(255,255,255,0.02)';
+                  let glow = 'none';
+
+                  if (!isFuture) {
+                      if (avgPerformance >= 70) {
+                          circleColor = 'var(--success)';
+                          circleBg = 'rgba(46, 204, 113, 0.15)';
+                          glow = '0 0 15px rgba(46, 204, 113, 0.2)';
+                      } else if (avgPerformance >= 40) {
+                          circleColor = '#f39c12'; // Orange/Yellow
+                          circleBg = 'rgba(243, 156, 18, 0.1)';
+                          glow = '0 0 10px rgba(243, 156, 18, 0.1)';
+                      } else {
+                          circleColor = '#ff4757'; // Red
+                          circleBg = 'rgba(255, 71, 87, 0.1)';
+                          glow = '0 0 10px rgba(255, 71, 87, 0.1)';
+                      }
+                  }
+                  
+                  const feedbackText = (() => {
+                      if (isFuture) return null;
+                      const kcalDiff = Math.abs((day.total_kcal || 0) - kcalTarget) / kcalTarget;
+                      let kcalVal = "Not enough";
+                      if (kcalDiff <= 0.1) kcalVal = "Spot on";
+                      else if (day.total_kcal > kcalTarget * 1.1) kcalVal = "Too much";
+                      else if (day.total_kcal >= kcalTarget * 0.4) kcalVal = "Good enough";
+
+                      let waterVal = "Need more";
+                      if (day.water_ml >= waterTarget) waterVal = "Perfect";
+                      else if (day.water_ml >= 2300) waterVal = "Good";
+                      else if (day.water_ml >= 1700) waterVal = "Good enough";
+
+                      let stepsVal = "Not enough";
+                      if (day.steps >= stepsTarget) stepsVal = "Goal met";
+                      else if (day.steps >= stepsTarget * 0.7) stepsVal = "Almost there";
+                      else if (day.steps >= stepsTarget * 0.4) stepsVal = "Good enough";
+
+                      return { kcal: kcalVal, water: waterVal, steps: stepsVal };
+                  })();
+
+                  // Alignment logic to prevent clipping on first/last days
+                  const isFirst = i === 0;
+                  const isLast = i === 6;
+                  const tooltipX = isFirst ? '20%' : (isLast ? '-20%' : '-50%');
+                  const arrowX = isFirst ? '20%' : (isLast ? '80%' : '50%');
+
+                  return (
+                      <div 
+                        key={i} 
+                        onMouseEnter={() => setHoveredDay(i)}
+                        onMouseLeave={() => setHoveredDay(null)}
+                        style={{ 
+                          display: 'flex', 
+                          flexDirection: 'column', 
+                          alignItems: 'center', 
+                          gap: '0.75rem', 
+                          flex: 1,
+                          position: 'relative',
+                          padding: '1rem 0',
+                          background: isToday ? 'rgba(0, 168, 255, 0.05)' : 'transparent',
+                          borderRadius: '1rem',
+                          border: isToday ? `1px solid rgba(0, 168, 255, 0.1)` : '1px solid transparent',
+                          cursor: 'pointer',
+                          overflow: 'visible'
+                      }}>
+                          {hoveredDay === i && feedbackText && (
+                              <div style={{
+                                  position: 'absolute',
+                                  bottom: '100%',
+                                  left: tooltipX === '-50%' ? '50%' : (isFirst ? '0' : 'auto'),
+                                  right: isLast ? '0' : 'auto',
+                                  transform: tooltipX === '-50%' ? 'translateX(-50%)' : 'none',
+                                  marginBottom: '1rem',
+                                  background: '#1a1a1a',
+                                  border: '1px solid var(--card-border)',
+                                  padding: '0.75rem',
+                                  borderRadius: '0.5rem',
+                                  zIndex: 1000,
+                                  minWidth: '150px',
+                                  pointerEvents: 'none',
+                                  boxShadow: '0 10px 25px rgba(0,0,0,0.5)',
+                                  animation: 'fade-in 0.2s ease'
+                              }}>
+                                  <div style={{ fontSize: '0.65rem', fontWeight: 800, color: 'var(--text-muted)', marginBottom: '0.5rem', borderBottom: '1px solid rgba(255,255,255,0.05)', paddingBottom: '0.25rem' }}>
+                                      DAILY SNAPSHOT
+                                  </div>
+                                  <div style={{ display: 'grid', gap: '0.4rem' }}>
+                                      <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem', fontSize: '0.7rem' }}>
+                                          <span style={{ color: 'var(--text-muted)' }}>Kcal</span>
+                                          <span style={{ fontWeight: 700, color: feedbackText.kcal === 'Spot on' ? 'var(--success)' : (feedbackText.kcal === 'Good enough' ? '#f39c12' : '#ff4757') }}>{feedbackText.kcal}</span>
+                                      </div>
+                                      <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem', fontSize: '0.7rem' }}>
+                                          <span style={{ color: 'var(--text-muted)' }}>Water</span>
+                                          <span style={{ fontWeight: 700, color: feedbackText.water === 'Perfect' ? 'var(--success)' : (['Good', 'Good enough'].includes(feedbackText.water) ? '#f39c12' : '#ff4757') }}>{feedbackText.water}</span>
+                                      </div>
+                                      <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem', fontSize: '0.7rem' }}>
+                                          <span style={{ color: 'var(--text-muted)' }}>Steps</span>
+                                          <span style={{ fontWeight: 700, color: feedbackText.steps === 'Goal met' ? 'var(--success)' : (['Almost there', 'Good enough'].includes(feedbackText.steps) ? '#f39c12' : '#ff4757') }}>{feedbackText.steps}</span>
+                                      </div>
+                                  </div>
+                                  <div style={{
+                                      position: 'absolute',
+                                      top: '100%',
+                                      left: arrowX,
+                                      transform: 'translateX(-50%)',
+                                      borderWidth: '6px',
+                                      borderStyle: 'solid',
+                                      borderColor: '#1a1a1a transparent transparent transparent'
+                                  }} />
+                              </div>
+                          )}
+                          <div style={{ 
+                              width: '60px', 
+                              height: '60px', 
+                              borderRadius: '50%', 
+                              display: 'flex', 
+                              flexDirection: 'column',
+                              alignItems: 'center', 
+                              justifyContent: 'center',
+                              background: circleBg,
+                              border: `2px solid ${circleColor}`,
+                              color: isFuture ? 'var(--text-muted)' : circleColor,
+                              transition: 'all 0.3s ease',
+                              boxShadow: isToday ? `0 0 0 2px ${TODAY_COLOR}, 0 0 15px rgba(0, 168, 255, 0.3)` : glow,
+                              opacity: isFuture ? 0.3 : 1,
+                              zIndex: 1,
+                              lineHeight: 1.1
+                          }}>
+                              <span style={{ fontSize: '0.65rem', fontWeight: 800, color: isToday ? TODAY_COLOR : (isFuture ? 'var(--text-muted)' : 'inherit') }}>
+                                  {day.displayDay}
+                              </span>
+                              <span style={{ fontSize: '1rem', fontWeight: 900, marginTop: '2px' }}>
+                                  {new Date(day.date).getDate()}
+                              </span>
+                          </div>
+                      </div>
+                  );
+              })}
+          </div>
       </div>
 
       {feedback && (
-        <div className="card animate-fade-in" style={{ 
+        <div className="card animate-fade-in mobile-center" style={{ 
             background: 'rgba(251, 197, 49, 0.03)',
             borderLeft: '6px solid var(--primary)',
             textAlign: 'left',
@@ -311,8 +828,8 @@ export const Dashboard = () => {
         </div>
       )}
       {/* Trackers */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '2rem', marginBottom: '2rem' }}>
-        <div className="card stat-card">
+      <div className="dashboard-stats-grid">
+        <div className="card stat-card-consistent">
           <h3 style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
             <FireIcon size={20} color="var(--primary)" /> Daily Calories
           </h3>
@@ -342,7 +859,7 @@ export const Dashboard = () => {
                   <div key={m.label}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', marginBottom: '0.25rem', fontWeight: 600 }}>
                           <span>{m.label}</span>
-                          <span>{Math.round(m.current)}g / {m.target}g</span>
+                          <span>{(m.current || 0).toFixed(2)}g / {m.target}g</span>
                       </div>
                       <div style={{ height: '6px', background: 'rgba(255,255,255,0.05)', overflow: 'hidden' }}>
                           <div style={{ height: '100%', width: `${Math.min((m.current/(m.target || 1))*100, 100)}%`, background: m.color }}></div>
@@ -352,12 +869,12 @@ export const Dashboard = () => {
           </div>
         </div>
 
-        <div className="card stat-card">
+        <div className="card stat-card-consistent">
           <h3 style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
             <DropIcon size={20} color="var(--primary)" /> Hydration
           </h3>
           <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-            <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'center', width: '100%' }}>
+            <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'center', width: '100%', flexWrap: 'wrap' }}>
                 <input 
                     id="main-water-input"
                     type="text" 
@@ -365,12 +882,14 @@ export const Dashboard = () => {
                     value={waterInput} 
                     onChange={(e) => handleWaterInputChange(e.target.value)}
                     className="stat-value"
-                    style={{ background: 'linear-gradient(135deg, #fff 0%, #fbc531 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'initial', color: '#fff', fontSize: '4.5rem', border: 'none', outline: 'none', textAlign: 'center', width: 'auto', minWidth: '150px', caretColor: 'transparent' }}
+                    spellCheck={false}
+                    autoComplete="off"
+                    style={{ background: 'transparent', fontSize: 'clamp(3rem, 15vw, 4.5rem)', border: 'none', outline: 'none', textAlign: 'center', width: 'auto', minWidth: '100px', caretColor: 'transparent' }}
                 />
                 <span style={{ fontSize: '1.2rem', color: 'var(--text-muted)', fontWeight: 800, marginLeft: '0.5rem' }}>LITERS</span>
             </div>
             <p className="text-muted" style={{ marginBottom: '1.5rem' }}>Goal: 3.00 L</p>
-            <div style={{ display: 'flex', gap: '0.75rem' }}>
+            <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', justifyContent: 'center' }}>
                 <button className={`btn ${savingWater ? 'btn-success' : 'btn-primary'}`} onClick={() => updateWater()}>{savingWater ? <><SavedIcon size={18} /> Saved</> : 'Update'}</button>
                 <button className="btn btn-secondary" onClick={() => { setWaterInput('0'); updateWater(0); }}><ResetIcon size={18} /></button>
             </div>
@@ -395,7 +914,8 @@ export const Dashboard = () => {
               display: 'flex', 
               alignItems: 'center', 
               justifyContent: 'center', 
-              gap: '1rem' 
+              gap: '1rem',
+              flexWrap: 'wrap'
           }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                   <CapsuleIcon size={18} color={today.got_creatine ? 'var(--primary)' : 'var(--text-muted)'} />
@@ -434,51 +954,80 @@ export const Dashboard = () => {
       </div>
 
       {/* Activity & Weight */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '2rem', marginBottom: '2rem' }}>
-        <div className="card stat-card" style={{ textAlign: 'left', padding: '2rem' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div>
+      <div className="dashboard-stats-grid">
+        <div className="card stat-card-consistent" style={{ padding: '1.5rem' }}>
+            <div className="mobile-stack" style={{ justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
+                <div style={{ flex: 1, minWidth: '200px' }}>
                     <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                         <FootprintsIcon size={20} color="var(--primary)" /> Daily Steps
                     </h3>
-                    <div className="stat-value" style={{ margin: '0.5rem 0', fontSize: '3rem' }}>{today.steps.toLocaleString()}</div>
-                    <p className="text-muted" style={{ margin: 0 }}>Goal: {profile.target_steps?.toLocaleString() || '10,000'}</p>
+                    <div className="stat-value" style={{ 
+                        margin: '0.5rem 0', 
+                        fontSize: 'clamp(3rem, 15vw, 4.5rem)' 
+                    }}>
+                        {today.steps.toLocaleString()}
+                    </div>
+                    <p className="text-muted" style={{ margin: 0 }}>Goal: {profile.target_steps?.toLocaleString() || '10,000'} steps</p>
                 </div>
-                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', alignItems: 'flex-end', width: '100%', maxWidth: '200px' }}>
                     <button 
-                        className="btn btn-secondary" 
+                        className="btn btn-secondary btn-sync" 
                         onClick={() => googleSync()} 
-                        style={{ fontSize: '0.7rem', flexDirection: 'column', padding: '0.5rem 1rem', minWidth: '110px' }}
+                        style={{ fontSize: '0.7rem', flexDirection: 'column', padding: '0.5rem 1rem', width: '100%', background: 'rgba(255,255,255,0.05)', borderColor: 'rgba(255,255,255,0.1)' }}
                     >
-                        <span style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                            {dashboardUser.has_google_sync ? <><ConnectedIcon size={14} color="currentColor" /> Connected</> : <><SyncIcon size={14} /> Sync Fit</>}
+                        <span style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: '#fff' }}>
+                            {dashboardUser.has_google_sync ? <><ConnectedIcon size={14} /> Connected</> : <><SyncIcon size={14} /> Sync Fit</>}
                         </span>
                         {lastStepsUpdate && (
-                            <span style={{ fontSize: '0.55rem', opacity: 0.9, marginTop: '2px', fontWeight: 700, color: 'var(--success)' }}>Last updated at: {lastStepsUpdate}</span>
+                            <span style={{ fontSize: '0.55rem', opacity: 0.9, marginTop: '2px', fontWeight: 700, color: 'var(--success)' }}>last updated at: {lastStepsUpdate}</span>
                         )}
                     </button>
+                    
                     {!dashboardUser.has_google_sync && (
-                        <div style={{ display: 'flex', gap: '0.25rem' }}>
-                            <input type="number" className="btn btn-secondary" value={stepsInput} onChange={e => setStepsInput(parseInt(e.target.value)||0)} style={{ width: '80px' }}/>
-                            <button className="btn btn-primary" onClick={updateSteps} style={{ fontSize: '0.7rem' }}>SET</button>
+                        <div style={{ display: 'flex', gap: '0.25rem', width: '100%' }}>
+                            <input 
+                                type="number" 
+                                className="btn btn-secondary" 
+                                value={stepsInput} 
+                                onChange={e => setStepsInput(e.target.value)} 
+                                style={{ flex: 1, textAlign: 'center', background: 'rgba(255,255,255,0.05)', cursor: 'text' }}
+                            />
+                            <button className="btn btn-primary" onClick={updateSteps} style={{ fontSize: '0.7rem', padding: '0 0.75rem' }}>SET</button>
                         </div>
                     )}
                 </div>
             </div>
         </div>
 
-        <div className="card stat-card" style={{ textAlign: 'left', padding: '2rem' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div>
+        <div className="card stat-card-consistent" style={{ padding: '1.5rem' }}>
+            <div className="mobile-stack" style={{ justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
+                <div style={{ flex: 1, minWidth: '200px' }}>
                     <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                         <ScaleIcon size={20} color="var(--primary)" /> Current Weight
                     </h3>
-                    <div className="stat-value" style={{ margin: '0.5rem 0', fontSize: '3rem' }}>{lastKnownWeight || '--'} <span style={{ fontSize: '1.2rem' }}>KG</span></div>
+                    <div className="stat-value" style={{ 
+                        margin: '0.5rem 0', 
+                        fontSize: 'clamp(3rem, 15vw, 4.5rem)' 
+                    }}>
+                        {lastKnownWeight || '--'} <span style={{ fontSize: '1.5rem', color: 'var(--text-muted)' }}>KG</span>
+                    </div>
                     <p className="text-muted">{weightLabel}</p>
                 </div>
-                <div style={{ display: 'flex', gap: '0.5rem' }}>
-                    <input type="number" step="0.1" className="btn btn-secondary" value={weightInput} onChange={e => setWeightInput(e.target.value)} style={{ width: '100px', caretColor: 'transparent' }}/>
-                    <button className="btn btn-primary" onClick={updateWeight}>Log</button>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', alignItems: 'center', width: '100%', maxWidth: '200px' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', width: '100%', alignItems: 'center' }}>
+                        <input 
+                            id="weight-input"
+                            type="text" 
+                            inputMode="decimal"
+                            className="btn btn-secondary" 
+                            value={weightInput} 
+                            spellCheck={false}
+                            autoComplete="off"
+                            onChange={e => handleWeightInputChange(e.target.value)} 
+                            style={{ width: '100px', textAlign: 'center', background: 'rgba(255,255,255,0.05)', cursor: 'text', padding: '0.5rem', caretColor: 'transparent' }}
+                        />
+                        <button className="btn btn-primary" onClick={updateWeight} style={{ padding: '0.5rem 1.5rem', width: '100px' }}>LOG</button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -486,11 +1035,13 @@ export const Dashboard = () => {
 
 
       {/* Today's Food Diary */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: '3rem 0 1.5rem' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: '2rem 0 1rem', flexWrap: 'wrap', gap: '1rem' }}>
         <h2 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
             <AppleIcon size={28} color="var(--primary)" /> Today's Food Diary
         </h2>
-        <button className="btn btn-primary" onClick={() => setShowLogModal(true)}>+ Log Food</button>
+        <div style={{ display: 'flex', gap: '1rem' }}>
+            <button className="btn btn-primary" onClick={() => setShowLogModal(true)}>+ Log Food</button>
+        </div>
       </div>
       <div className="card" style={{ padding: '0.5rem', background: 'rgba(255,255,255,0.01)', border: '1px solid var(--card-border)' }}>
         {today?.food_items && today.food_items.length > 0 ? (
@@ -506,39 +1057,67 @@ export const Dashboard = () => {
                   padding: '1rem 1.5rem',
                   background: 'rgba(255,255,255,0.02)',
                   borderRadius: '0.75rem',
-                  border: '1px solid rgba(255,255,255,0.03)'
+                  border: '1px solid rgba(255,255,255,0.03)',
+                  flexWrap: 'wrap',
+                  gap: '1rem'
                 }}
               >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
-                    <div style={{ width: '45px', height: '45px', borderRadius: '50%', background: 'rgba(251, 197, 49, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--primary)', fontWeight: 900, fontSize: '0.8rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flex: 1, minWidth: '200px' }}>
+                    <div style={{ width: '45px', height: '45px', borderRadius: '50%', background: 'rgba(251, 197, 49, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--primary)', fontWeight: 900, fontSize: '0.8rem', flexShrink: 0 }}>
                         {item.type?.charAt(0) || 'M'}
                     </div>
                     <div>
                         <div style={{ fontWeight: 800, fontSize: '1.1rem', letterSpacing: '-0.02em' }}>{item.label}</div>
-                        <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600, marginTop: '0.1rem' }}>
-                            {item.grams}g • <span style={{ color: 'var(--primary)' }}>{item.kcal} kcal</span> • P: {item.protein?.toFixed(1)}g C: {item.carbs?.toFixed(1)}g F: {item.fat?.toFixed(1)}g
+                        {item.ingredients && item.ingredients.length > 0 && (
+                            <div style={{ fontSize: '0.65rem', color: 'var(--primary)', fontWeight: 700, textTransform: 'uppercase', marginTop: '0.2rem', letterSpacing: '0.02em', opacity: 0.8 }}>
+                                Composed of: {item.ingredients.map((ing: any) => ing.label).join(', ')}
+                            </div>
+                        )}
+                        <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600, marginTop: '0.2rem' }}>
+                            {item.grams}g • <span style={{ color: 'var(--primary)' }}>{item.kcal} kcal</span> • P: {(item.protein || 0).toFixed(2)}g C: {(item.carbs || 0).toFixed(2)}g F: {(item.fat || 0).toFixed(2)}g
                         </div>
                     </div>
                 </div>
-                <button 
-                  onClick={() => deleteFoodItem(item.logged_at)}
-                  className="btn btn-secondary"
-                  style={{ 
-                      padding: '0.6rem', 
-                      borderRadius: '50%', 
-                      width: '38px', 
-                      height: '38px', 
-                      display: 'flex', 
-                      alignItems: 'center', 
-                      justifyContent: 'center',
-                      color: 'rgba(255,255,255,0.2)',
-                      border: '1px solid rgba(255,255,255,0.05)'
-                  }}
-                  onMouseOver={(e) => e.currentTarget.style.color = '#ff4757'}
-                  onMouseOut={(e) => e.currentTarget.style.color = 'rgba(255,255,255,0.2)'}
-                >
-                  <TrashIcon size={18} />
-                </button>
+                <div style={{ display: 'flex', gap: '0.5rem', marginLeft: 'auto' }}>
+                    <button 
+                      onClick={() => setEditingItem(item)}
+                      className="btn btn-secondary"
+                      style={{ 
+                          padding: '0.6rem', 
+                          borderRadius: '50%', 
+                          width: '38px', 
+                          height: '38px', 
+                          display: 'flex', 
+                          alignItems: 'center', 
+                          justifyContent: 'center',
+                          color: 'rgba(255,255,255,0.2)',
+                          border: '1px solid rgba(255,255,255,0.05)'
+                      }}
+                      onMouseOver={(e) => e.currentTarget.style.color = 'var(--primary)'}
+                      onMouseOut={(e) => e.currentTarget.style.color = 'rgba(255,255,255,0.2)'}
+                    >
+                      <EditIcon size={18} />
+                    </button>
+                    <button 
+                      onClick={() => deleteFoodItem(item.logged_at)}
+                      className="btn btn-secondary"
+                      style={{ 
+                          padding: '0.6rem', 
+                          borderRadius: '50%', 
+                          width: '38px', 
+                          height: '38px', 
+                          display: 'flex', 
+                          alignItems: 'center', 
+                          justifyContent: 'center',
+                          color: 'rgba(255,255,255,0.2)',
+                          border: '1px solid rgba(255,255,255,0.05)'
+                      }}
+                      onMouseOver={(e) => e.currentTarget.style.color = '#ff4757'}
+                      onMouseOut={(e) => e.currentTarget.style.color = 'rgba(255,255,255,0.2)'}
+                    >
+                      <TrashIcon size={18} />
+                    </button>
+                </div>
               </div>
             ))}
           </div>
@@ -546,15 +1125,14 @@ export const Dashboard = () => {
           <div style={{ padding: '4rem 2rem', textAlign: 'center' }}>
             <AppleIcon size={48} color="rgba(255,255,255,0.05)" style={{ marginBottom: '1.5rem' }} />
             <p className="text-muted" style={{ fontSize: '1.1rem' }}>No meals logged today yet.</p>
-            <button className="btn btn-primary" style={{ marginTop: '1rem' }} onClick={() => window.location.href='/meal'}>Log a Meal</button>
           </div>
         )}
       </div>
 
 
-      <h2 style={{ margin: '3rem 0 1.5rem' }}>History & Progress</h2>
-      <div className="dashboard-grid" style={{ marginBottom: '3rem' }}>
-        <div className="card">
+      <h2 style={{ margin: '2rem 0 1rem' }}>History & Progress</h2>
+      <div className="dashboard-stats-grid">
+        <div className="card stat-card-consistent">
             <h3 className="text-muted" style={{ fontSize: '0.8rem', textTransform: 'uppercase' }}>Weight Tracking (30D)</h3>
             <div style={{ width: '100%', height: 220 }}>
                 {weightHistory && weightHistory.length > 0 ? (
@@ -609,7 +1187,7 @@ export const Dashboard = () => {
             )}
         </div>
 
-        <div className="card">
+        <div className="card stat-card-consistent">
             <h3 className="text-muted" style={{ fontSize: '0.8rem', textTransform: 'uppercase' }}>Daily Calories</h3>
             <div style={{ width: '100%', height: 220 }}>
                 <ResponsiveContainer width="100%" height="100%">
@@ -632,7 +1210,7 @@ export const Dashboard = () => {
             </div>
         </div>
 
-        <div className="card">
+        <div className="card stat-card-consistent">
             <h3 className="text-muted" style={{ fontSize: '0.8rem', textTransform: 'uppercase' }}>Steps</h3>
             <div style={{ width: '100%', height: 220 }}>
                 <ResponsiveContainer width="100%" height="100%">
@@ -656,6 +1234,18 @@ export const Dashboard = () => {
         </div>
       </div>
 
+      {editingItem && createPortal(
+          <EditFoodModal 
+              item={editingItem} 
+              onClose={() => setEditingItem(null)} 
+              onSave={() => {
+                  setEditingItem(null);
+                  fetchData();
+              }}
+          />,
+          document.body
+      )}
+
       {showLogModal && createPortal(
           <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,0.9)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10000, padding: '2rem', backdropFilter: 'blur(8px)' }}>
               <div style={{ position: 'relative', width: '100%', maxWidth: '1000px', maxHeight: '90vh', overflowY: 'auto' }}>
@@ -671,6 +1261,9 @@ export const Dashboard = () => {
                         setShowLogModal(false);
                         fetchData();
                     }} 
+                    mealType={mealType}
+                    setMealType={setMealType}
+                    getNextMealType={getNextMealType}
                   />
               </div>
           </div>,

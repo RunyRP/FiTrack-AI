@@ -17,9 +17,10 @@ class FitnessChatService:
         if gemini_key:
             try:
                 self.client = genai.Client(api_key=gemini_key)
-                self.gemini_model_id = "gemini-3-flash-preview"
+                # Using Gemini 3.1 Flash Lite - Available in this environment (2026)
+                self.gemini_model_id = "gemini-3.1-flash-lite"
                 self.use_gemini = True
-                print(f"DEBUG: Gemini AI ({self.gemini_model_id}) initialized successfully with new SDK.")
+                print(f"DEBUG: Gemini AI ({self.gemini_model_id}) initialized successfully.")
             except Exception as e:
                 print(f"Error initializing Gemini: {e}")
 
@@ -57,7 +58,7 @@ class FitnessChatService:
             print(f"Error generating thread title: {e}")
             return "Fitness Chat"
 
-    def generate_response(self, user_message: str, user_profile: dict = None, history: list = None) -> str:
+    def generate_response(self, user_message: str, user_profile: dict = None, history: list = None, system_instruction: str = None) -> str:
         import datetime
         user_name = user_profile.get('name', 'User') if user_profile else "User"
         if not user_name or user_name.lower() == "you":
@@ -119,6 +120,8 @@ class FitnessChatService:
             "Instead, give a brief, energetic greeting, make a very short nod to their current app state (e.g., \"Happy rest day!\" or \"Ready to lift?\"), and ask how you can help them today."
         )
 
+        final_system_instruction = system_instruction if system_instruction is not None else system_instruction_text
+
         if self.use_gemini:
             try:
                 # Format history for the new SDK
@@ -135,21 +138,27 @@ class FitnessChatService:
                     parts=[types.Part.from_text(text=user_message)]
                 ))
 
-                generate_content_config = types.GenerateContentConfig(
-                    temperature=0.5,
-                    max_output_tokens=800,
-                    thinking_config=types.ThinkingConfig(
-                        thinking_level="HIGH",
-                    ),
-                    tools=[types.Tool(google_search=types.GoogleSearch())],
-                    system_instruction=[types.Part.from_text(text=system_instruction_text)],
-                )
+                # Use simpler config for structured tasks (system_instruction provided)
+                if system_instruction is not None:
+                    generate_content_config = types.GenerateContentConfig(
+                        temperature=0.2, # More deterministic for JSON
+                        max_output_tokens=1000,
+                        system_instruction=[types.Part.from_text(text=final_system_instruction)],
+                    )
+                else:
+                    generate_content_config = types.GenerateContentConfig(
+                        temperature=0.7,
+                        max_output_tokens=800,
+                        tools=[types.Tool(google_search=types.GoogleSearch())],
+                        system_instruction=[types.Part.from_text(text=system_instruction_text)],
+                    )
 
                 response = self.client.models.generate_content(
                     model=self.gemini_model_id,
                     contents=contents,
                     config=generate_content_config,
                 )
+
                 
                 reply = response.text.strip()
                 

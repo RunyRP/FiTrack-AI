@@ -155,24 +155,25 @@ export const Chat = () => {
   };
 
   return (
-    <div className="container animate-fade-in" style={{ maxWidth: '1100px', height: 'calc(100vh - 140px)', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+    <div className="container animate-fade-in" style={{ maxWidth: '1100px', height: 'calc(100vh - 140px)', display: 'flex', flexDirection: 'column', gap: '1.5rem', minHeight: '500px' }}>
       
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
           <div>
-              <h1 style={{ margin: 0, fontSize: '2rem', letterSpacing: '-0.02em' }}>AI <span style={{ color: 'var(--primary)', fontWeight: 800 }}>COACH</span></h1>
-              <p className="text-muted" style={{ textTransform: 'uppercase', fontSize: '0.65rem', letterSpacing: '0.3em', fontWeight: 800, opacity: 0.8 }}>Professional Performance</p>
+              <h1 style={{ margin: 0, fontSize: 'clamp(1.5rem, 5vw, 2rem)', letterSpacing: '-0.02em' }}>AI <span style={{ color: 'var(--primary)', fontWeight: 800 }}>COACH</span></h1>
+              <p className="text-muted" style={{ textTransform: 'uppercase', fontSize: '0.6rem', letterSpacing: '0.2em', fontWeight: 800, opacity: 0.8 }}>Professional Performance</p>
           </div>
-          <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
-              <div style={{ display: 'flex', gap: '0.4rem', background: 'rgba(255,255,255,0.03)', padding: '0.4rem', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.05)' }}>
+          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end', flex: 1 }}>
+              <div style={{ display: 'flex', gap: '0.3rem', background: 'rgba(255,255,255,0.03)', padding: '0.3rem', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.05)', overflowX: 'auto', maxWidth: '100%' }}>
                   {threads.map(t => (
                       <button 
                         key={t.id}
                         onClick={() => setActiveThread(t.id)}
                         className={`btn ${activeThread === t.id ? 'btn-primary' : ''}`}
                         style={{ 
-                            padding: '0.5rem 0.75rem', 
-                            fontSize: '0.7rem', 
-                            width: '100px', // Fixed width to prevent overflow
+                            padding: '0.4rem 0.6rem', 
+                            fontSize: '0.65rem', 
+                            minWidth: '80px',
+                            maxWidth: '120px',
                             whiteSpace: 'nowrap',
                             overflow: 'hidden',
                             textOverflow: 'ellipsis',
@@ -182,7 +183,8 @@ export const Chat = () => {
                             fontWeight: 700,
                             borderRadius: '2px',
                             transition: 'all 0.2s ease',
-                            textAlign: 'center'
+                            textAlign: 'center',
+                            flexShrink: 0
                         }}
                         title={t.title}
                       >
@@ -193,10 +195,10 @@ export const Chat = () => {
                       <button 
                         onClick={addThread}
                         className="btn btn-secondary"
-                        style={{ padding: '0.5rem', minWidth: 'auto', background: 'rgba(255,255,255,0.05)', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                        style={{ padding: '0.4rem', minWidth: 'auto', background: 'rgba(255,255,255,0.05)', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
                         title="New Session"
                       >
-                          <PlusIcon size={14} />
+                          <PlusIcon size={12} />
                       </button>
                   )}
               </div>
@@ -204,17 +206,18 @@ export const Chat = () => {
                 onClick={() => deleteThread(activeThread)}
                 className="btn btn-secondary"
                 style={{ 
-                    padding: '0.6rem', 
+                    padding: '0.5rem', 
                     background: 'rgba(255,50,50,0.1)', 
                     borderColor: 'rgba(255,50,50,0.2)', 
                     display: 'flex', 
                     alignItems: 'center', 
                     justifyContent: 'center',
-                    borderRadius: '4px'
+                    borderRadius: '4px',
+                    flexShrink: 0
                 }}
                 title="Clear Session"
               >
-                  <TrashIcon size={16} color="#ff4d4d" />
+                  <TrashIcon size={14} color="#ff4d4d" />
               </button>
           </div>
       </div>
@@ -233,27 +236,27 @@ export const Chat = () => {
         <div style={{ 
             flex: 1, 
             overflowY: 'auto', 
-            padding: '2.5rem',
+            padding: 'clamp(1rem, 5vw, 2.5rem)',
             display: 'flex',
             flexDirection: 'column',
-            gap: '2.5rem',
+            gap: '1.5rem',
             background: 'radial-gradient(circle at top right, rgba(251, 197, 49, 0.03) 0%, transparent 40%), linear-gradient(to bottom, #0d0d0d 0%, #050505 100%)'
         }}>
           {activeMessages.length === 0 && !loadingThreads[activeThread] && (
               <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', textAlign: 'center' }}>
-                  <div className="animate-fade-in" style={{ maxWidth: '450px' }}>
+                  <div className="animate-fade-in" style={{ maxWidth: '450px', padding: '1rem' }}>
                       <div style={{ 
-                          fontSize: '5rem', 
-                          marginBottom: '2rem', 
+                          fontSize: 'clamp(3rem, 10vw, 5rem)', 
+                          marginBottom: '1.5rem', 
                           filter: 'drop-shadow(0 0 30px rgba(251, 197, 49, 0.3))',
                           animation: 'pulse 3s infinite ease-in-out'
                       }}>⚡</div>
-                      <h2 style={{ fontSize: '1.8rem', marginBottom: '1rem', fontWeight: 800 }}>READY TO LEVEL UP?</h2>
-                      <p className="text-muted" style={{ fontSize: '1rem', lineHeight: 1.6 }}>I'm your Gemini-powered elite coach. Tell me your goals, your struggles, or your last workout. We don't accept excuses here.</p>
-                      <div style={{ marginTop: '2.5rem', display: 'flex', flexWrap: 'wrap', gap: '0.75rem', justifyContent: 'center' }}>
-                          <button onClick={() => setInput("Give me a high-intensity finisher for chest day.")} className="insight-chip" style={{ cursor: 'pointer', padding: '0.6rem 1.2rem', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.1)' }}>Chest Finisher</button>
-                          <button onClick={() => setInput("Optimize my protein intake for muscle growth.")} className="insight-chip" style={{ cursor: 'pointer', padding: '0.6rem 1.2rem', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.1)' }}>Protein Optimization</button>
-                          <button onClick={() => setInput("I'm feeling unmotivated today. Discipline me.")} className="insight-chip" style={{ cursor: 'pointer', padding: '0.6rem 1.2rem', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.1)' }}>Hard Truth</button>
+                      <h2 style={{ fontSize: 'clamp(1.2rem, 4vw, 1.8rem)', marginBottom: '1rem', fontWeight: 800 }}>READY TO LEVEL UP?</h2>
+                      <p className="text-muted" style={{ fontSize: 'clamp(0.85rem, 3vw, 1rem)', lineHeight: 1.6 }}>I'm your Gemini-powered elite coach. Tell me your goals, your struggles, or your last workout. We don't accept excuses here.</p>
+                      <div style={{ marginTop: '2rem', display: 'flex', flexWrap: 'wrap', gap: '0.5rem', justifyContent: 'center' }}>
+                          <button onClick={() => setInput("Give me a high-intensity finisher for chest day.")} className="insight-chip" style={{ cursor: 'pointer', padding: '0.5rem 1rem', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.1)', fontSize: '0.8rem' }}>Chest Finisher</button>
+                          <button onClick={() => setInput("Optimize my protein intake for muscle growth.")} className="insight-chip" style={{ cursor: 'pointer', padding: '0.5rem 1rem', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.1)', fontSize: '0.8rem' }}>Protein Optimization</button>
+                          <button onClick={() => setInput("I'm feeling unmotivated today. Discipline me.")} className="insight-chip" style={{ cursor: 'pointer', padding: '0.5rem 1rem', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.1)', fontSize: '0.8rem' }}>Hard Truth</button>
                       </div>
                   </div>
               </div>
@@ -265,74 +268,61 @@ export const Chat = () => {
               className="animate-fade-in"
               style={{ 
                 display: 'flex', 
-                gap: '1.25rem',
+                gap: 'clamp(0.5rem, 3vw, 1.25rem)',
                 flexDirection: m.role === 'user' ? 'row-reverse' : 'row',
                 alignItems: 'flex-start'
               }}
             >
               <div style={{ 
-                  width: '45px', 
-                  height: '45px', 
+                  width: '35px', 
+                  height: '35px', 
                   background: m.role === 'user' ? '#1a1a1a' : 'var(--primary)',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  fontSize: '0.9rem',
+                  fontSize: '0.75rem',
                   fontWeight: 900,
                   color: m.role === 'user' ? '#888' : '#000',
                   border: m.role === 'user' ? '1px solid #333' : 'none',
                   boxShadow: m.role === 'assistant' ? '0 0 15px rgba(251, 197, 49, 0.2)' : 'none',
-                  borderRadius: '2px'
+                  borderRadius: '2px',
+                  flexShrink: 0
               }}>
                   {m.role === 'user' ? 'YOU' : 'AI'}
               </div>
               <div 
                 className="chat-message-content"
                 style={{ 
-                  maxWidth: '75%', 
-                  padding: '1.5rem 1.75rem', 
+                  maxWidth: '85%', 
+                  padding: 'clamp(1rem, 4vw, 1.5rem) clamp(1rem, 4vw, 1.75rem)', 
                   background: m.role === 'user' ? 'rgba(255,255,255,0.02)' : 'rgba(251, 197, 49, 0.03)',
                   color: m.role === 'user' ? '#ccc' : '#fff',
                   border: `1px solid ${m.role === 'user' ? 'rgba(255,255,255,0.05)' : 'rgba(251, 197, 49, 0.15)'}`,
-                  lineHeight: 1.7,
+                  lineHeight: 1.6,
                   position: 'relative',
-                  fontSize: '1.05rem',
+                  fontSize: '0.95rem',
                   borderRadius: '4px'
                 }}
               >
                 <ReactMarkdown>{m.content}</ReactMarkdown>
-                <div style={{ 
-                    position: 'absolute', 
-                    top: '15px', 
-                    [m.role === 'user' ? 'right' : 'left']: '-6px',
-                    width: '12px',
-                    height: '12px',
-                    background: m.role === 'user' ? '#0d0d0d' : '#0d0d0d',
-                    borderLeft: m.role === 'assistant' ? '1px solid rgba(251, 197, 49, 0.15)' : 'none',
-                    borderBottom: m.role === 'assistant' ? '1px solid rgba(251, 197, 49, 0.15)' : 'none',
-                    borderRight: m.role === 'user' ? '1px solid rgba(255,255,255,0.05)' : 'none',
-                    borderTop: m.role === 'user' ? '1px solid rgba(255,255,255,0.05)' : 'none',
-                    transform: 'rotate(45deg)',
-                    zIndex: 0
-                }}></div>
               </div>
             </div>
           ))}
           {loadingThreads[activeThread] && (
-            <div style={{ display: 'flex', gap: '1.25rem' }}>
-              <div style={{ width: '45px', height: '45px', background: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, color: '#000', borderRadius: '2px' }}>AI</div>
-              <div style={{ padding: '1.5rem 1.75rem', background: 'rgba(251, 197, 49, 0.03)', border: '1px solid rgba(251, 197, 49, 0.15)', borderRadius: '4px', display: 'flex', gap: '0.6rem', alignItems: 'center' }}>
-                <div className="animate-pulse" style={{ width: '8px', height: '8px', background: 'var(--primary)', borderRadius: '50%' }}></div>
-                <div className="animate-pulse" style={{ width: '8px', height: '8px', background: 'var(--primary)', borderRadius: '50%', animationDelay: '0.2s' }}></div>
-                <div className="animate-pulse" style={{ width: '8px', height: '8px', background: 'var(--primary)', borderRadius: '50%', animationDelay: '0.4s' }}></div>
+            <div style={{ display: 'flex', gap: '1rem' }}>
+              <div style={{ width: '35px', height: '35px', background: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, color: '#000', borderRadius: '2px', flexShrink: 0 }}>AI</div>
+              <div style={{ padding: '1rem 1.5rem', background: 'rgba(251, 197, 49, 0.03)', border: '1px solid rgba(251, 197, 49, 0.15)', borderRadius: '4px', display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                <div className="animate-pulse" style={{ width: '6px', height: '6px', background: 'var(--primary)', borderRadius: '50%' }}></div>
+                <div className="animate-pulse" style={{ width: '6px', height: '6px', background: 'var(--primary)', borderRadius: '50%', animationDelay: '0.2s' }}></div>
+                <div className="animate-pulse" style={{ width: '6px', height: '6px', background: 'var(--primary)', borderRadius: '50%', animationDelay: '0.4s' }}></div>
               </div>
             </div>
           )}
           <div ref={messagesEndRef} />
         </div>
 
-        <div style={{ background: '#000', padding: '2rem 2.5rem', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
-            <form onSubmit={handleSend} style={{ display: 'flex', gap: '1.25rem', alignItems: 'center' }}>
+        <div style={{ background: '#000', padding: 'clamp(1rem, 4vw, 2rem) clamp(1rem, 5vw, 2.5rem)', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+            <form onSubmit={handleSend} style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
               <input 
                 type="text" 
                 value={input} 
@@ -340,27 +330,28 @@ export const Chat = () => {
                 placeholder="Talk to your Coach..."
                 style={{ 
                     flex: 1, 
-                    padding: '1rem 1.5rem', 
+                    padding: '0.8rem 1.25rem', 
                     background: '#0d0d0d', 
                     color: 'white', 
                     border: '1px solid rgba(255,255,255,0.1)',
-                    fontSize: '1rem',
+                    fontSize: '0.95rem',
                     borderRadius: '4px',
                     outline: 'none',
-                    transition: 'border-color 0.3s ease'
+                    transition: 'border-color 0.3s ease',
+                    minWidth: 0
                 }}
                 onFocus={(e) => e.target.style.borderColor = 'var(--primary)'}
                 onBlur={(e) => e.target.style.borderColor = 'rgba(255,255,255,0.1)'}
               />
-              <button type="submit" className="btn btn-primary" style={{ padding: '1rem 2.5rem', fontWeight: 800, letterSpacing: '0.1em' }} disabled={loadingThreads[activeThread] || !input.trim()}>
+              <button type="submit" className="btn btn-primary" style={{ padding: '0.8rem 1.5rem', fontWeight: 800, fontSize: '0.9rem' }} disabled={loadingThreads[activeThread] || !input.trim()}>
                 SEND
               </button>
             </form>
-            <div style={{ marginTop: '1.25rem', display: 'flex', justifyContent: 'space-between', fontSize: '0.65rem', color: 'rgba(255,255,255,0.3)', textTransform: 'uppercase', fontWeight: 800, letterSpacing: '0.2em' }}>
-                <span style={{ color: 'rgba(255,255,255,0.5)' }}>Session ID: {activeThread}</span>
-                <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    <div style={{ width: '6px', height: '6px', background: '#00ff00', borderRadius: '50%', boxShadow: '0 0 10px #00ff00' }}></div>
-                    Gemini Flash powered coach
+            <div style={{ marginTop: '1rem', display: 'flex', justifyContent: 'space-between', fontSize: '0.6rem', color: 'rgba(255,255,255,0.3)', textTransform: 'uppercase', fontWeight: 800, letterSpacing: '0.1em', flexWrap: 'wrap', gap: '0.5rem' }}>
+                <span>ID: {activeThread}</span>
+                <span style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                    <div style={{ width: '5px', height: '5px', background: '#00ff00', borderRadius: '50%', boxShadow: '0 0 10px #00ff00' }}></div>
+                    Gemini FLASH coach
                 </span>
             </div>
         </div>
