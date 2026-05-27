@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import api, { API_URL } from '../api';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { useAuth } from '../App';
+import { useAuth } from '../hooks';
 import { CameraIcon, EditIcon } from './Icons';
 
 export const Setup = () => {
@@ -86,7 +86,8 @@ export const Setup = () => {
   };
 
   const categorizeMachine = (m: any) => {
-    const primaryMuscle = m.exercises?.[0]?.muscles?.[0] || 'Other';
+    if (!m || !m.exercises || !m.exercises[0] || !m.exercises[0].muscles) return 'Other';
+    const primaryMuscle = m.exercises[0].muscles[0] || 'Other';
     const muscle = primaryMuscle.toLowerCase();
     
     if (muscle.includes('quad') || muscle.includes('leg') || muscle.includes('glute') || muscle.includes('hamstring') || muscle.includes('calf')) return 'Legs';

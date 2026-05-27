@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useGoogleLogin } from '@react-oauth/google';
+import { GoogleAuth } from '@codetrix-studio/capacitor-google-auth';
 import api from '../api';
-import { useAuth } from '../App';
+import { useAuth, usePopup } from '../hooks';
 import { 
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Cell
 } from 'recharts';
-import { CoachIcon, SavedIcon, SyncIcon, ResetIcon, DropIcon, GlassIcon, BottleIcon, FireIcon, FootprintsIcon, ScaleIcon, ConnectedIcon, TrashIcon, AppleIcon, CapsuleIcon, StarIcon, EditIcon } from './Icons';
+import { CoachIcon, SavedIcon, SyncIcon, ResetIcon, DropIcon, GlassIcon, BottleIcon, FireIcon, FootprintsIcon, ScaleIcon, ConnectedIcon, TrashIcon, AppleIcon, CapsuleIcon, EditIcon } from './Icons';
 import { MACRO_DISTRIBUTIONS, type MacroDistType } from '../constants';
 import { QuickLogModal } from './QuickLogModal';
 
@@ -40,11 +41,11 @@ const EditFoodModal = ({ item, onClose, onSave }: EditFoodModalProps) => {
     const newIngredients = [...formData.ingredients];
     newIngredients[idx] = { ...newIngredients[idx], [field]: value };
     
-    const totalKcal = newIngredients.reduce((sum, ing) => sum + (Number(ing.kcal) || 0), 0);
-    const totalP = newIngredients.reduce((sum, ing) => sum + (Number(ing.protein) || 0), 0);
-    const totalC = newIngredients.reduce((sum, ing) => sum + (Number(ing.carbs) || 0), 0);
-    const totalF = newIngredients.reduce((sum, ing) => sum + (Number(ing.fat) || 0), 0);
-    const totalG = newIngredients.reduce((sum, ing) => sum + (Number(ing.grams) || 0), 0);
+    const totalKcal = newIngredients.reduce((sum: number, ing: any) => sum + (Number(ing.kcal) || 0), 0);
+    const totalP = newIngredients.reduce((sum: number, ing: any) => sum + (Number(ing.protein) || 0), 0);
+    const totalC = newIngredients.reduce((sum: number, ing: any) => sum + (Number(ing.carbs) || 0), 0);
+    const totalF = newIngredients.reduce((sum: number, ing: any) => sum + (Number(ing.fat) || 0), 0);
+    const totalG = newIngredients.reduce((sum: number, ing: any) => sum + (Number(ing.grams) || 0), 0);
     
     setFormData({
         ...formData,
@@ -60,11 +61,11 @@ const EditFoodModal = ({ item, onClose, onSave }: EditFoodModalProps) => {
   const removeIngredient = (idx: number) => {
     const newIngredients = formData.ingredients.filter((_: any, i: number) => i !== idx);
     
-    const totalKcal = newIngredients.reduce((sum, ing) => sum + (Number(ing.kcal) || 0), 0);
-    const totalP = newIngredients.reduce((sum, ing) => sum + (Number(ing.protein) || 0), 0);
-    const totalC = newIngredients.reduce((sum, ing) => sum + (Number(ing.carbs) || 0), 0);
-    const totalF = newIngredients.reduce((sum, ing) => sum + (Number(ing.fat) || 0), 0);
-    const totalG = newIngredients.reduce((sum, ing) => sum + (Number(ing.grams) || 0), 0);
+    const totalKcal = newIngredients.reduce((sum: number, ing: any) => sum + (Number(ing.kcal) || 0), 0);
+    const totalP = newIngredients.reduce((sum: number, ing: any) => sum + (Number(ing.protein) || 0), 0);
+    const totalC = newIngredients.reduce((sum: number, ing: any) => sum + (Number(ing.carbs) || 0), 0);
+    const totalF = newIngredients.reduce((sum: number, ing: any) => sum + (Number(ing.fat) || 0), 0);
+    const totalG = newIngredients.reduce((sum: number, ing: any) => sum + (Number(ing.grams) || 0), 0);
     
     setFormData({
         ...formData,
@@ -270,6 +271,15 @@ export const Dashboard = () => {
   });
 
   const [editingItem, setEditingItem] = useState<any>(null);
+  const [isAICoachOpen, setIsAICoachOpen] = useState(false);
+  const [isDesktop, setIsDesktop] = useState(window.innerWidth > 1024);
+
+  useEffect(() => {
+    const handleResize = () => setIsDesktop(window.innerWidth > 1024);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   const [data, setData] = useState<any>(() => {
       const cached = localStorage.getItem('dashboard_cache');
       return cached ? JSON.parse(cached) : null;
@@ -313,6 +323,7 @@ export const Dashboard = () => {
   const [lastStepsUpdate, setLastStepsUpdate] = useState<string>('');
   const [hoveredDay, setHoveredDay] = useState<number | null>(null);
   const { user: authUser, refreshUser } = useAuth();
+  const { showPopup } = usePopup();
 
   const fetchData = async () => {
     try {
@@ -471,13 +482,20 @@ export const Dashboard = () => {
   };
 
   const deleteFoodItem = async (loggedAt: string) => {
-    if (!confirm('Remove this item?')) return;
-    try {
-        await api.delete(`/log/food-item?logged_at=${encodeURIComponent(loggedAt)}&date_str=${today.date}`);
-        await fetchData();
-    } catch (err) {
-        console.error(err);
-    }
+    showPopup({
+        type: 'confirm',
+        title: 'Delete Item',
+        message: 'Are you sure you want to remove this item from your diary?',
+        confirmLabel: 'DELETE',
+        onConfirm: async () => {
+            try {
+                await api.delete(`/log/food-item?logged_at=${encodeURIComponent(loggedAt)}&date_str=${today.date}`);
+                await fetchData();
+            } catch (err) {
+                console.error(err);
+            }
+        }
+    });
   };
 
   const googleSync = useGoogleLogin({
@@ -487,9 +505,9 @@ export const Dashboard = () => {
         await api.post('/log/google-store-code', { code: codeResponse.code });
         await api.post('/log/sync-google-fit', {}); 
         await fetchData();
-        alert('Steps synced successfully!');
+        showPopup({ message: 'Steps synced successfully!', title: 'Success' });
       } catch (err) {
-        alert('Failed to sync.');
+        showPopup({ message: 'Failed to sync with Google Fit.', title: 'Error' });
       }
     },
     scope: 'https://www.googleapis.com/auth/fitness.activity.read https://www.googleapis.com/auth/fitness.body.read',
@@ -497,6 +515,34 @@ export const Dashboard = () => {
     access_type: 'offline',
     prompt: 'consent',
   });
+
+  const handleGoogleSync = async () => {
+    // 1. Check if running on native platform
+    const isNative = (window as any).Capacitor && (window as any).Capacitor.getPlatform() !== 'web';
+    
+    if (isNative) {
+      try {
+        console.log("DEBUG: Starting native Google Auth...");
+        const user = await GoogleAuth.signIn();
+        console.log("DEBUG: Native Auth success:", user);
+        
+        if (user.serverAuthCode) {
+          await api.post('/log/google-store-code', { code: user.serverAuthCode });
+          await api.post('/log/sync-google-fit', {}); 
+          await fetchData();
+          showPopup({ message: 'Steps synced successfully!', title: 'Success' });
+        } else {
+          showPopup({ message: 'Please grant all permissions to sync steps.', title: 'Permission Required' });
+        }
+      } catch (err) {
+        console.error('Native Google Auth error:', err);
+        showPopup({ message: 'Sync failed. Ensure you signed in and granted permissions.', title: 'Sync Error' });
+      }
+    } else {
+      // 2. Web fallback
+      googleSync();
+    }
+  };
 
   if (!data) return (
     <div className="container" style={{ display: 'flex', height: '50vh', alignItems: 'center', justifyContent: 'center' }}>
@@ -508,18 +554,13 @@ export const Dashboard = () => {
   
   // Robust weekly performance calculation (frontend fallback)
   const weekly_performance = (() => {
-      if (rawWeeklyPerf && rawWeeklyPerf.length === 7) return rawWeeklyPerf;
-      
-      // Fallback: Generate the current week (Mon-Sun)
+      // Calculate a window of 5 days: [today-2, today-1, today, today+1, today+2]
       const days = [];
-      const now = new Date();
-      const currentDay = now.getDay(); // 0 is Sun, 1 is Mon
-      const diff = now.getDate() - currentDay + (currentDay === 0 ? -6 : 1);
-      const monday = new Date(now.setDate(diff));
+      const todayDate = new Date();
       
-      for (let i = 0; i < 7; i++) {
-          const d = new Date(monday);
-          d.setDate(monday.getDate() + i);
+      for (let i = -2; i <= 2; i++) {
+          const d = new Date(todayDate);
+          d.setDate(todayDate.getDate() + i);
           const iso = d.toISOString().split('T')[0];
           
           // Try to find existing data in history or rawWeeklyPerf
@@ -629,7 +670,7 @@ export const Dashboard = () => {
                   const isToday = day.date === todayIso;
                   const isFuture = new Date(day.date) > new Date();
 
-                  const TODAY_COLOR = '#00a8ff'; // Distinct Blue for Today
+                  const TODAY_COLOR = 'var(--primary)'; // Yellow for Today
 
                   let circleColor = 'rgba(255,255,255,0.05)';
                   let circleBg = 'rgba(255,255,255,0.02)';
@@ -691,9 +732,9 @@ export const Dashboard = () => {
                           flex: 1,
                           position: 'relative',
                           padding: '1rem 0',
-                          background: isToday ? 'rgba(0, 168, 255, 0.05)' : 'transparent',
+                          background: isToday ? 'rgba(251, 197, 49, 0.05)' : 'transparent',
                           borderRadius: '1rem',
-                          border: isToday ? `1px solid rgba(0, 168, 255, 0.1)` : '1px solid transparent',
+                          border: isToday ? `1px solid rgba(251, 197, 49, 0.1)` : '1px solid transparent',
                           cursor: 'pointer',
                           overflow: 'visible'
                       }}>
@@ -743,6 +784,19 @@ export const Dashboard = () => {
                                   }} />
                               </div>
                           )}
+                          {isToday && (
+                              <div style={{
+                                  position: 'absolute',
+                                  top: '4px',
+                                  width: 0,
+                                  height: 0,
+                                  borderLeft: '5px solid transparent',
+                                  borderRight: '5px solid transparent',
+                                  borderTop: `6px solid ${TODAY_COLOR}`,
+                                  zIndex: 2,
+                                  filter: 'drop-shadow(0 0 5px rgba(251, 197, 49, 0.8))'
+                              }} />
+                          )}
                           <div style={{ 
                               width: '60px', 
                               height: '60px', 
@@ -752,10 +806,10 @@ export const Dashboard = () => {
                               alignItems: 'center', 
                               justifyContent: 'center',
                               background: circleBg,
-                              border: `2px solid ${circleColor}`,
-                              color: isFuture ? 'var(--text-muted)' : circleColor,
+                              border: isToday ? `2px solid ${TODAY_COLOR}` : `2px solid ${circleColor}`,
+                              color: isToday ? TODAY_COLOR : (isFuture ? 'var(--text-muted)' : circleColor),
                               transition: 'all 0.3s ease',
-                              boxShadow: isToday ? `0 0 0 2px ${TODAY_COLOR}, 0 0 15px rgba(0, 168, 255, 0.3)` : glow,
+                              boxShadow: isToday ? `0 0 20px rgba(251, 197, 49, 0.4), inset 0 0 10px rgba(251, 197, 49, 0.1)` : glow,
                               opacity: isFuture ? 0.3 : 1,
                               zIndex: 1,
                               lineHeight: 1.1
@@ -774,17 +828,23 @@ export const Dashboard = () => {
       </div>
 
       {feedback && (
-        <div className="card animate-fade-in mobile-center" style={{ 
-            background: 'rgba(251, 197, 49, 0.03)',
-            borderLeft: '6px solid var(--primary)',
-            textAlign: 'left',
-            padding: '2rem',
-            marginBottom: '2rem',
-            borderTop: '1px solid rgba(251, 197, 49, 0.1)',
-            borderRight: '1px solid rgba(251, 197, 49, 0.1)',
-            borderBottom: '1px solid rgba(251, 197, 49, 0.1)'
-        }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1rem' }}>
+        <div 
+            className="card animate-fade-in mobile-center" 
+            onClick={isDesktop ? undefined : () => setIsAICoachOpen(!isAICoachOpen)}
+            style={{ 
+                background: 'rgba(251, 197, 49, 0.03)',
+                borderLeft: '6px solid var(--primary)',
+                textAlign: 'left',
+                padding: '1.5rem 2rem',
+                marginBottom: '2rem',
+                borderTop: '1px solid rgba(251, 197, 49, 0.1)',
+                borderRight: '1px solid rgba(251, 197, 49, 0.1)',
+                borderBottom: '1px solid rgba(251, 197, 49, 0.1)',
+                cursor: isDesktop ? 'default' : 'pointer',
+                transition: 'all 0.3s ease'
+            }}
+        >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                 <span style={{ color: 'var(--primary)' }}><CoachIcon size={24} /></span>
                 <h3 style={{ margin: 0, fontSize: '1.1rem', textTransform: 'uppercase', color: 'var(--primary)' }}>Daily AI Coach</h3>
                 <div style={{ 
@@ -793,38 +853,56 @@ export const Dashboard = () => {
                     fontSize: '0.7rem', 
                     fontWeight: 800, 
                     background: feedback.status === 'on_track' ? 'rgba(46, 204, 113, 0.1)' : 'rgba(251, 197, 49, 0.1)',
-                    color: feedback.status === 'on_track' ? 'var(--success)' : 'var(--warning)'
+                    color: feedback.status === 'on_track' ? 'var(--success)' : 'var(--warning)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.5rem'
                 }}>
                     {feedback.status === 'on_track' ? 'ON TRACK' : 'NEEDS ATTENTION'}
+                    {!isDesktop && (
+                        <span style={{ 
+                            fontSize: '0.6rem', 
+                            transform: isAICoachOpen ? 'rotate(180deg)' : 'rotate(0)',
+                            transition: 'transform 0.3s ease',
+                            opacity: 0.5
+                        }}>▼</span>
+                    )}
                 </div>
             </div>
             
-            <p style={{ fontSize: '1.1rem', fontWeight: 500, marginBottom: '1rem', color: '#fff' }}>
-                {feedback.insights && feedback.insights.length > 0 
-                    ? feedback.insights.join(' ') 
-                    : (feedback.summary || "No feedback yet.")}
-            </p>
+            {(isAICoachOpen || isDesktop) ? (
+                <div style={{ marginTop: '1.5rem', animation: 'fade-in 0.3s ease' }}>
+                    <p style={{ fontSize: '1.1rem', fontWeight: 500, marginBottom: '1.5rem', color: '#fff', lineHeight: 1.5 }}>
+                        {feedback.insights && feedback.insights.length > 0 
+                            ? feedback.insights.join(' ') 
+                            : (feedback.summary || "No feedback yet.")}
+                    </p>
 
-
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem' }}>
-                {feedback.insights.map((insight: string, i: number) => (
-                    <div 
-                        key={i} 
-                        className="insight-chip"
-                        style={{ 
-                            fontSize: '0.8rem', 
-                            padding: '0.4rem 0.8rem', 
-                            background: 'rgba(251, 197, 49, 0.05)', 
-                            border: '1px solid rgba(251, 197, 49, 0.1)', 
-                            color: 'var(--text-muted)',
-                            transition: 'all 0.3s ease',
-                            cursor: 'default'
-                        }}
-                    >
-                        {insight}
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem' }}>
+                        {feedback.insights.map((insight: string, i: number) => (
+                            <div 
+                                key={i} 
+                                className="insight-chip"
+                                style={{ 
+                                    fontSize: '0.8rem', 
+                                    padding: '0.4rem 0.8rem', 
+                                    background: 'rgba(251, 197, 49, 0.05)', 
+                                    border: '1px solid rgba(251, 197, 49, 0.1)', 
+                                    color: 'var(--text-muted)',
+                                    transition: 'all 0.3s ease',
+                                    cursor: 'default'
+                                }}
+                            >
+                                {insight}
+                            </div>
+                        ))}
                     </div>
-                ))}
-            </div>
+                </div>
+            ) : (
+                <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.5rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', opacity: 0.7 }}>
+                    Tap to view insights & suggestions
+                </p>
+            )}
         </div>
       )}
       {/* Trackers */}
@@ -972,7 +1050,7 @@ export const Dashboard = () => {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', alignItems: 'flex-end', width: '100%', maxWidth: '200px' }}>
                     <button 
                         className="btn btn-secondary btn-sync" 
-                        onClick={() => googleSync()} 
+                        onClick={() => handleGoogleSync()} 
                         style={{ fontSize: '0.7rem', flexDirection: 'column', padding: '0.5rem 1rem', width: '100%', background: 'rgba(255,255,255,0.05)', borderColor: 'rgba(255,255,255,0.1)' }}
                     >
                         <span style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: '#fff' }}>
@@ -1014,7 +1092,7 @@ export const Dashboard = () => {
                     <p className="text-muted">{weightLabel}</p>
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', alignItems: 'center', width: '100%', maxWidth: '200px' }}>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', width: '100%', alignItems: 'center' }}>
+                    <div style={{ display: 'flex', flexDirection: 'row', gap: '0.5rem', width: '100%', justifyContent: 'center', alignItems: 'center' }}>
                         <input 
                             id="weight-input"
                             type="text" 
@@ -1024,9 +1102,9 @@ export const Dashboard = () => {
                             spellCheck={false}
                             autoComplete="off"
                             onChange={e => handleWeightInputChange(e.target.value)} 
-                            style={{ width: '100px', textAlign: 'center', background: 'rgba(255,255,255,0.05)', cursor: 'text', padding: '0.5rem', caretColor: 'transparent' }}
+                            style={{ width: '80px', textAlign: 'center', background: 'rgba(255,255,255,0.05)', cursor: 'text', padding: '0.5rem', caretColor: 'transparent' }}
                         />
-                        <button className="btn btn-primary" onClick={updateWeight} style={{ padding: '0.5rem 1.5rem', width: '100px' }}>LOG</button>
+                        <button className="btn btn-primary" onClick={updateWeight} style={{ padding: '0.5rem 1rem', minWidth: '70px' }}>LOG</button>
                     </div>
                 </div>
             </div>

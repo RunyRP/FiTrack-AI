@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import api from '../api';
 import { useNavigate, Link } from 'react-router-dom';
-import { useAuth } from '../App';
+import { useAuth } from '../hooks';
 
 export const Login = () => {
   const [email, setEmail] = useState('');
@@ -22,12 +22,13 @@ export const Login = () => {
       login(res.data.access_token);
       navigate('/');
     } catch (err: any) {
+      console.error("LOGIN ERROR:", err);
       if (err.response?.status === 401) {
         setError('Invalid email or password');
       } else if (err.response?.status === 403) {
         setError(err.response.data.detail || 'Please verify your email before logging in.');
       } else {
-        setError('Connection error. Please make sure the backend is running.');
+        setError(`Error: ${err.message || 'Connection failed'}. (Code: ${err.code || 'unknown'})`);
       }
     }
   };

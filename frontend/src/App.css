@@ -35,6 +35,8 @@ body {
   max-width: 1200px;
   margin: 0 auto;
   padding: 1rem 1.5rem;
+  min-height: calc(100vh - 80px); /* Fill screen minus navbar */
+  padding-bottom: 120px; /* Extra space to ensure scroll beyond 100px threshold */
 }
 
 .card {
@@ -199,6 +201,37 @@ nav {
   position: sticky;
   top: 0;
   z-index: 1000;
+  transition: all 0.3s ease;
+}
+
+.nav-scrolled {
+  background: rgba(0, 0, 0, 0.95);
+  backdrop-filter: blur(10px);
+  padding: 0.5rem 0;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+}
+
+@media (max-width: 768px) {
+  .nav-scrolled .nav-links a {
+    padding: 0.75rem 0.8rem;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    transform: scale(1.1);
+  }
+
+  .nav-scrolled .nav-links a.active {
+    background: rgba(251, 197, 49, 0.15);
+    border: 1px solid var(--primary);
+    box-shadow: 0 0 15px rgba(251, 197, 49, 0.2);
+  }
+  
+  .nav-scrolled .logo {
+    display: none; /* Hide logo to give more space for buttons on scroll */
+  }
+
+  .nav-scrolled .nav-content {
+    padding: 0.5rem;
+  }
 }
 
 .nav-content {

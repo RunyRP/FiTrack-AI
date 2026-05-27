@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import api, { API_URL } from '../api';
-import { useAuth } from '../App';
+import { useAuth } from '../hooks';
 import { useNavigate } from 'react-router-dom';
 import { DumbbellIcon, CameraIcon } from './Icons';
 

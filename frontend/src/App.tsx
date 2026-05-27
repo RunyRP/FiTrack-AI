@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, createContext, useContext } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { BrowserRouter as Router, Routes, Route, Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { GoogleOAuthProvider } from '@react-oauth/google';
 import api from './api';
@@ -15,22 +15,99 @@ import { WorkoutSuggestions } from './components/WorkoutSuggestions';
 import { Calculators } from './components/Calculators';
 import { Chat } from './components/Chat';
 import { LayoutIcon, AppleIcon, DumbbellIcon, CoachIcon, UserIcon, CalculatorIcon, LogoutIcon } from './components/Icons';
+import { OTAUpdateHandler } from './components/OTAUpdateHandler';
+import { AuthContext, PopupContext, useAuth } from './hooks';
+import type { PopupOptions } from './hooks';
 import './App.css';
 
-interface AuthContextType {
-  user: any;
-  loading: boolean;
-  login: (token: string) => void;
-  logout: () => void;
-  refreshUser: () => Promise<void>;
-}
 
-const AuthContext = createContext<AuthContextType | null>(null);
+const Popup = ({ options, onClose }: { options: PopupOptions, onClose: () => void }) => {
+  return (
+    <div style={{ 
+      position: 'fixed', 
+      top: 0, 
+      left: 0, 
+      width: '100%', 
+      height: '100%', 
+      background: 'rgba(0,0,0,0.85)', 
+      display: 'flex', 
+      alignItems: 'center', 
+      justifyContent: 'center', 
+      zIndex: 20000, 
+      padding: '1.5rem', 
+      backdropFilter: 'blur(8px)' 
+    }}>
+      <div className="card animate-fade-in" style={{ 
+        width: '100%', 
+        maxWidth: '400px', 
+        padding: '2rem', 
+        background: '#0a0a0a', 
+        border: '1px solid var(--card-border)', 
+        borderRadius: '1.25rem',
+        boxShadow: '0 20px 40px rgba(0,0,0,0.6)',
+        textAlign: 'center'
+      }}>
+        {options.title && (
+          <h2 style={{ 
+            fontSize: '1.2rem', 
+            marginBottom: '1rem', 
+            color: 'var(--primary)',
+            textTransform: 'uppercase',
+            letterSpacing: '0.05em'
+          }}>
+            {options.title}
+          </h2>
+        )}
+        <p style={{ 
+          fontSize: '1.1rem', 
+          lineHeight: 1.5, 
+          color: '#fff', 
+          marginBottom: '2rem',
+          fontWeight: 500
+        }}>
+          {options.message}
+        </p>
+        <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
+          {options.type === 'confirm' && (
+            <button 
+              className="btn btn-secondary" 
+              onClick={() => {
+                if (options.onCancel) options.onCancel();
+                onClose();
+              }}
+              style={{ flex: 1, padding: '0.8rem' }}
+            >
+              {options.cancelLabel || 'CANCEL'}
+            </button>
+          )}
+          <button 
+            className="btn btn-primary" 
+            onClick={() => {
+              if (options.onConfirm) options.onConfirm();
+              onClose();
+            }}
+            style={{ flex: 1, padding: '0.8rem', fontWeight: 800 }}
+          >
+            {options.confirmLabel || 'OK'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
 
-export const useAuth = () => {
-  const context = useContext(AuthContext);
-  if (!context) throw new Error('useAuth must be used within AuthProvider');
-  return context;
+const PopupProvider = ({ children }: { children: React.ReactNode }) => {
+  const [popup, setPopup] = useState<PopupOptions | null>(null);
+
+  const showPopup = (options: PopupOptions) => setPopup(options);
+  const hidePopup = () => setPopup(null);
+
+  return (
+    <PopupContext.Provider value={{ showPopup, hidePopup }}>
+      {children}
+      {popup && <Popup options={popup} onClose={hidePopup} />}
+    </PopupContext.Provider>
+  );
 };
 
 const AuthProvider = ({ children }: { children: React.ReactNode }) => {
@@ -38,7 +115,7 @@ const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [loading, setLoading] = useState(true);
   const [token, setToken] = useState<string | null>(localStorage.getItem('token'));
 
-  const fetchUser = useCallback(async (tokenToUse: string) => {
+  const fetchUser = useCallback(async (_tokenToUse: string) => {
     try {
       const res = await api.get('/user/me');
       setUser(res.data);
@@ -105,6 +182,37 @@ const Navbar = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  const [isScrolled, setIsScrolled] = useState(false);
+
+  useEffect(() => {
+    let ticking = false;
+    const updateScroll = () => {
+      const scrollY = window.scrollY;
+      // Use hysteresis to prevent flickering at the threshold
+      if (scrollY > 100) {
+        setIsScrolled(true);
+      } else if (scrollY < 20) {
+        setIsScrolled(false);
+      }
+      ticking = false;
+    };
+
+    const onScroll = () => {
+      if (!ticking) {
+        window.requestAnimationFrame(updateScroll);
+        ticking = true;
+      }
+    };
+
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+
+  // Reset scroll position and navbar state on route change
+  useEffect(() => {
+    window.scrollTo(0, 0);
+    setIsScrolled(false);
+  }, [location.pathname]);
 
   const handleLogoutClick = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -115,7 +223,7 @@ const Navbar = () => {
   const isActive = (path: string) => location.pathname === path ? 'active' : '';
 
   return (
-    <nav>
+    <nav className={isScrolled ? 'nav-scrolled' : ''}>
       <div className="nav-content">
         <Link to="/" className="logo">
           FIT<span>TRACK</span> AI
@@ -230,90 +338,93 @@ function App() {
     <GoogleOAuthProvider clientId={clientId}>
         <Router>
           <AuthProvider>
-            <div className="bg-shape bg-shape-1"></div>
-            <div className="bg-shape bg-shape-2"></div>
-            <Navbar />
-            <SwipeWrapper>
-                <main className="animate-fade-in">
-                <Routes>
-                    <Route path="/login" element={<Login />} />
-                    <Route path="/register" element={<Register />} />
-                    <Route path="/verify-email" element={<VerifyEmail />} />
-                    <Route 
-                    path="/" 
-                    element={
-                        <ProtectedRoute>
-                        <Dashboard />
-                        </ProtectedRoute>
-                    } 
-                    />
-                    <Route 
-                    path="/profile" 
-                    element={
-                        <ProtectedRoute>
-                        <Profile />
-                        </ProtectedRoute>
-                    } 
-                    />
-                    <Route 
-                    path="/equipment" 
-                    element={
-                        <ProtectedRoute>
-                        <EquipmentManager />
-                        </ProtectedRoute>
-                    } 
-                    />
-                    <Route 
-                    path="/setup" 
-                    element={
-                        <ProtectedRoute>
-                        <Setup />
-                        </ProtectedRoute>
-                    } 
-                    />
-                    <Route 
-                    path="/meal" 
-                    element={
-                        <ProtectedRoute>
-                        <MealAnalysis />
-                        </ProtectedRoute>
-                    } 
-                    />
-                    <Route 
-                    path="/history" 
-                    element={
-                        <ProtectedRoute>
-                        <MealHistory />
-                        </ProtectedRoute>
-                    } 
-                    />
-                    <Route 
-                    path="/workout" 
-                    element={
-                        <ProtectedRoute>
-                        <WorkoutSuggestions />
-                        </ProtectedRoute>
-                    } 
-                    />
-                    <Route 
-                    path="/chat" 
-                    element={
-                        <ProtectedRoute>
-                        <Chat />
-                        </ProtectedRoute>
-                    } 
-                    />
-                    <Route 
-                    path="/calculators" 
-                    element={
-                        <ProtectedRoute>
-                        <Calculators />
-                        </ProtectedRoute>
-                    } 
-                    />
-                </Routes>
-                </main>
-            </SwipeWrapper>
+            <PopupProvider>
+                <div className="bg-shape bg-shape-1"></div>
+                <div className="bg-shape bg-shape-2"></div>
+                <OTAUpdateHandler />
+                <Navbar />
+                <SwipeWrapper>
+                    <main className="animate-fade-in">
+                    <Routes>
+                        <Route path="/login" element={<Login />} />
+                        <Route path="/register" element={<Register />} />
+                        <Route path="/verify-email" element={<VerifyEmail />} />
+                        <Route 
+                        path="/" 
+                        element={
+                            <ProtectedRoute>
+                            <Dashboard />
+                            </ProtectedRoute>
+                        } 
+                        />
+                        <Route 
+                        path="/profile" 
+                        element={
+                            <ProtectedRoute>
+                            <Profile />
+                            </ProtectedRoute>
+                        } 
+                        />
+                        <Route 
+                        path="/equipment" 
+                        element={
+                            <ProtectedRoute>
+                            <EquipmentManager />
+                            </ProtectedRoute>
+                        } 
+                        />
+                        <Route 
+                        path="/setup" 
+                        element={
+                            <ProtectedRoute>
+                            <Setup />
+                            </ProtectedRoute>
+                        } 
+                        />
+                        <Route 
+                        path="/meal" 
+                        element={
+                            <ProtectedRoute>
+                            <MealAnalysis />
+                            </ProtectedRoute>
+                        } 
+                        />
+                        <Route 
+                        path="/history" 
+                        element={
+                            <ProtectedRoute>
+                            <MealHistory />
+                            </ProtectedRoute>
+                        } 
+                        />
+                        <Route 
+                        path="/workout" 
+                        element={
+                            <ProtectedRoute>
+                            <WorkoutSuggestions />
+                            </ProtectedRoute>
+                        } 
+                        />
+                        <Route 
+                        path="/chat" 
+                        element={
+                            <ProtectedRoute>
+                            <Chat />
+                            </ProtectedRoute>
+                        } 
+                        />
+                        <Route 
+                        path="/calculators" 
+                        element={
+                            <ProtectedRoute>
+                            <Calculators />
+                            </ProtectedRoute>
+                        } 
+                        />
+                    </Routes>
+                    </main>
+                </SwipeWrapper>
+            </PopupProvider>
           </AuthProvider>
         </Router>
     </GoogleOAuthProvider>

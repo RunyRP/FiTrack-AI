@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import api, { API_URL } from '../api';
-import { useAuth } from '../App';
+import { useAuth } from '../hooks';
 import { useNavigate } from 'react-router-dom';
 import { WorkoutSplits } from './WorkoutSplits';
 import { CoffeeIcon } from './Icons';
@@ -162,7 +162,7 @@ export const WorkoutSuggestions = () => {
     
     const initialLogs: Record<string, Set[]> = {};
     split.exercises.forEach((ex: any) => {
-        initialLogs[ex.name] = [{ reps: ex.target_reps, weight: 0 }];
+        initialLogs[ex.name] = [{ reps: ex.target_reps, weight: 0, rpe: 8 }];
     });
     setLoggedExercises(initialLogs);
     
@@ -381,7 +381,8 @@ export const WorkoutSuggestions = () => {
   };
 
   const categorizeMachine = (m: any) => {
-    const primaryMuscle = m.exercises?.[0]?.muscles?.[0] || 'Other';
+    if (!m || !m.exercises || !m.exercises[0] || !m.exercises[0].muscles) return 'Other';
+    const primaryMuscle = m.exercises[0].muscles[0] || 'Other';
     const muscle = primaryMuscle.toLowerCase();
     
     if (muscle.includes('quad') || muscle.includes('leg') || muscle.includes('glute') || muscle.includes('hamstring') || muscle.includes('calf')) return 'Legs';

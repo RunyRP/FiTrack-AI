@@ -155,7 +155,7 @@ export const Chat = () => {
   };
 
   return (
-    <div className="container animate-fade-in" style={{ maxWidth: '1100px', height: 'calc(100vh - 140px)', display: 'flex', flexDirection: 'column', gap: '1.5rem', minHeight: '500px' }}>
+    <div className="container animate-fade-in" style={{ maxWidth: '1100px', display: 'flex', flexDirection: 'column', gap: '1.5rem', paddingBottom: '100px' }}>
       
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
           <div>
@@ -223,19 +223,15 @@ export const Chat = () => {
       </div>
 
       <div className="card" style={{ 
-          flex: 1, 
           display: 'flex', 
           flexDirection: 'column', 
           padding: '0', 
-          overflow: 'hidden', 
           borderBottom: '4px solid var(--primary)',
           boxShadow: '0 20px 50px rgba(0,0,0,0.5)',
           background: '#0a0a0a'
       }}>
         
         <div style={{ 
-            flex: 1, 
-            overflowY: 'auto', 
             padding: 'clamp(1rem, 5vw, 2.5rem)',
             display: 'flex',
             flexDirection: 'column',
@@ -243,7 +239,7 @@ export const Chat = () => {
             background: 'radial-gradient(circle at top right, rgba(251, 197, 49, 0.03) 0%, transparent 40%), linear-gradient(to bottom, #0d0d0d 0%, #050505 100%)'
         }}>
           {activeMessages.length === 0 && !loadingThreads[activeThread] && (
-              <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', textAlign: 'center' }}>
+              <div style={{ padding: '4rem 0', display: 'flex', alignItems: 'center', justifyContent: 'center', textAlign: 'center' }}>
                   <div className="animate-fade-in" style={{ maxWidth: '450px', padding: '1rem' }}>
                       <div style={{ 
                           fontSize: 'clamp(3rem, 10vw, 5rem)', 
@@ -293,7 +289,7 @@ export const Chat = () => {
               <div 
                 className="chat-message-content"
                 style={{ 
-                  maxWidth: '85%', 
+                  maxWidth: m.role === 'user' ? '85%' : 'calc(100% - 70px)', 
                   padding: 'clamp(1rem, 4vw, 1.5rem) clamp(1rem, 4vw, 1.75rem)', 
                   background: m.role === 'user' ? 'rgba(255,255,255,0.02)' : 'rgba(251, 197, 49, 0.03)',
                   color: m.role === 'user' ? '#ccc' : '#fff',
@@ -301,7 +297,9 @@ export const Chat = () => {
                   lineHeight: 1.6,
                   position: 'relative',
                   fontSize: '0.95rem',
-                  borderRadius: '4px'
+                  borderRadius: '4px',
+                  marginRight: m.role === 'assistant' ? 'clamp(1rem, 5vw, 2.5rem)' : '0',
+                  marginLeft: m.role === 'user' ? 'clamp(1rem, 5vw, 2.5rem)' : '0'
                 }}
               >
                 <ReactMarkdown>{m.content}</ReactMarkdown>
@@ -321,38 +319,40 @@ export const Chat = () => {
           <div ref={messagesEndRef} />
         </div>
 
-        <div style={{ background: '#000', padding: 'clamp(1rem, 4vw, 2rem) clamp(1rem, 5vw, 2.5rem)', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
-            <form onSubmit={handleSend} style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-              <input 
-                type="text" 
-                value={input} 
-                onChange={(e) => setInput(e.target.value)}
-                placeholder="Talk to your Coach..."
-                style={{ 
-                    flex: 1, 
-                    padding: '0.8rem 1.25rem', 
-                    background: '#0d0d0d', 
-                    color: 'white', 
-                    border: '1px solid rgba(255,255,255,0.1)',
-                    fontSize: '0.95rem',
-                    borderRadius: '4px',
-                    outline: 'none',
-                    transition: 'border-color 0.3s ease',
-                    minWidth: 0
-                }}
-                onFocus={(e) => e.target.style.borderColor = 'var(--primary)'}
-                onBlur={(e) => e.target.style.borderColor = 'rgba(255,255,255,0.1)'}
-              />
-              <button type="submit" className="btn btn-primary" style={{ padding: '0.8rem 1.5rem', fontWeight: 800, fontSize: '0.9rem' }} disabled={loadingThreads[activeThread] || !input.trim()}>
-                SEND
-              </button>
-            </form>
-            <div style={{ marginTop: '1rem', display: 'flex', justifyContent: 'space-between', fontSize: '0.6rem', color: 'rgba(255,255,255,0.3)', textTransform: 'uppercase', fontWeight: 800, letterSpacing: '0.1em', flexWrap: 'wrap', gap: '0.5rem' }}>
-                <span>ID: {activeThread}</span>
-                <span style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                    <div style={{ width: '5px', height: '5px', background: '#00ff00', borderRadius: '50%', boxShadow: '0 0 10px #00ff00' }}></div>
-                    Gemini FLASH coach
-                </span>
+        <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, background: '#000', padding: 'clamp(1rem, 4vw, 2rem) clamp(1rem, 5vw, 2.5rem)', borderTop: '1px solid rgba(255,255,255,0.05)', zIndex: 100 }}>
+            <div style={{ maxWidth: '1100px', margin: '0 auto' }}>
+                <form onSubmit={handleSend} style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+                  <input 
+                    type="text" 
+                    value={input} 
+                    onChange={(e) => setInput(e.target.value)}
+                    placeholder="Talk to your Coach..."
+                    style={{ 
+                        flex: 1, 
+                        padding: '0.8rem 1.25rem', 
+                        background: '#0d0d0d', 
+                        color: 'white', 
+                        border: '1px solid rgba(255,255,255,0.1)',
+                        fontSize: '0.95rem',
+                        borderRadius: '4px',
+                        outline: 'none',
+                        transition: 'border-color 0.3s ease',
+                        minWidth: 0
+                    }}
+                    onFocus={(e) => e.target.style.borderColor = 'var(--primary)'}
+                    onBlur={(e) => e.target.style.borderColor = 'rgba(255,255,255,0.1)'}
+                  />
+                  <button type="submit" className="btn btn-primary" style={{ padding: '0.8rem 1.5rem', fontWeight: 800, fontSize: '0.9rem' }} disabled={loadingThreads[activeThread] || !input.trim()}>
+                    SEND
+                  </button>
+                </form>
+                <div style={{ marginTop: '1rem', display: 'flex', justifyContent: 'space-between', fontSize: '0.6rem', color: 'rgba(255,255,255,0.3)', textTransform: 'uppercase', fontWeight: 800, letterSpacing: '0.1em', flexWrap: 'wrap', gap: '0.5rem' }}>
+                    <span>ID: {activeThread}</span>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                        <div style={{ width: '5px', height: '5px', background: '#00ff00', borderRadius: '50%', boxShadow: '0 0 10px #00ff00' }}></div>
+                        Gemini FLASH coach
+                    </span>
+                </div>
             </div>
         </div>
       </div>

@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import api from '../api';
 import { useNavigate } from 'react-router-dom';
-import { CameraIcon, SearchIcon, SuccessIcon, PlusIcon, CalendarIcon, BottleIcon, TrashIcon, EditIcon, SyncIcon, CapsuleIcon, FireIcon } from './Icons';
+import { CameraIcon, SearchIcon, PlusIcon, CalendarIcon, BottleIcon, TrashIcon, EditIcon, SyncIcon, CapsuleIcon, FireIcon } from './Icons';
 
 export const MealAnalysis = ({ onSuccess }: { onSuccess?: () => void }) => {
   const [activeTab, setActiveTab] = useState<'photo' | 'search' | 'foods' | 'meals' | 'history'>('photo');
@@ -14,7 +14,7 @@ export const MealAnalysis = ({ onSuccess }: { onSuccess?: () => void }) => {
   const [message, setMessage] = useState('');
   const [selectedIdx, setSelectedIdx] = useState<number | null>(null);
   const [editItem, setEditItem] = useState<any>(null);
-  const [mealType, setMealType] = useState('Lunch');
+  const [mealType] = useState('Lunch');
   
   // History State
   const [historyData, setHistoryData] = useState<any[]>([]);
@@ -49,12 +49,6 @@ export const MealAnalysis = ({ onSuccess }: { onSuccess?: () => void }) => {
   const [mealBuilderName, setMealBuilderName] = useState('');
   const [builderSearch, setBuilderSearch] = useState('');
   const [builderResults, setBuilderResults] = useState<any[]>([]);
-
-  const [showAdvanced, setShowAdvanced] = useState(false);
-  const [showEditAdvanced, setShowEditAdvanced] = useState(false);
-
-  // For quantifiable logging
-  const [quantity, setQuantity] = useState<string | number>(1);
 
   const navigate = useNavigate();
 
@@ -194,10 +188,10 @@ export const MealAnalysis = ({ onSuccess }: { onSuccess?: () => void }) => {
     }
 
     newIngredients[idx] = item;
-    const totalKcal = newIngredients.reduce((sum, ing) => sum + (Number(ing.kcal) || 0), 0);
-    const totalP = newIngredients.reduce((sum, ing) => sum + (Number(ing.protein) || 0), 0);
-    const totalC = newIngredients.reduce((sum, ing) => sum + (Number(ing.carbs) || 0), 0);
-    const totalF = newIngredients.reduce((sum, ing) => sum + (Number(ing.fat) || 0), 0);
+    const totalKcal = newIngredients.reduce((sum: number, ing: any) => sum + (Number(ing.kcal) || 0), 0);
+    const totalP = newIngredients.reduce((sum: number, ing: any) => sum + (Number(ing.protein) || 0), 0);
+    const totalC = newIngredients.reduce((sum: number, ing: any) => sum + (Number(ing.carbs) || 0), 0);
+    const totalF = newIngredients.reduce((sum: number, ing: any) => sum + (Number(ing.fat) || 0), 0);
     
     setEditForm({
         ...editForm,
@@ -206,7 +200,7 @@ export const MealAnalysis = ({ onSuccess }: { onSuccess?: () => void }) => {
         protein_per_100g: String(totalP.toFixed(2)),
         carbs_per_100g: String(totalC.toFixed(2)),
         fat_per_100g: String(totalF.toFixed(2)),
-        default_grams: String(newIngredients.reduce((sum, ing) => sum + (Number(ing.grams) || 0), 0))
+        default_grams: String(newIngredients.reduce((sum: number, ing: any) => sum + (Number(ing.grams) || 0), 0))
     });
   };
 
@@ -238,34 +232,6 @@ export const MealAnalysis = ({ onSuccess }: { onSuccess?: () => void }) => {
       } finally {
           setUpdating(false);
       }
-  };
-
-  const handleQuickLog = async (cm: any) => {
-    setLogging(true);
-    try {
-      await api.post('/meal/log', {
-        label: cm.label,
-        grams: cm.default_grams || 100,
-        kcal: Math.round(cm.kcal_per_100g),
-        protein: cm.protein_per_100g,
-        carbs: cm.carbs_per_100g,
-        fat: cm.fat_per_100g,
-        fiber: cm.fiber_per_100g,
-        salt: cm.salt_per_100g,
-        type: mealType,
-        ingredients: cm.ingredients || null
-      });
-      setMessage(`${cm.label} logged!`);
-      if (onSuccess) {
-          setTimeout(onSuccess, 1000);
-      } else {
-          setTimeout(() => navigate('/'), 1000);
-      }
-    } catch (err) {
-      setMessage('Error logging meal.');
-    } finally {
-      setLogging(false);
-    }
   };
 
   const handleDeleteCustom = async (id: number) => {
@@ -355,24 +321,7 @@ export const MealAnalysis = ({ onSuccess }: { onSuccess?: () => void }) => {
       setMealBuilderItems(mealBuilderItems.filter((_, i) => i !== idx));
   };
 
-  const updateEditItemStats = (newGrams: number, newQuantity: string | number) => {
-      const safeGrams = Math.max(0, Number(newGrams) || 0);
-      const kcal100 = Number(editItem.kcal_100g) || 0;
-      const baseRatio = safeGrams / 100.0;
-      setQuantity(newQuantity);
-      setEditItem({ 
-          ...editItem, 
-          grams: safeGrams,
-          kcal: Math.round(kcal100 * baseRatio),
-          protein: (Number(editItem.protein_100g) || 0) * baseRatio,
-          carbs: (Number(editItem.carbs_100g) || 0) * baseRatio,
-          fat: (Number(editItem.fat_100g) || 0) * baseRatio,
-          fiber: (Number(editItem.fiber_100g) || 0) * baseRatio,
-          salt: (Number(editItem.salt_100g) || 0) * baseRatio
-      });
-  };
-
-  const builderTotals = mealBuilderItems.reduce((acc, item) => ({
+  const builderTotals = mealBuilderItems.reduce((acc: any, item: any) => ({
       kcal: acc.kcal + (item.kcal || 0),
       p: acc.p + (item.protein || 0),
       c: acc.c + (item.carbs || 0),
@@ -393,7 +342,7 @@ export const MealAnalysis = ({ onSuccess }: { onSuccess?: () => void }) => {
               fiber_per_100g: Number(builderTotals.fib.toFixed(2)),
               salt_per_100g: Number(builderTotals.s.toFixed(2)),
               is_whole_meal: true,
-              default_grams: mealBuilderItems.reduce((acc, i) => acc + (i.grams || 0), 0),
+              default_grams: mealBuilderItems.reduce((acc: number, i: any) => acc + (i.grams || 0), 0),
               ingredients: mealBuilderItems
           });
           setIsBuildingMeal(false);
@@ -443,11 +392,11 @@ export const MealAnalysis = ({ onSuccess }: { onSuccess?: () => void }) => {
       }
 
       newIngredients[idx] = item;
-      const totalKcal = newIngredients.reduce((sum, ing) => sum + (Number(ing.kcal) || 0), 0);
-      const totalP = newIngredients.reduce((sum, ing) => sum + (Number(ing.protein) || 0), 0);
-      const totalC = newIngredients.reduce((sum, ing) => sum + (Number(ing.carbs) || 0), 0);
-      const totalF = newIngredients.reduce((sum, ing) => sum + (Number(ing.fat) || 0), 0);
-      const totalG = newIngredients.reduce((sum, ing) => sum + (Number(ing.grams) || 0), 0);
+      const totalKcal = newIngredients.reduce((sum: number, ing: any) => sum + (Number(ing.kcal) || 0), 0);
+      const totalP = newIngredients.reduce((sum: number, ing: any) => sum + (Number(ing.protein) || 0), 0);
+      const totalC = newIngredients.reduce((sum: number, ing: any) => sum + (Number(ing.carbs) || 0), 0);
+      const totalF = newIngredients.reduce((sum: number, ing: any) => sum + (Number(ing.fat) || 0), 0);
+      const totalG = newIngredients.reduce((sum: number, ing: any) => sum + (Number(ing.grams) || 0), 0);
       setEditItem({
           ...editItem,
           ingredients: newIngredients,
@@ -462,11 +411,11 @@ export const MealAnalysis = ({ onSuccess }: { onSuccess?: () => void }) => {
   const removeRefineIngredient = (idx: number) => {
       if (!editItem?.ingredients) return;
       const newIngredients = editItem.ingredients.filter((_: any, i: number) => i !== idx);
-      const totalKcal = newIngredients.reduce((sum, ing) => sum + (Number(ing.kcal) || 0), 0);
-      const totalP = newIngredients.reduce((sum, ing) => sum + (Number(ing.protein) || 0), 0);
-      const totalC = newIngredients.reduce((sum, ing) => sum + (Number(ing.carbs) || 0), 0);
-      const totalF = newIngredients.reduce((sum, ing) => sum + (Number(ing.fat) || 0), 0);
-      const totalG = newIngredients.reduce((sum, ing) => sum + (Number(ing.grams) || 0), 0);
+      const totalKcal = newIngredients.reduce((sum: number, ing: any) => sum + (Number(ing.kcal) || 0), 0);
+      const totalP = newIngredients.reduce((sum: number, ing: any) => sum + (Number(ing.protein) || 0), 0);
+      const totalC = newIngredients.reduce((sum: number, ing: any) => sum + (Number(ing.carbs) || 0), 0);
+      const totalF = newIngredients.reduce((sum: number, ing: any) => sum + (Number(ing.fat) || 0), 0);
+      const totalG = newIngredients.reduce((sum: number, ing: any) => sum + (Number(ing.grams) || 0), 0);
       setEditItem({
           ...editItem,
           ingredients: newIngredients,
@@ -603,7 +552,6 @@ export const MealAnalysis = ({ onSuccess }: { onSuccess?: () => void }) => {
         fiber_100g: baseFib,
         salt_100g: baseS
     });
-    setQuantity(1);
   };
 
   useEffect(() => {

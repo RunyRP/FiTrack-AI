@@ -249,6 +249,42 @@ def get_splits(
 ):
     return db.query(WorkoutSplit).filter(WorkoutSplit.user_id == current_user.id).all()
 
+@router.get("/splits/{split_id}", response_model=WorkoutSplitSchema)
+def get_split(
+    split_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    split = db.query(WorkoutSplit).filter(
+        WorkoutSplit.id == split_id,
+        WorkoutSplit.user_id == current_user.id
+    ).first()
+    if not split:
+        raise HTTPException(status_code=404, detail="Split not found")
+    return split
+
+@router.put("/splits/{split_id}", response_model=WorkoutSplitSchema)
+def update_split(
+    split_id: int,
+    split_data: WorkoutSplitCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    split = db.query(WorkoutSplit).filter(
+        WorkoutSplit.id == split_id,
+        WorkoutSplit.user_id == current_user.id
+    ).first()
+    
+    if not split:
+        raise HTTPException(status_code=404, detail="Split not found")
+    
+    split.name = split_data.name
+    split.exercises = [ex.dict() for ex in split_data.exercises]
+    
+    db.commit()
+    db.refresh(split)
+    return split
+
 @router.delete("/splits/{split_id}")
 def delete_split(
     split_id: int,
@@ -259,10 +295,36 @@ def delete_split(
         WorkoutSplit.id == split_id,
         WorkoutSplit.user_id == current_user.id
     ).first()
+    
     if split:
-        db.delete(split)
-        db.commit()
-    return {"status": "ok"}
+        try:
+            # 1. Nullify references in workout sessions
+            db.query(WorkoutSession).filter(WorkoutSession.split_id == split_id).update({"split_id": None})
+            
+            # 2. Clean up workout schedules
+            schedule = db.query(WorkoutSchedule).filter(WorkoutSchedule.user_id == current_user.id).first()
+            if schedule:
+                # Remove from dynamic sequence
+                if schedule.split_sequence and split_id in schedule.split_sequence:
+                    new_sequence = [sid for sid in schedule.split_sequence if sid != split_id]
+                    schedule.split_sequence = new_sequence
+                
+                # Remove from fixed schedule
+                if schedule.fixed_schedule:
+                    # fixed_schedule is a dict with day as string key
+                    # we need to convert values to int for comparison if they are strings, or vice versa
+                    new_fixed = {day: sid for day, sid in schedule.fixed_schedule.items() if int(sid) != split_id}
+                    schedule.fixed_schedule = new_fixed
+            
+            db.delete(split)
+            db.commit()
+            return {"status": "ok"}
+        except Exception as e:
+            db.rollback()
+            print(f"ERROR DELETING SPLIT: {e}")
+            raise HTTPException(status_code=500, detail=f"Failed to delete split: {str(e)}")
+    
+    raise HTTPException(status_code=404, detail="Split not found")
 
 # --- Schedule CRUD ---
 

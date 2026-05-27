@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import api from '../api';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../App';
+import { useAuth } from '../hooks';
 import { WeightLossIcon, MuscleGainIcon, MaintenanceIcon, UserIcon, DumbbellIcon, EditIcon } from './Icons';
 import { MACRO_DISTRIBUTIONS, type MacroDistType } from '../constants';
 

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import api from '../api';
-import { SearchIcon, AppleIcon, FireIcon, PlusIcon, ScaleIcon } from './Icons';
+import { SearchIcon, AppleIcon, FireIcon, PlusIcon } from './Icons';
 
 interface QuickLogModalProps {
   onClose: () => void;
@@ -17,8 +17,6 @@ export const QuickLogModal = ({ onClose, onSuccess, mealType, setMealType, getNe
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [logging, setLogging] = useState(false);
-  const [weightInput, setWeightInput] = useState('');
-  const [savingWeight, setSavingWeight] = useState(false);
   const [refiningItem, setRefiningItem] = useState<any>(null);
 
   const handleRefineIngredientChange = (idx: number, field: string, value: any) => {
@@ -38,11 +36,11 @@ export const QuickLogModal = ({ onClose, onSuccess, mealType, setMealType, getNe
 
       newIngredients[idx] = item;
       
-      const totalKcal = newIngredients.reduce((sum, ing) => sum + (Number(ing.kcal) || 0), 0);
-      const totalP = newIngredients.reduce((sum, ing) => sum + (Number(ing.protein) || 0), 0);
-      const totalC = newIngredients.reduce((sum, ing) => sum + (Number(ing.carbs) || 0), 0);
-      const totalF = newIngredients.reduce((sum, ing) => sum + (Number(ing.fat) || 0), 0);
-      const totalG = newIngredients.reduce((sum, ing) => sum + (Number(ing.grams) || 0), 0);
+      const totalKcal = newIngredients.reduce((sum: number, ing: any) => sum + (Number(ing.kcal) || 0), 0);
+      const totalP = newIngredients.reduce((sum: number, ing: any) => sum + (Number(ing.protein) || 0), 0);
+      const totalC = newIngredients.reduce((sum: number, ing: any) => sum + (Number(ing.carbs) || 0), 0);
+      const totalF = newIngredients.reduce((sum: number, ing: any) => sum + (Number(ing.fat) || 0), 0);
+      const totalG = newIngredients.reduce((sum: number, ing: any) => sum + (Number(ing.grams) || 0), 0);
       
       setRefiningItem({
           ...refiningItem,
@@ -76,11 +74,11 @@ export const QuickLogModal = ({ onClose, onSuccess, mealType, setMealType, getNe
       if (!refiningItem?.ingredients) return;
       const newIngredients = refiningItem.ingredients.filter((_: any, i: number) => i !== idx);
       
-      const totalKcal = newIngredients.reduce((sum, ing) => sum + (Number(ing.kcal) || 0), 0);
-      const totalP = newIngredients.reduce((sum, ing) => sum + (Number(ing.protein) || 0), 0);
-      const totalC = newIngredients.reduce((sum, ing) => sum + (Number(ing.carbs) || 0), 0);
-      const totalF = newIngredients.reduce((sum, ing) => sum + (Number(ing.fat) || 0), 0);
-      const totalG = newIngredients.reduce((sum, ing) => sum + (Number(ing.grams) || 0), 0);
+      const totalKcal = newIngredients.reduce((sum: number, ing: any) => sum + (Number(ing.kcal) || 0), 0);
+      const totalP = newIngredients.reduce((sum: number, ing: any) => sum + (Number(ing.protein) || 0), 0);
+      const totalC = newIngredients.reduce((sum: number, ing: any) => sum + (Number(ing.carbs) || 0), 0);
+      const totalF = newIngredients.reduce((sum: number, ing: any) => sum + (Number(ing.fat) || 0), 0);
+      const totalG = newIngredients.reduce((sum: number, ing: any) => sum + (Number(ing.grams) || 0), 0);
       
       setRefiningItem({
           ...refiningItem,
@@ -91,30 +89,6 @@ export const QuickLogModal = ({ onClose, onSuccess, mealType, setMealType, getNe
           fat: Number(totalF.toFixed(2)) || 0,
           grams: Math.round(totalG) || 0
       });
-  };
-
-  const handleWeightInputChange = (val: string) => {
-    let cleaned = val.replace(',', '.').replace(/[^0-9.]/g, '');
-    const parts = cleaned.split('.');
-    if (parts.length > 2) return;
-    let integerPart = parts[0].slice(0, 3);
-    let decimalPart = parts[1] !== undefined ? parts[1].slice(0, 1) : '';
-    const finalVal = parts.length === 2 ? `${integerPart}.${decimalPart}` : integerPart;
-    setWeightInput(finalVal);
-  };
-
-  const logWeight = async () => {
-    if (!weightInput) return;
-    try {
-      setSavingWeight(true);
-      await api.put(`/log/weight?weight=${parseFloat(weightInput)}`);
-      setWeightInput('');
-      onSuccess();
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setSavingWeight(false);
-    }
   };
 
   const mealTypes = ['Breakfast', 'Lunch', 'Snack', 'Dinner'];

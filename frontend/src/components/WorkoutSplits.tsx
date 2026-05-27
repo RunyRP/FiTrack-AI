@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import api from '../api';
-import { useAuth } from '../App';
-import { PlusIcon, TrashIcon, ArrowRightIcon } from './Icons';
+import { useAuth, usePopup } from '../hooks';
+import { PlusIcon, TrashIcon, ArrowRightIcon, EditIcon } from './Icons';
 
 interface SplitExercise {
     machine_id?: number;
@@ -39,9 +39,12 @@ export const WorkoutSplits = () => {
     const [machinery, setMachinery] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [isAddingSplit, setIsAddingSplit] = useState(false);
+    const [editingSplitId, setEditingSplitId] = useState<number | null>(null);
     const [newSplitName, setNewSplitName] = useState('');
     const [newSplitExercises, setNewSplitExercises] = useState<SplitExercise[]>([]);
     const [showAllMachinery, setShowAllMachinery] = useState(false);
+
+    const { showPopup } = usePopup();
 
     useEffect(() => {
         fetchData();
@@ -68,27 +71,61 @@ export const WorkoutSplits = () => {
     const handleAddSplit = async () => {
         if (!newSplitName || newSplitExercises.length === 0) return;
         try {
-            await api.post('/workout/splits', {
-                name: newSplitName,
-                exercises: newSplitExercises
-            });
+            if (editingSplitId) {
+                await api.put(`/workout/splits/${editingSplitId}`, {
+                    name: newSplitName,
+                    exercises: newSplitExercises
+                });
+            } else {
+                await api.post('/workout/splits', {
+                    name: newSplitName,
+                    exercises: newSplitExercises
+                });
+            }
             setNewSplitName('');
             setNewSplitExercises([]);
             setIsAddingSplit(false);
+            setEditingSplitId(null);
             fetchData();
         } catch (err) {
             console.error(err);
+            showPopup({
+                title: 'Error',
+                message: `Failed to ${editingSplitId ? 'update' : 'create'} split.`,
+                type: 'alert'
+            });
         }
     };
 
+    const handleEditSplit = (split: WorkoutSplit) => {
+        setNewSplitName(split.name);
+        setNewSplitExercises([...split.exercises]);
+        setEditingSplitId(split.id);
+        setIsAddingSplit(true);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+
     const handleDeleteSplit = async (id: number) => {
-        if (!confirm('Are you sure you want to delete this split?')) return;
-        try {
-            await api.delete(`/workout/splits/${id}`);
-            fetchData();
-        } catch (err) {
-            console.error(err);
-        }
+        showPopup({
+            title: 'Delete Split',
+            message: 'Are you sure you want to delete this workout split? This will remove it from your schedule and history links.',
+            type: 'confirm',
+            confirmLabel: 'DELETE',
+            onConfirm: async () => {
+                try {
+                    await api.delete(`/workout/splits/${id}`);
+                    fetchData();
+                } catch (err: any) {
+                    console.error(err);
+                    const errorMsg = err.response?.data?.detail || 'Failed to delete split. It might be referenced by other workouts.';
+                    showPopup({
+                        title: 'Error',
+                        message: errorMsg,
+                        type: 'alert'
+                    });
+                }
+            }
+        });
     };
 
     const handleUpdateSchedule = async (newSchedule: Partial<WorkoutSchedule>) => {
@@ -124,7 +161,8 @@ export const WorkoutSplits = () => {
     };
 
     const categorizeMachine = (m: any) => {
-        const primaryMuscle = m.exercises?.[0]?.muscles?.[0] || 'Other';
+        if (!m || !m.exercises || !m.exercises[0] || !m.exercises[0].muscles) return 'Other';
+        const primaryMuscle = m.exercises[0].muscles[0] || 'Other';
         const muscle = primaryMuscle.toLowerCase();
         
         if (muscle.includes('quad') || muscle.includes('leg') || muscle.includes('glute') || muscle.includes('hamstring') || muscle.includes('calf')) return 'Legs';
@@ -154,7 +192,7 @@ export const WorkoutSplits = () => {
 
             {isAddingSplit && (
                 <div className="card animate-fade-in" style={{ marginBottom: '2rem', border: '1px solid var(--primary)', padding: 'clamp(1rem, 4vw, 1.5rem)' }}>
-                    <h3 style={{ marginBottom: '1.5rem' }}>New Training Split</h3>
+                    <h3 style={{ marginBottom: '1.5rem' }}>{editingSplitId ? 'Edit Training Split' : 'New Training Split'}</h3>
                     
                     <div className="input-group">
                         <label>Split Name (e.g. Push, Upper Body)</label>
@@ -259,8 +297,8 @@ export const WorkoutSplits = () => {
                     </div>
 
                     <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
-                        <button className="btn btn-primary" style={{ flex: 2, minWidth: '150px' }} onClick={handleAddSplit}>Save Split</button>
-                        <button className="btn btn-secondary" style={{ flex: 1, minWidth: '150px' }} onClick={() => setIsAddingSplit(false)}>Cancel</button>
+                        <button className="btn btn-primary" style={{ flex: 2, minWidth: '150px' }} onClick={handleAddSplit}>{editingSplitId ? 'Update Split' : 'Save Split'}</button>
+                        <button className="btn btn-secondary" style={{ flex: 1, minWidth: '150px' }} onClick={() => { setIsAddingSplit(false); setEditingSplitId(null); setNewSplitName(''); setNewSplitExercises([]); }}>Cancel</button>
                     </div>
                 </div>
             )}
@@ -268,13 +306,21 @@ export const WorkoutSplits = () => {
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 300px), 1fr))', gap: '1.5rem', marginBottom: '3rem' }}>
                 {splits.map(split => (
                     <div key={split.id} className="card" style={{ position: 'relative' }}>
-                        <button 
-                            onClick={() => handleDeleteSplit(split.id)}
-                            style={{ position: 'absolute', top: '1rem', right: '1rem', background: 'transparent', border: 'none', color: 'rgba(255,255,255,0.2)', cursor: 'pointer' }}
-                        >
-                            <TrashIcon size={18} />
-                        </button>
-                        <h3 style={{ color: 'var(--primary)', marginBottom: '1rem' }}>{split.name}</h3>
+                        <div style={{ position: 'absolute', top: '1rem', right: '1rem', display: 'flex', gap: '0.5rem' }}>
+                            <button 
+                                onClick={() => handleEditSplit(split)}
+                                style={{ background: 'transparent', border: 'none', color: 'rgba(255,255,255,0.2)', cursor: 'pointer' }}
+                            >
+                                <EditIcon size={18} />
+                            </button>
+                            <button 
+                                onClick={() => handleDeleteSplit(split.id)}
+                                style={{ background: 'transparent', border: 'none', color: 'rgba(255,255,255,0.2)', cursor: 'pointer' }}
+                            >
+                                <TrashIcon size={18} />
+                            </button>
+                        </div>
+                        <h3 style={{ color: 'var(--primary)', marginBottom: '1rem', paddingRight: '3rem' }}>{split.name}</h3>
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
                             {split.exercises.map((ex, i) => (
                                 <span key={i} className="insight-chip" style={{ borderRadius: '0', fontSize: '0.7rem' }}>

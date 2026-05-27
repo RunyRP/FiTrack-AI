@@ -1,6 +1,6 @@
 import React from 'react';
 
-interface IconProps {
+export interface IconProps {
   size?: number | string;
   color?: string;
   className?: string;
@@ -296,5 +296,3 @@ export const LogoutIcon = ({ size = 24, color = "currentColor", style }: IconPro
     <line x1="21" y1="12" x2="9" y2="12" />
   </svg>
 );
-
-
