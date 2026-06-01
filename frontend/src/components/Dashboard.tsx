@@ -148,8 +148,9 @@ const EditFoodModal = ({ item, onClose, onSave }: EditFoodModalProps) => {
                                       <label style={{ fontSize: '0.6rem', color: 'var(--text-muted)', textTransform: 'uppercase', display: 'block', marginBottom: '0.25rem' }}>Grams</label>
                                       <input 
                                           type="number"
-                                          value={ing.grams}
-                                          onChange={(e) => handleIngredientChange(idx, 'grams', parseInt(e.target.value))}
+                                          value={ing.grams === 0 ? '' : ing.grams}
+                                          onChange={(e) => handleIngredientChange(idx, 'grams', Number(e.target.value))}
+                                          placeholder="0"
                                           style={{ width: '100%', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', padding: '0.4rem', borderRadius: '0.4rem', fontSize: '0.8rem', textAlign: 'center' }}
                                       />
                                   </div>
@@ -157,8 +158,9 @@ const EditFoodModal = ({ item, onClose, onSave }: EditFoodModalProps) => {
                                       <label style={{ fontSize: '0.6rem', color: 'var(--text-muted)', textTransform: 'uppercase', display: 'block', marginBottom: '0.25rem' }}>Kcal</label>
                                       <input 
                                           type="number"
-                                          value={ing.kcal}
-                                          onChange={(e) => handleIngredientChange(idx, 'kcal', parseInt(e.target.value))}
+                                          value={ing.kcal === 0 ? '' : ing.kcal}
+                                          onChange={(e) => handleIngredientChange(idx, 'kcal', Number(e.target.value))}
+                                          placeholder="0"
                                           style={{ width: '100%', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', padding: '0.4rem', borderRadius: '0.4rem', fontSize: '0.8rem', textAlign: 'center' }}
                                       />
                                   </div>
@@ -174,9 +176,10 @@ const EditFoodModal = ({ item, onClose, onSave }: EditFoodModalProps) => {
                 <label style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 800, marginBottom: '0.5rem', display: 'block' }}>Total Grams</label>
                 <input 
                   type="number" 
-                  value={formData.grams} 
-                  onChange={e => setFormData({ ...formData, grams: parseInt(e.target.value) })}
+                  value={formData.grams === 0 ? '' : formData.grams} 
+                  onChange={e => setFormData({ ...formData, grams: Number(e.target.value) })}
                   readOnly={formData.ingredients.length > 0}
+                  placeholder="0"
                   style={{ width: '100%', padding: '0.8rem', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '0.75rem', color: '#fff', textAlign: 'center', fontSize: '1rem', fontWeight: 700, opacity: formData.ingredients.length > 0 ? 0.6 : 1 }}
                 />
               </div>
@@ -184,9 +187,10 @@ const EditFoodModal = ({ item, onClose, onSave }: EditFoodModalProps) => {
                 <label style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 800, marginBottom: '0.5rem', display: 'block' }}>Total Calories</label>
                 <input 
                   type="number" 
-                  value={formData.kcal} 
-                  onChange={e => setFormData({ ...formData, kcal: parseInt(e.target.value) })}
+                  value={formData.kcal === 0 ? '' : formData.kcal} 
+                  onChange={e => setFormData({ ...formData, kcal: Number(e.target.value) })}
                   readOnly={formData.ingredients.length > 0}
+                  placeholder="0"
                   style={{ width: '100%', padding: '0.8rem', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '0.75rem', color: '#fff', textAlign: 'center', fontSize: '1rem', fontWeight: 700, opacity: formData.ingredients.length > 0 ? 0.6 : 1 }}
                 />
               </div>

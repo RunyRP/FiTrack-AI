@@ -280,11 +280,23 @@ export const QuickLogModal = ({ onClose, onSuccess, mealType, setMealType, getNe
                                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
                                         <div className="input-group" style={{ marginBottom: 0 }}>
                                             <label style={{ fontSize: '0.6rem', color: 'var(--text-muted)', textTransform: 'uppercase', display: 'block', marginBottom: '0.25rem' }}>Grams</label>
-                                            <input type="number" value={ing.grams} onChange={e => handleRefineIngredientChange(idx, 'grams', parseInt(e.target.value)||0)} style={{ width: '100%', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', padding: '0.4rem', borderRadius: '0.4rem', fontSize: '0.8rem', textAlign: 'center' }} />
+                                            <input 
+                                                type="number" 
+                                                value={ing.grams === 0 ? '' : ing.grams} 
+                                                onChange={e => handleRefineIngredientChange(idx, 'grams', Number(e.target.value))} 
+                                                placeholder="0"
+                                                style={{ width: '100%', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', padding: '0.4rem', borderRadius: '0.4rem', fontSize: '0.8rem', textAlign: 'center' }} 
+                                            />
                                         </div>
                                         <div className="input-group" style={{ marginBottom: 0 }}>
                                             <label style={{ fontSize: '0.6rem', color: 'var(--text-muted)', textTransform: 'uppercase', display: 'block', marginBottom: '0.25rem' }}>Kcal</label>
-                                            <input type="number" value={ing.kcal} onChange={e => handleRefineIngredientChange(idx, 'kcal', parseInt(e.target.value)||0)} style={{ width: '100%', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', padding: '0.4rem', borderRadius: '0.4rem', fontSize: '0.8rem', textAlign: 'center' }} />
+                                            <input 
+                                                type="number" 
+                                                value={ing.kcal === 0 ? '' : ing.kcal} 
+                                                onChange={e => handleRefineIngredientChange(idx, 'kcal', Number(e.target.value))} 
+                                                placeholder="0"
+                                                style={{ width: '100%', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', padding: '0.4rem', borderRadius: '0.4rem', fontSize: '0.8rem', textAlign: 'center' }} 
+                                            />
                                         </div>
                                     </div>
                                 </div>
@@ -295,7 +307,13 @@ export const QuickLogModal = ({ onClose, onSuccess, mealType, setMealType, getNe
                     <div style={{ marginBottom: '1.5rem', background: 'rgba(255,255,255,0.02)', padding: '1.5rem', borderRadius: '0.75rem', border: '1px solid rgba(255,255,255,0.05)' }}>
                         <div className="input-group">
                             <label style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 800, marginBottom: '0.5rem', display: 'block' }}>Weight (Grams)</label>
-                            <input type="number" value={refiningItem.grams} onChange={e => handleRefineSimpleChange('grams', parseInt(e.target.value)||0)} style={{ width: '100%', padding: '0.8rem', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '0.5rem', color: '#fff', textAlign: 'center', fontSize: '1.1rem', fontWeight: 700 }} />
+                            <input 
+                                type="number" 
+                                value={refiningItem.grams === 0 ? '' : refiningItem.grams} 
+                                onChange={e => handleRefineSimpleChange('grams', Number(e.target.value))} 
+                                placeholder="0"
+                                style={{ width: '100%', padding: '0.8rem', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '0.5rem', color: '#fff', textAlign: 'center', fontSize: '1.1rem', fontWeight: 700 }} 
+                            />
                         </div>
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.75rem', marginTop: '1.5rem', paddingTop: '1.5rem', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
                              <div style={{ textAlign: 'center' }}>

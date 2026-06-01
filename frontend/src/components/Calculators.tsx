@@ -137,7 +137,7 @@ export const Calculators = () => {
                 {/* Row 1: Body Composition & Activity */}
                 <div className="card" style={{ marginBottom: '2rem' }}>
                     <h3 style={{ marginBottom: '1.5rem', fontSize: '1rem', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Body Profile & Lifestyle</h3>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1.5rem' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '1.5rem' }}>
                         <div className="input-group" style={{ marginBottom: 0, display: 'flex', flexDirection: 'column' }}>
                             <label>Gender</label>
                             <div style={{ display: 'flex', gap: '0.5rem', flex: 1 }}>
@@ -198,7 +198,7 @@ export const Calculators = () => {
                 </div>
 
                 {/* Metabolic Results */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '2rem' }}>
                     <div className="card" style={{ textAlign: 'center', border: '1px solid rgba(255,255,255,0.05)', background: 'linear-gradient(180deg, rgba(255,255,255,0.02) 0%, rgba(255,255,255,0) 100%)' }}>
                         <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '1rem' }}>Basal Metabolic Rate</div>
                         <div style={{ fontSize: '3.5rem', fontWeight: 900, lineHeight: 1 }}>{Math.round(bmr)}</div>
@@ -219,11 +219,11 @@ export const Calculators = () => {
                     <h2 style={{ margin: 0, fontSize: '1.25rem', textTransform: 'uppercase', letterSpacing: '0.15em', fontWeight: 800 }}>2. Target Optimization</h2>
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: '2rem' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '2rem' }}>
                     {/* Goal Selection */}
                     <div style={{ display: 'grid', gap: '1rem' }}>
                         <label style={{ fontSize: '0.8rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Select Your Primary Goal</label>
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '1rem' }}>
                             {goals.map((goal, idx) => (
                                 <button 
                                     key={goal.name}
@@ -282,14 +282,14 @@ export const Calculators = () => {
 
             {/* SECTION 3: THE PLAN */}
             <div style={{ marginBottom: '6rem' }}>
-                <div style={{ background: 'var(--primary)', padding: '3rem', borderRadius: '1.5rem', display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '4rem', color: '#000', position: 'relative', overflow: 'hidden' }}>
+                <div style={{ background: 'var(--primary)', padding: 'clamp(1.5rem, 5vw, 3rem)', borderRadius: '1.5rem', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 'clamp(1.5rem, 5vw, 4rem)', color: '#000', position: 'relative', overflow: 'hidden' }}>
                     <div style={{ position: 'absolute', top: '-50px', right: '-50px', width: '200px', height: '200px', background: 'rgba(0,0,0,0.05)', borderRadius: '50%' }} />
                     
                     <div>
                         <div style={{ fontSize: '0.8rem', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.2em', marginBottom: '1rem', opacity: 0.7 }}>Your Optimized Daily Target</div>
-                        <div style={{ fontSize: '5rem', fontWeight: 900, lineHeight: 1, marginBottom: '0.5rem' }}>{currentCals}</div>
+                        <div style={{ fontSize: 'clamp(3rem, 10vw, 5rem)', fontWeight: 900, lineHeight: 1, marginBottom: '0.5rem' }}>{currentCals}</div>
                         <div style={{ fontSize: '1.5rem', fontWeight: 800, marginBottom: '2rem' }}>KCAL / DAY</div>
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1.5rem', borderTop: '2px solid rgba(0,0,0,0.1)', paddingTop: '2rem' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(80px, 1fr))', gap: '1.5rem', borderTop: '2px solid rgba(0,0,0,0.1)', paddingTop: '2rem' }}>
                             <div>
                                 <div style={{ fontSize: '0.7rem', fontWeight: 900, opacity: 0.7, textTransform: 'uppercase' }}>Protein</div>
                                 <div style={{ fontSize: '2rem', fontWeight: 900 }}>{macros.protein}g</div>

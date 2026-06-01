@@ -805,23 +805,41 @@ export const MealAnalysis = ({ onSuccess }: { onSuccess?: () => void }) => {
                                                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
                                                     <div className="input-group" style={{ marginBottom: 0 }}>
                                                         <label style={{ fontSize: '0.6rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Grams</label>
-                                                        <input type="number" value={ing.grams} onChange={e => handleRefineIngredientChange(idx, 'grams', parseInt(e.target.value)||0)} style={{ fontSize: '0.8rem', textAlign: 'center' }} />
+                                                        <input 
+                                                           type="number" 
+                                                           value={ing.grams === 0 ? '' : ing.grams} 
+                                                           onChange={e => handleRefineIngredientChange(idx, 'grams', Number(e.target.value))} 
+                                                           placeholder="0"
+                                                           style={{ fontSize: '0.8rem', textAlign: 'center' }} 
+                                                        />
                                                     </div>
                                                     <div className="input-group" style={{ marginBottom: 0 }}>
                                                         <label style={{ fontSize: '0.6rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Kcal</label>
-                                                        <input type="number" value={ing.kcal} onChange={e => handleRefineIngredientChange(idx, 'kcal', parseInt(e.target.value)||0)} style={{ fontSize: '0.8rem', textAlign: 'center' }} />
+                                                        <input 
+                                                           type="number" 
+                                                           value={ing.kcal === 0 ? '' : ing.kcal} 
+                                                           onChange={e => handleRefineIngredientChange(idx, 'kcal', Number(e.target.value))} 
+                                                           placeholder="0"
+                                                           style={{ fontSize: '0.8rem', textAlign: 'center' }} 
+                                                        />
                                                     </div>
                                                 </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                            ) : (
-                                <div className="input-group">
-                                    <label style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 800 }}>Weight (Grams)</label>
-                                    <input type="number" value={editItem.grams} onChange={e => handleRefineSimpleChange('grams', parseInt(e.target.value)||0)} style={{ textAlign: 'center', fontSize: '1.1rem', fontWeight: 700 }} />
-                                </div>
-                            )}
+                                                </div>
+                                                ))}
+                                                </div>
+                                                </div>
+                                                ) : (
+                                                <div className="input-group">
+                                                <label style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 800 }}>Weight (Grams)</label>
+                                                <input 
+                                                type="number" 
+                                                value={editItem.grams === 0 ? '' : editItem.grams} 
+                                                onChange={e => handleRefineSimpleChange('grams', Number(e.target.value))} 
+                                                placeholder="0"
+                                                style={{ textAlign: 'center', fontSize: '1.1rem', fontWeight: 700 }} 
+                                                />
+                                                </div>
+                                                )px}
 
                             <button className="btn btn-primary" onClick={handleLogMeal} disabled={logging} style={{ width: '100%', marginTop: '1rem' }}>{logging ? 'Logging...' : 'Log This Meal'}</button>
                         </div>
@@ -966,8 +984,9 @@ export const MealAnalysis = ({ onSuccess }: { onSuccess?: () => void }) => {
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                                             <input 
                                                 type="number" 
-                                                value={item.grams} 
-                                                onChange={e => updateBuilderItemGrams(idx, parseInt(e.target.value)||0)}
+                                                value={item.grams === 0 ? '' : item.grams} 
+                                                onChange={e => updateBuilderItemGrams(idx, Number(e.target.value))}
+                                                placeholder="0"
                                                 style={{ width: '70px', padding: '0.3rem', fontSize: '0.8rem', textAlign: 'center' }} 
                                             />
                                             <button onClick={() => removeFromBuilder(idx)} style={{ background: 'none', border: 'none', color: '#ff4d4d', cursor: 'pointer' }}>×</button>

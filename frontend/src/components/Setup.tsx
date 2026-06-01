@@ -38,6 +38,9 @@ export const Setup = () => {
       if (step === 3) {
           fetchMachinery();
       }
+  }, [step]);
+
+  useEffect(() => {
       if (user?.profile) {
           setName(user.profile.name || '');
           setAge(user.profile.age ? String(user.profile.age) : '');
@@ -46,7 +49,7 @@ export const Setup = () => {
           setGender(user.profile.gender || 'male');
           setObjective(user.profile.objective || 'maintain');
       }
-  }, [step, user]);
+  }, []); // Only initialize from profile once on mount
 
   const fetchMachinery = async () => {
     try {
