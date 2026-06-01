@@ -839,7 +839,7 @@ export const MealAnalysis = ({ onSuccess }: { onSuccess?: () => void }) => {
                                                 style={{ textAlign: 'center', fontSize: '1.1rem', fontWeight: 700 }} 
                                                 />
                                                 </div>
-                                                )px}
+                                                )}
 
                             <button className="btn btn-primary" onClick={handleLogMeal} disabled={logging} style={{ width: '100%', marginTop: '1rem' }}>{logging ? 'Logging...' : 'Log This Meal'}</button>
                         </div>
