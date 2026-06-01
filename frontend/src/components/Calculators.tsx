@@ -137,7 +137,7 @@ export const Calculators = () => {
                 {/* Row 1: Body Composition & Activity */}
                 <div className="card" style={{ marginBottom: '2rem' }}>
                     <h3 style={{ marginBottom: '1.5rem', fontSize: '1rem', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Body Profile & Lifestyle</h3>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '1.5rem' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
                         <div className="input-group" style={{ marginBottom: 0, display: 'flex', flexDirection: 'column' }}>
                             <label>Gender</label>
                             <div style={{ display: 'flex', gap: '0.5rem', flex: 1 }}>
@@ -167,13 +167,13 @@ export const Calculators = () => {
                         </div>
                         
                         {/* Activity Level Selector */}
-                        <div className="input-group" style={{ gridColumn: 'span 4', marginBottom: 0, marginTop: '1rem' }}>
+                        <div className="input-group" style={{ gridColumn: '1 / -1', marginBottom: 0, marginTop: '1rem', width: '100%', overflow: 'hidden' }}>
                             <label style={{ color: 'var(--primary)', fontWeight: 800, display: 'block', marginBottom: '0.5rem' }}>Activity Level & Exercise Frequency</label>
                             <select 
                                 style={{ 
                                     height: '3.8rem', 
                                     width: '100%', 
-                                    fontSize: '1rem', 
+                                    fontSize: '0.9rem', 
                                     padding: '0 1rem',
                                     background: '#1a1a1a', // Solid black
                                     border: '2px solid var(--primary)', 
@@ -181,14 +181,16 @@ export const Calculators = () => {
                                     color: '#ffffff', // Solid white
                                     cursor: 'pointer',
                                     fontWeight: '700',
-                                    appearance: 'revert', // Native look is most reliable for reading
-                                    display: 'block'
+                                    display: 'block',
+                                    textOverflow: 'ellipsis',
+                                    whiteSpace: 'nowrap',
+                                    overflow: 'hidden'
                                 }} 
                                 value={activity} 
                                 onChange={(e) => setActivity(parseFloat(e.target.value))}
                             >
                                 {ACTIVITY_LEVELS.map(lvl => (
-                                    <option key={lvl.value} value={lvl.value} style={{ background: '#1a1a1a', color: 'white' }}>
+                                    <option key={lvl.value} value={lvl.value} style={{ background: '#1a1a1a', color: 'white', fontSize: '0.8rem' }}>
                                         {lvl.label}
                                     </option>
                                 ))}
