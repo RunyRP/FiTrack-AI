@@ -1225,7 +1225,7 @@ export const Dashboard = () => {
                             <XAxis dataKey="date" tick={{fontSize: 10, fill: 'var(--text-muted)'}} tickFormatter={(str) => new Date(str).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} />
                             <YAxis domain={['dataMin - 1', 'dataMax + 1']} hide />
                             <Tooltip contentStyle={{ background: '#000', border: '1px solid var(--primary)', borderRadius: '0' }}/>
-                            <Area type="monotone" dataKey="weight" stroke="var(--primary)" fillOpacity={1} fill="url(#colorWeight)" strokeWidth={4} isAnimationActive={false}/>
+                            <Area type="monotone" dataKey="weight" name="Weight" stroke="var(--primary)" fillOpacity={1} fill="url(#colorWeight)" strokeWidth={4} isAnimationActive={false}/>
                         </AreaChart>
                     </ResponsiveContainer>
                 ) : <div className="text-muted">No data.</div>}
@@ -1282,7 +1282,7 @@ export const Dashboard = () => {
                             itemStyle={{ color: 'var(--primary)', fontSize: '0.8rem' }}
                             cursor={{ fill: 'rgba(255,255,255,0.05)' }}
                         />
-                        <Bar dataKey="total_kcal" name="kcal" fill="var(--primary)" fillOpacity={0.6}>
+                        <Bar dataKey="total_kcal" name="Kcal" fill="var(--primary)" fillOpacity={0.6}>
                             {history.map((_: any, index: number) => (
                                 <Cell key={`cell-${index}`} fillOpacity={index === history.length - 1 ? 1 : 0.6} />
                             ))}
