@@ -15,7 +15,7 @@ export interface PopupOptions {
   cancelLabel?: string;
   onConfirm?: () => void;
   onCancel?: () => void;
-  type?: 'alert' | 'confirm';
+  type?: 'alert' | 'confirm' | 'disclaimer';
 }
 
 export interface PopupContextType {

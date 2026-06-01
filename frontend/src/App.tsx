@@ -16,12 +16,15 @@ import { Calculators } from './components/Calculators';
 import { Chat } from './components/Chat';
 import { LayoutIcon, AppleIcon, DumbbellIcon, CoachIcon, UserIcon, CalculatorIcon, LogoutIcon } from './components/Icons';
 import { OTAUpdateHandler } from './components/OTAUpdateHandler';
+import { NotificationHandler } from './components/NotificationHandler';
 import { AuthContext, PopupContext, useAuth } from './hooks';
 import type { PopupOptions } from './hooks';
 import './App.css';
 
 
 const Popup = ({ options, onClose }: { options: PopupOptions, onClose: () => void }) => {
+  const isDisclaimer = options.type === 'disclaimer';
+  
   return (
     <div style={{ 
       position: 'fixed', 
@@ -34,50 +37,78 @@ const Popup = ({ options, onClose }: { options: PopupOptions, onClose: () => voi
       alignItems: 'center', 
       justifyContent: 'center', 
       zIndex: 20000, 
-      padding: '1.5rem', 
-      backdropFilter: 'blur(8px)' 
+      padding: 'clamp(1rem, 5vw, 2rem)', 
+      backdropFilter: 'blur(10px)' 
     }}>
       <div className="card animate-fade-in" style={{ 
         width: '100%', 
-        maxWidth: '400px', 
-        padding: '2rem', 
+        maxWidth: isDisclaimer ? '600px' : '420px', 
+        padding: 'clamp(1.5rem, 5vw, 2.5rem)', 
         background: '#0a0a0a', 
-        border: '1px solid var(--card-border)', 
-        borderRadius: '1.25rem',
-        boxShadow: '0 20px 40px rgba(0,0,0,0.6)',
-        textAlign: 'center'
+        border: `1px solid ${isDisclaimer ? 'var(--primary)' : 'var(--card-border)'}`, 
+        borderRadius: '1.5rem',
+        boxShadow: '0 25px 50px -12px rgba(0,0,0,0.7)',
+        textAlign: isDisclaimer ? 'left' : 'center',
+        position: 'relative',
+        overflow: 'hidden'
       }}>
+        {/* Background Accent */}
+        <div style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            width: '100%',
+            height: '4px',
+            background: isDisclaimer ? 'linear-gradient(90deg, var(--primary), var(--secondary))' : 'var(--primary)',
+            opacity: 0.8
+        }}></div>
+
         {options.title && (
           <h2 style={{ 
-            fontSize: '1.2rem', 
-            marginBottom: '1rem', 
-            color: 'var(--primary)',
+            fontSize: 'clamp(1.1rem, 4vw, 1.4rem)', 
+            marginBottom: '1.25rem', 
+            color: isDisclaimer ? 'var(--primary)' : '#fff',
             textTransform: 'uppercase',
-            letterSpacing: '0.05em'
+            letterSpacing: '0.08em',
+            fontWeight: 900
           }}>
             {options.title}
           </h2>
         )}
-        <p style={{ 
-          fontSize: '1.1rem', 
-          lineHeight: 1.5, 
-          color: '#fff', 
-          marginBottom: '2rem',
-          fontWeight: 500
+        
+        <div style={{ 
+          fontSize: 'clamp(0.95rem, 3.5vw, 1.05rem)', 
+          lineHeight: 1.6, 
+          color: 'rgba(255,255,255,0.9)', 
+          marginBottom: '2.5rem',
+          fontWeight: 400,
+          whiteSpace: 'pre-wrap'
         }}>
           {options.message}
-        </p>
-        <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
-          {options.type === 'confirm' && (
+        </div>
+
+        <div style={{ 
+            display: 'flex', 
+            gap: '1rem', 
+            justifyContent: isDisclaimer ? 'flex-end' : 'center',
+            flexDirection: 'row'
+        }}>
+          {(options.type === 'confirm' || options.type === 'disclaimer') && (
             <button 
               className="btn btn-secondary" 
               onClick={() => {
                 if (options.onCancel) options.onCancel();
                 onClose();
               }}
-              style={{ flex: 1, padding: '0.8rem' }}
+              style={{ 
+                  flex: isDisclaimer ? '0 1 auto' : 1, 
+                  padding: '0.8rem 1.5rem',
+                  minWidth: '100px',
+                  fontSize: '0.8rem',
+                  fontWeight: 700
+              }}
             >
-              {options.cancelLabel || 'CANCEL'}
+              {options.cancelLabel || (isDisclaimer ? 'DECLINE' : 'CANCEL')}
             </button>
           )}
           <button 
@@ -86,9 +117,16 @@ const Popup = ({ options, onClose }: { options: PopupOptions, onClose: () => voi
               if (options.onConfirm) options.onConfirm();
               onClose();
             }}
-            style={{ flex: 1, padding: '0.8rem', fontWeight: 800 }}
+            style={{ 
+                flex: isDisclaimer ? '0 1 auto' : 1, 
+                padding: '0.8rem 2rem', 
+                fontWeight: 900,
+                fontSize: '0.8rem',
+                minWidth: '120px',
+                boxShadow: '0 4px 15px rgba(0,242,254,0.3)'
+            }}
           >
-            {options.confirmLabel || 'OK'}
+            {options.confirmLabel || (isDisclaimer ? 'I UNDERSTAND & ACCEPT' : 'OK')}
           </button>
         </div>
       </div>
@@ -342,6 +380,7 @@ function App() {
                 <div className="bg-shape bg-shape-1"></div>
                 <div className="bg-shape bg-shape-2"></div>
                 <OTAUpdateHandler />
+                <NotificationHandler />
                 <Navbar />
                 <SwipeWrapper>
                     <main className="animate-fade-in">

@@ -74,7 +74,8 @@ class FitnessChatService:
         if user_profile:
             weights = user_profile.get('weight_history', [])
             if weights:
-                stats_summary += f"Recent weight: {', '.join([f'{w['weight']}kg' for w in weights[:2]])}. "
+                weight_strings = [f"{w['weight']}kg" for w in weights[:2]]
+                stats_summary += f"Recent weight: {', '.join(weight_strings)}. "
             kcals = user_profile.get('kcal_history', [])
             if kcals:
                 avg_kcal = sum([k['kcal'] for k in kcals if k.get('kcal')]) / len(kcals) if kcals else 0

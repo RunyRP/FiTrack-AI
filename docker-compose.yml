@@ -1,0 +1,29 @@
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app
+      - backend_db:/app/data
+    env_file:
+      - ./backend/.env
+    environment:
+      - DATABASE_URL=sqlite:///./fittrack_v2.db
+    restart: always
+
+  ngrok:
+    image: ngrok/ngrok:latest
+    command:
+      - "http"
+      - "backend:8000"
+      - "--domain=unconservative-nonadjudicatively-kathlyn.ngrok-free.dev"
+    environment:
+      - NGROK_AUTHTOKEN=3BzSxloPQ7HqkVDI588nBdFDvZq_6nYJ4choG3fUfaC2CFgsg
+    depends_on:
+      - backend
+
+volumes:
+  backend_db:

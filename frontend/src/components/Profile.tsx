@@ -1,13 +1,28 @@
 import React, { useState, useEffect } from 'react';
 import api from '../api';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../hooks';
+import { useAuth, usePopup } from '../hooks';
 import { WeightLossIcon, MuscleGainIcon, MaintenanceIcon, UserIcon, DumbbellIcon, EditIcon } from './Icons';
 import { MACRO_DISTRIBUTIONS, type MacroDistType } from '../constants';
 
+interface ProfileState {
+  name: string;
+  age: string;
+  gender: string;
+  weight: string;
+  height: string;
+  activity_level: string;
+  objective: string;
+  cut_intensity: string;
+  manual_target_kcal: string;
+  macro_distribution: string;
+  target_steps: string;
+}
+
 export const Profile = () => {
   const { user: currentUser, refreshUser, logout } = useAuth();
-  const [profile, setProfile] = useState({
+  const { showPopup } = usePopup();
+  const [profile, setProfile] = useState<ProfileState>({
     name: '',
     age: '',
     gender: 'male',
@@ -49,16 +64,24 @@ export const Profile = () => {
     // Medical Disclaimer Warning
     const hasAcknowledged = localStorage.getItem('medical_disclaimer_accepted');
     if (!hasAcknowledged) {
-        const accept = window.confirm(
-            "IMPORTANT MEDICAL DISCLAIMER:\n\n" +
-            "FitTrack AI is an informational tool and NOT a substitute for professional medical advice, diagnosis, or treatment. " +
-            "Always seek the advice of your physician or other qualified health provider with any questions regarding a medical condition or diet.\n\n" +
-            "By clicking OK, you acknowledge that you use this tool at your own risk and the app is not responsible for any health issues."
-        );
-        if (!accept) return;
-        localStorage.setItem('medical_disclaimer_accepted', 'true');
+        showPopup({
+            title: "Medical Disclaimer",
+            message: "FitTrack AI is an informational tool and NOT a substitute for professional medical advice, diagnosis, or treatment. Always seek the advice of your physician or other qualified health provider with any questions regarding a medical condition or diet.\n\nBy accepting, you acknowledge that you use this tool at your own risk.",
+            type: 'disclaimer',
+            confirmLabel: "I ACCEPT",
+            cancelLabel: "DECLINE",
+            onConfirm: () => {
+                localStorage.setItem('medical_disclaimer_accepted', 'true');
+                performUpdate(partialUpdate);
+            }
+        });
+        return;
     }
 
+    performUpdate(partialUpdate);
+  };
+
+  const performUpdate = async (partialUpdate?: any) => {
     setUpdating(true);
     try {
       const currentProfile = { ...profile, ...partialUpdate };
@@ -104,18 +127,23 @@ export const Profile = () => {
       setProfile(prev => ({ ...prev, macro_distribution: newDist }));
       handleSubmit(undefined, { macro_distribution: newDist });
   };
-// ... (rest of the component structure)
 
   const handleDeleteAccount = async () => {
-    if (window.confirm('Are you absolutely sure? This will permanently delete all your data and logs.')) {
-      try {
-        await api.delete('/user/me');
-        logout();
-        navigate('/login');
-      } catch (err) {
-        setMessage('Error deleting account.');
-      }
-    }
+    showPopup({
+        title: "Delete Account",
+        message: "Are you absolutely sure? This will permanently delete all your data, history, and logs. This action cannot be undone.",
+        type: 'confirm',
+        confirmLabel: "DELETE PERMANENTLY",
+        onConfirm: async () => {
+            try {
+                await api.delete('/user/me');
+                logout();
+                navigate('/login');
+            } catch (err) {
+                setMessage('Error deleting account.');
+            }
+        }
+    });
   };
 
   return (

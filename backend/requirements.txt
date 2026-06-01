@@ -4,6 +4,7 @@ sqlalchemy
 psycopg2-binary
 python-jose[cryptography]
 passlib[bcrypt]
+argon2-cffi
 python-multipart
 torch
 torchvision
