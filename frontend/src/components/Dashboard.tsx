@@ -1282,7 +1282,7 @@ export const Dashboard = () => {
                             itemStyle={{ color: 'var(--primary)', fontSize: '0.8rem' }}
                             cursor={{ fill: 'rgba(255,255,255,0.05)' }}
                         />
-                        <Bar dataKey="total_kcal" fill="var(--primary)" fillOpacity={0.6}>
+                        <Bar dataKey="total_kcal" name="kcal" fill="var(--primary)" fillOpacity={0.6}>
                             {history.map((_: any, index: number) => (
                                 <Cell key={`cell-${index}`} fillOpacity={index === history.length - 1 ? 1 : 0.6} />
                             ))}
@@ -1305,7 +1305,7 @@ export const Dashboard = () => {
                             itemStyle={{ color: 'var(--primary)', fontSize: '0.8rem' }}
                             cursor={{ fill: 'rgba(255,255,255,0.05)' }}
                         />
-                        <Bar dataKey="steps" fill="var(--primary)" fillOpacity={0.6}>
+                        <Bar dataKey="steps" name="Steps" fill="var(--primary)" fillOpacity={0.6}>
                             {history.map((_: any, index: number) => (
                                 <Cell key={`cell-${index}`} fillOpacity={index === history.length - 1 ? 1 : 0.6} />
                             ))}
